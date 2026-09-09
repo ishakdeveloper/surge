@@ -16,7 +16,7 @@ import { createAuthClient } from "better-auth/react";
  * address, not a secret. The same constant serves SSR, which resolves the
  * session in the server bundle.
  */
-const baseURL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:3100";
+const baseURL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:3200";
 
 /**
  * better-auth's own typed client — one of them, used from both sides.
