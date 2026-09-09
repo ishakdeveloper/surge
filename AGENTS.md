@@ -1,11 +1,55 @@
-# forge
+# surge
 
-Effect v4 monorepo. pnpm workspace + `tsc -b` project references, oxlint + dprint, vitest.
+Ride-hailing, built to be a distributed systems project rather than a CRUD app
+with a map on it. Amsterdam, one market, a geo-sharded matcher, and a driver
+simulator that exists so every number here is measured rather than asserted.
 
-`apps/` holds what deploys — `apps/auth` is the Effect API, `apps/web` is the TanStack Start
-front end, and each owns its `Dockerfile`. `packages/` holds what they share: `packages/domain`
-is the contract both ends compile against, `packages/database` owns the connection and the
-schema. Dependencies point one way, from `apps/` into `packages/`.
+**The backend is Go. The only Node in any request path is authentication, and
+it is not in the path.** `apps/auth` runs better-auth and nothing else; the
+browser trades its session cookie for a short-lived EdDSA token at
+`/api/auth/token`, and every Go service verifies that signature locally against
+`/api/auth/jwks`. No product endpoint touches Node or its session table.
+
+```
+apps/auth        better-auth, and only better-auth
+apps/web         TanStack Start — console, rider, driver
+packages/domain  the contract both languages compile against
+packages/client  platform-free Effect services over the Go API
+packages/database  the connection and better-auth's schema
+services/        Go: cmd/*, internal/*, pkg/*
+deploy/          compose, prometheus, grafana
+docs/benchmarks/ what was measured, and what broke
+```
+
+Dependencies point one way, from `apps/` into `packages/`.
+
+## The shape of the system
+
+Four Go services earn their separation, and nothing else does.
+
+|           | why it is separate                                                  | scales on   |
+| --------- | ------------------------------------------------------------------- | ----------- |
+| `gateway` | stateful WebSockets: registry, backpressure, slow-consumer eviction | connections |
+| `ingest`  | write-heavy; H3 assignment and cell transitions                     | ping rate   |
+| `matcher` | sharded, single-writer per geography                                | geography   |
+| `trip`    | transactional state machine, outbox, idempotency                    | not much    |
+
+`core` holds everything boring — users, vehicles, pricing — as one service until
+it hurts. `simd` is the load generator, not a product service.
+
+**One topic carries everything a matcher shard needs.** `geo.events` is a tagged
+union keyed by H3 resolution-7 cell. One topic rather than four because no Kafka
+consumer-group balancer guarantees co-partitioned assignment across topics — an
+instance can hold partition 3 of one and partition 5 of another. With a single
+topic, owning a partition means owning every event for those cells in total
+order, which is what lets a shard be one goroutine over in-memory state with no
+locks at all.
+
+Two resolutions, and the difference is the architecture: **res 7 is the shard
+cell and the Kafka key** (ownership), **res 9 is the driver index bucket**
+(search). `geo.ShardCell` derives from `geo.IndexCell` rather than computing
+independently, because H3 is not hierarchically consistent under `LatLngToCell`
+and two answers would mean two matchers each believing they own one driver.
 
 ## Read the vendored Effect source before writing Effect code
 
@@ -74,117 +118,100 @@ git subtree pull --prefix=repos/effect https://github.com/Effect-TS/effect.git m
 git subtree pull --prefix=repos/effect-form https://github.com/lucas-barake/effect-form.git main --squash
 ```
 
+## Go
+
+One module, `services/go.mod`, module path `github.com/ishakdeveloper/surge`. It
+lives under `services/` rather than at the root so `pnpm -r` and `tsc -b` never
+see Go files.
+
+- `pkg/` is the only cross-service importable surface. `internal/<service>/` is
+  that service's own.
+- Wiring is manual constructor injection in `cmd/*/main.go`. No DI framework.
+- `pkg/config` draws one line and it matters: an **unset** variable may take a
+  default, a **set but unparseable** one is always an error. Silent fallback on
+  parse failure is how a service ends up listening on a port nobody chose.
+- Errors are wrapped with `%w` and context. Typed errors where the caller can
+  act — `routing.NoRouteError` is an outcome, not a failure, because the
+  simulator drops points into water on purpose.
+- `gofmt` is the whole style guide. CI fails on a diff.
+
 ## Commands
 
-|                                |                                                                    |
-| ------------------------------ | ------------------------------------------------------------------ |
-| `pnpm dev`                     | API server and the Start client together, in parallel              |
-| `pnpm build`                   | deployable artifacts for the database, API and web packages        |
-| `pnpm check`                   | `tsc -b` across all project references, then the config files      |
-| `pnpm lint`                    | oxlint, incl. Effect type-aware rules and the local `app/*` plugin |
-| `pnpm format` / `format:check` | dprint                                                             |
-| `pnpm test`                    | vitest across `apps/*` and `packages/*`                            |
+Everything routine is a make target; `make help` lists them.
 
-The second half of `pnpm check` is `tsconfig.tools.json`, which type-checks what
-project references cannot: the Vite and Vitest configs, `vitest.shared.ts`,
-`setupTests.ts`, and `.railway/railway.ts`. These are ordinary TypeScript that
-nothing else compiles, so without it an error there surfaces only when the tool
-that loads the file runs.
+|                                    |                                     |
+| ---------------------------------- | ----------------------------------- |
+| `make up` / `make down`            | infrastructure in Docker            |
+| `make migrate`                     | apply database migrations           |
+| `make dev-auth`                    | the auth service                    |
+| `make dev-ingest` / `make dev-sim` | the Go services, on the host        |
+| `make load DRIVERS=40000`          | turn the knob                       |
+| `make control`                     | simulator-only run, pings discarded |
+| `make stats`                       | current simulator and ingest state  |
+| `make test`                        | both suites                         |
+| `make check`                       | `tsc -b`, oxlint, dprint            |
 
-`pnpm dev` reads the repo-root `.env` — copy `.env.example` and fill it in. The API server's
-port is `PORT`; the client derives its own from `WEB_URL`, so the two cannot drift apart.
+Go services run on the **host**, not in Docker: the reload loop is a compile
+rather than an image build, and the 8 GB Docker VM is left to the things that
+need it.
 
-Postgres-backed tests need a database. They skip without one. Either `docker compose up -d`,
-or point at an existing instance with `TEST_DB_URL=postgresql://...`.
+`pnpm check`'s second half is `tsconfig.tools.json`, which type-checks what
+project references cannot — the Vite and Vitest configs, `vitest.shared.ts`,
+`setupTests.ts`, `.railway/railway.ts`.
 
-The server also exposes a versioned public HTTP API at `/api/v1`, authenticated by API key
-rather than by session, with its OpenAPI document at `/api/v1/openapi.json` and browsable docs
-at `/api/v1/docs`. Both transports run over the same stores, so a handler is not written twice;
-`packages/domain/src/api/v1/Wire.ts` is the frozen contract and explains what may change in it.
-`GET /health` is liveness and `GET /ready` is readiness.
+## Ports
 
-`pnpm build` compiles every package and bundles the two runnable entry points with Vite — the
-same tool the web app is built with, configured the same way. The API runs from
-`apps/auth/build/bundle/main.js`, the web server's `apps/web/.output/server/index.mjs` is the web server, and the migration runner sits at
-`packages/database/build/bundle/migrate.js` with its `.sql` files beside it.
+Deliberately off the defaults. This machine already runs a Postgres on 5432, a
+Redis on 6379, and other projects on 3000, 3001 and 3100 — an ambiguous bind is
+a debugging trap you only notice an hour later.
 
-Bundling is an optimisation, not a workaround: `tsc` output runs on plain Node as it is. A bundle
-just carries only the code actually reached — about 9MB of a 250MB dependency tree, the rest being
-other entry points, declarations, source maps and CJS duplicates. That is the difference between a
-182MB image and a 945MB one.
+|                  |       |          |       |
+| ---------------- | ----- | -------- | ----- |
+| auth             | 3200  | Postgres | 55433 |
+| Redpanda         | 19092 | Redis    | 56380 |
+| Redpanda Console | 8080  | Valhalla | 8002  |
+| Prometheus       | 9090  | Grafana  | 3005  |
+| Jaeger           | 16686 |          |       |
 
-`packages/domain` and `packages/database` declare conditional `exports`:
-source under a `development` condition, built JavaScript otherwise. Every dev tool asks for
-`development` — `tsx` through `--conditions`, Vite and Vitest through `resolve.conditions` — and
-plain Node gets the built output. `apps/auth` does the same for its own internal `#src/*`
-imports, which is why they are Node subpath imports rather than a `@/` alias a bundler would have
-had to rewrite.
+Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101,
+`ingest` 8102/9102.
 
-Each app owns a `Dockerfile`, built from the repository root because pnpm resolves a workspace
-package against the root lockfile and every sibling manifest:
+## Testing
 
-```
-docker build -f apps/auth/Dockerfile -t surge-auth .
-docker build -f apps/web/Dockerfile    -t surge-web .
-```
+The repo rule is 80% coverage, and the tests that matter here are the ones that
+cross a boundary no compiler checks:
 
-Neither image carries `node_modules`, and both run on Alpine even though the build stage needs
-Debian — `effect-tsgo` has no musl build, but nothing installs at runtime. The API image also
-carries the migration runner, so a release applies migrations as its own step rather than at boot.
+- `services/pkg/authz` signs a user up against a **running auth service** and
+  verifies the token. It is the only thing that can catch the claim names,
+  algorithm, issuer, audience and role clamp disagreeing across languages.
+- `services/pkg/geo` decodes a **committed Valhalla fixture** rather than a
+  hand-made polyline, because precision-6 shape decoded at precision 5 is a
+  well-formed route that is wrong by a factor of ten.
+- `packages/client/test/platform-free.test.ts` enforces that nothing shared
+  imports a platform package, so `apps/mobile` stays cheap.
 
-The web app builds through Nitro's Vite plugin, which turns Start's fetch handler into
-`.output/server/index.mjs` — a server `node` runs directly, with no host to write.
+Tests needing Redpanda, Valhalla, Postgres or the auth service **skip** when it
+is absent rather than failing, so `go test ./...` and `pnpm test` stay useful on
+a bare machine.
 
-The browser talks to the API directly. Every auth route and every RPC lives on `apps/auth`, so
-`VITE_AUTH_BASE_URL` names it and the web server proxies nothing. That prefix is not decoration:
-Vite only exposes `VITE_` values to the client bundle, and it substitutes them at build time — so
-the variable is a build argument for the web image, not a runtime one, and it must be the API's
-_public_ address because a browser resolves it.
+Use a fresh `INGEST_GROUP` for each benchmark run, or you measure the previous
+run's backlog. That mistake is documented in `docs/benchmarks` rather than
+fixed, because the fix was a design decision.
 
-The cost of that directness is cookies. Two origins means the session cookie is only sent if the
-browser considers them the same site, which needs both under one parent domain —
-`app.example.com` and `api.example.com`, with `AUTH_COOKIE_DOMAIN=.example.com`. It cannot be a
-public suffix, so two generated `*.up.railway.app` hosts can never share one: splitting the
-services on Railway needs a domain of your own. Sharing a host instead — one origin, a reverse
-proxy in front — works with `AUTH_COOKIE_DOMAIN` left empty.
+## Migrations
 
-The API allows exactly one CORS origin, `WEB_URL`, which is already the origin better-auth
-trusts. Widening it would only let a request through that better-auth then refuses.
+Applied by a script, never at boot — two instances starting together would both
+migrate. Every migration is idempotent and there is no ledger, so applying the
+whole set to any database converges it on the committed schema.
+`packages/database/test/Migrations.test.ts` holds that honest by applying them
+twice.
 
-`.railway/railway.ts` describes the whole Railway project: Postgres, both services, their
-Dockerfiles, health check, watch patterns, and the variables wiring them together. `railway
-config plan` shows the diff and `railway config apply` performs it. Two lines change on a fork —
-the repository and the project name.
-
-Secrets are `preserve()`, so the file plans no change to them; set `AUTH_SECRET` and the rest in
-Railway once. Two variables are load-bearing rather than cosmetic. The API's `WEB_URL` must be
-the web service's public URL, because `Auth.ts` passes it to better-auth as a trusted origin and
-a browser POST from any other origin is refused outright. The web service's `AUTH_BASE_URL`
-points at the API's _private_ domain, because both the SSR session lookup and the proxy above are
-server-to-server inside the project.
-
-Railway's IaC API is in beta and its own README says it will change. The stable alternative is a
-`railway.json` per app, which covers build and deploy settings but cannot create the database or
-the services.
-
-Tracing is exported only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set — unset installs no exporter
-at all, because one pointed at nothing retries on a schedule and fills the log. `RULES.md` says
-not to add manual logging on error paths because spans already carry the context; this is what
-makes that true.
-
-Migrations are applied by a script, never at boot — two instances starting together would both
-migrate. `packages/database` owns them:
-
-```
-DATABASE_URL=postgresql://... pnpm --filter @surge/database migrate
-```
-
-Every migration is idempotent and there is no ledger, so applying the whole set to any database
-converges it on the committed schema. `packages/database/test/Migrations.test.ts` is what holds
-that property honest — it applies them twice.
+`0001_auth.sql` is **generated** by `compileAuthMigrations` from the plugin set
+in `apps/auth/src/iam/Options.ts`, then committed. Change the plugins, regenerate
+it; do not hand-edit.
 
 ## Full rules
 
-`RULES.md` holds the hard repository rules — Effect style, architecture, forms, notifications,
-observability, testing, commits. Read it before making changes. `knowledge/README.md` indexes
-the per-topic guides.
+`RULES.md` holds the hard repository rules — Effect style, architecture, forms,
+notifications, observability, testing, commits. Read it before making changes.
+`knowledge/README.md` indexes the per-topic guides.
