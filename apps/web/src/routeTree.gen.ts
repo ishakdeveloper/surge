@@ -12,8 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as ProtectedContactsRouteImport } from './routes/_protected/contacts'
-import { Route as ProtectedSettingsRouteRouteImport } from './routes/_protected/settings/route'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
 import { Route as AuthMagicLinkRouteImport } from './routes/auth/magic-link'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
@@ -21,12 +19,6 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-passw
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as AuthVerifiedRouteImport } from './routes/auth/verified'
-import { Route as ProtectedSettingsIndexRouteImport } from './routes/_protected/settings/index'
-import { Route as ProtectedSettingsApiKeysRouteImport } from './routes/_protected/settings/api-keys'
-import { Route as ProtectedSettingsAuditRouteImport } from './routes/_protected/settings/audit'
-import { Route as ProtectedSettingsGeneralRouteImport } from './routes/_protected/settings/general'
-import { Route as ProtectedSettingsMembersRouteImport } from './routes/_protected/settings/members'
-import { Route as ProtectedSettingsRolesRouteImport } from './routes/_protected/settings/roles'
 
 const ProtectedRoute = ProtectedRouteImport.update({
   id: '/_protected',
@@ -40,16 +32,6 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const ProtectedContactsRoute = ProtectedContactsRouteImport.update({
-  id: '/contacts',
-  path: '/contacts',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const ProtectedSettingsRouteRoute = ProtectedSettingsRouteRouteImport.update({
-  id: '/settings',
-  path: '/settings',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
@@ -87,45 +69,10 @@ const AuthVerifiedRoute = AuthVerifiedRouteImport.update({
   path: '/verified',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const ProtectedSettingsIndexRoute = ProtectedSettingsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ProtectedSettingsRouteRoute,
-} as any)
-const ProtectedSettingsApiKeysRoute =
-  ProtectedSettingsApiKeysRouteImport.update({
-    id: '/api-keys',
-    path: '/api-keys',
-    getParentRoute: () => ProtectedSettingsRouteRoute,
-  } as any)
-const ProtectedSettingsAuditRoute = ProtectedSettingsAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => ProtectedSettingsRouteRoute,
-} as any)
-const ProtectedSettingsGeneralRoute =
-  ProtectedSettingsGeneralRouteImport.update({
-    id: '/general',
-    path: '/general',
-    getParentRoute: () => ProtectedSettingsRouteRoute,
-  } as any)
-const ProtectedSettingsMembersRoute =
-  ProtectedSettingsMembersRouteImport.update({
-    id: '/members',
-    path: '/members',
-    getParentRoute: () => ProtectedSettingsRouteRoute,
-  } as any)
-const ProtectedSettingsRolesRoute = ProtectedSettingsRolesRouteImport.update({
-  id: '/roles',
-  path: '/roles',
-  getParentRoute: () => ProtectedSettingsRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteRouteWithChildren
   '/': typeof ProtectedIndexRoute
-  '/settings': typeof ProtectedSettingsRouteRouteWithChildren
-  '/contacts': typeof ProtectedContactsRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/magic-link': typeof AuthMagicLinkRoute
   '/auth/otp': typeof AuthOtpRoute
@@ -133,16 +80,9 @@ export interface FileRoutesByFullPath {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verified': typeof AuthVerifiedRoute
-  '/settings/api-keys': typeof ProtectedSettingsApiKeysRoute
-  '/settings/audit': typeof ProtectedSettingsAuditRoute
-  '/settings/general': typeof ProtectedSettingsGeneralRoute
-  '/settings/members': typeof ProtectedSettingsMembersRoute
-  '/settings/roles': typeof ProtectedSettingsRolesRoute
-  '/settings/': typeof ProtectedSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteRouteWithChildren
-  '/contacts': typeof ProtectedContactsRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/magic-link': typeof AuthMagicLinkRoute
   '/auth/otp': typeof AuthOtpRoute
@@ -151,19 +91,11 @@ export interface FileRoutesByTo {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/': typeof ProtectedIndexRoute
-  '/settings/api-keys': typeof ProtectedSettingsApiKeysRoute
-  '/settings/audit': typeof ProtectedSettingsAuditRoute
-  '/settings/general': typeof ProtectedSettingsGeneralRoute
-  '/settings/members': typeof ProtectedSettingsMembersRoute
-  '/settings/roles': typeof ProtectedSettingsRolesRoute
-  '/settings': typeof ProtectedSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/auth': typeof AuthRouteRouteWithChildren
   '/_protected': typeof ProtectedRouteWithChildren
-  '/_protected/settings': typeof ProtectedSettingsRouteRouteWithChildren
-  '/_protected/contacts': typeof ProtectedContactsRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/magic-link': typeof AuthMagicLinkRoute
   '/auth/otp': typeof AuthOtpRoute
@@ -172,20 +104,12 @@ export interface FileRoutesById {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/_protected/': typeof ProtectedIndexRoute
-  '/_protected/settings/api-keys': typeof ProtectedSettingsApiKeysRoute
-  '/_protected/settings/audit': typeof ProtectedSettingsAuditRoute
-  '/_protected/settings/general': typeof ProtectedSettingsGeneralRoute
-  '/_protected/settings/members': typeof ProtectedSettingsMembersRoute
-  '/_protected/settings/roles': typeof ProtectedSettingsRolesRoute
-  '/_protected/settings/': typeof ProtectedSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/auth'
     | '/'
-    | '/settings'
-    | '/contacts'
     | '/auth/forgot-password'
     | '/auth/magic-link'
     | '/auth/otp'
@@ -193,16 +117,9 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/auth/verified'
-    | '/settings/api-keys'
-    | '/settings/audit'
-    | '/settings/general'
-    | '/settings/members'
-    | '/settings/roles'
-    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
-    | '/contacts'
     | '/auth/forgot-password'
     | '/auth/magic-link'
     | '/auth/otp'
@@ -211,18 +128,10 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/verified'
     | '/'
-    | '/settings/api-keys'
-    | '/settings/audit'
-    | '/settings/general'
-    | '/settings/members'
-    | '/settings/roles'
-    | '/settings'
   id:
     | '__root__'
     | '/auth'
     | '/_protected'
-    | '/_protected/settings'
-    | '/_protected/contacts'
     | '/auth/forgot-password'
     | '/auth/magic-link'
     | '/auth/otp'
@@ -231,12 +140,6 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/verified'
     | '/_protected/'
-    | '/_protected/settings/api-keys'
-    | '/_protected/settings/audit'
-    | '/_protected/settings/general'
-    | '/_protected/settings/members'
-    | '/_protected/settings/roles'
-    | '/_protected/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -265,20 +168,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof ProtectedIndexRouteImport
-      parentRoute: typeof ProtectedRoute
-    }
-    '/_protected/contacts': {
-      id: '/_protected/contacts'
-      path: '/contacts'
-      fullPath: '/contacts'
-      preLoaderRoute: typeof ProtectedContactsRouteImport
-      parentRoute: typeof ProtectedRoute
-    }
-    '/_protected/settings': {
-      id: '/_protected/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof ProtectedSettingsRouteRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/auth/forgot-password': {
@@ -330,48 +219,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthVerifiedRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_protected/settings/': {
-      id: '/_protected/settings/'
-      path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof ProtectedSettingsIndexRouteImport
-      parentRoute: typeof ProtectedSettingsRouteRoute
-    }
-    '/_protected/settings/api-keys': {
-      id: '/_protected/settings/api-keys'
-      path: '/api-keys'
-      fullPath: '/settings/api-keys'
-      preLoaderRoute: typeof ProtectedSettingsApiKeysRouteImport
-      parentRoute: typeof ProtectedSettingsRouteRoute
-    }
-    '/_protected/settings/audit': {
-      id: '/_protected/settings/audit'
-      path: '/audit'
-      fullPath: '/settings/audit'
-      preLoaderRoute: typeof ProtectedSettingsAuditRouteImport
-      parentRoute: typeof ProtectedSettingsRouteRoute
-    }
-    '/_protected/settings/general': {
-      id: '/_protected/settings/general'
-      path: '/general'
-      fullPath: '/settings/general'
-      preLoaderRoute: typeof ProtectedSettingsGeneralRouteImport
-      parentRoute: typeof ProtectedSettingsRouteRoute
-    }
-    '/_protected/settings/members': {
-      id: '/_protected/settings/members'
-      path: '/members'
-      fullPath: '/settings/members'
-      preLoaderRoute: typeof ProtectedSettingsMembersRouteImport
-      parentRoute: typeof ProtectedSettingsRouteRoute
-    }
-    '/_protected/settings/roles': {
-      id: '/_protected/settings/roles'
-      path: '/roles'
-      fullPath: '/settings/roles'
-      preLoaderRoute: typeof ProtectedSettingsRolesRouteImport
-      parentRoute: typeof ProtectedSettingsRouteRoute
-    }
   }
 }
 
@@ -399,39 +246,11 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
-interface ProtectedSettingsRouteRouteChildren {
-  ProtectedSettingsApiKeysRoute: typeof ProtectedSettingsApiKeysRoute
-  ProtectedSettingsAuditRoute: typeof ProtectedSettingsAuditRoute
-  ProtectedSettingsGeneralRoute: typeof ProtectedSettingsGeneralRoute
-  ProtectedSettingsMembersRoute: typeof ProtectedSettingsMembersRoute
-  ProtectedSettingsRolesRoute: typeof ProtectedSettingsRolesRoute
-  ProtectedSettingsIndexRoute: typeof ProtectedSettingsIndexRoute
-}
-
-const ProtectedSettingsRouteRouteChildren: ProtectedSettingsRouteRouteChildren =
-  {
-    ProtectedSettingsApiKeysRoute: ProtectedSettingsApiKeysRoute,
-    ProtectedSettingsAuditRoute: ProtectedSettingsAuditRoute,
-    ProtectedSettingsGeneralRoute: ProtectedSettingsGeneralRoute,
-    ProtectedSettingsMembersRoute: ProtectedSettingsMembersRoute,
-    ProtectedSettingsRolesRoute: ProtectedSettingsRolesRoute,
-    ProtectedSettingsIndexRoute: ProtectedSettingsIndexRoute,
-  }
-
-const ProtectedSettingsRouteRouteWithChildren =
-  ProtectedSettingsRouteRoute._addFileChildren(
-    ProtectedSettingsRouteRouteChildren,
-  )
-
 interface ProtectedRouteChildren {
-  ProtectedSettingsRouteRoute: typeof ProtectedSettingsRouteRouteWithChildren
-  ProtectedContactsRoute: typeof ProtectedContactsRoute
   ProtectedIndexRoute: typeof ProtectedIndexRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
-  ProtectedSettingsRouteRoute: ProtectedSettingsRouteRouteWithChildren,
-  ProtectedContactsRoute: ProtectedContactsRoute,
   ProtectedIndexRoute: ProtectedIndexRoute,
 }
 

@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
  *
  * The pages are imported dynamically and mounted for real. A module whose imports
  * do not line up with its uses throws on evaluation or on first render, and either
- * way this fails. Data is not stubbed: the atoms cannot reach `/rpc` under jsdom,
+ * way this fails. Data is not stubbed: the atoms cannot reach the network under jsdom,
  * so each page renders its loading or failure branch — which is enough, because
  * what is under test is that the module and its bindings hold together.
  */
@@ -40,13 +40,9 @@ describe("page modules", () => {
    * the only thing that keeps this honest as pages are added.
    */
   const pages = [
-    ["the dashboard", () => import("@/routes/_protected/index.js")],
-    ["contacts", () => import("@/routes/_protected/contacts.js")],
-    ["settings general", () => import("@/routes/_protected/settings/general.js")],
-    ["settings members", () => import("@/routes/_protected/settings/members.js")],
-    ["settings roles", () => import("@/routes/_protected/settings/roles.js")],
-    ["settings api keys", () => import("@/routes/_protected/settings/api-keys.js")],
-    ["the audit log", () => import("@/routes/_protected/settings/audit.js")],
+    ["home", () => import("@/routes/_protected/index.js")],
+    // Phase 4 adds /console, /ride and /drive here. One entry is a thin table,
+    // not a broken test: what it guards is the wiring of whatever is listed.
   ] as const;
 
   for (const [name, load] of pages) {

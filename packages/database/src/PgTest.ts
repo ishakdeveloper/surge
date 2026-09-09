@@ -23,7 +23,7 @@ export const PgPoolTest: Layer.Layer<PgPool> = Layer.effect(PgPool)(
       );
     }
 
-    const pool = new Pg.Pool({ connectionString: url, application_name: "forge-test" });
+    const pool = new Pg.Pool({ connectionString: url, application_name: "surge-test" });
     pool.on("error", () => {});
 
     yield* Effect.acquireRelease(

@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 const DEFAULT_PACKAGE_PREFIXES = [
-  "apps/server",
+  "apps/auth",
   "apps/web",
   "packages/database",
   "packages/domain",

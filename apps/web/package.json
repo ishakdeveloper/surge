@@ -1,5 +1,5 @@
 {
-  "name": "@forge/web",
+  "name": "@surge/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
     "@base-ui/react": "catalog:",
     "@effect/atom-react": "catalog:",
     "@effect/platform-browser": "catalog:",
-    "@forge/domain": "workspace:*",
+    "@surge/domain": "workspace:*",
     "@lucas-barake/effect-form": "catalog:",
     "@lucas-barake/effect-form-react": "catalog:",
     "@tanstack/react-router": "catalog:",

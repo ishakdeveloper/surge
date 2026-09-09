@@ -15,7 +15,7 @@
     "vitest"
   ],
   "jsPlugins": [
-    "@forge/scripts/oxlint-rules"
+    "@surge/scripts/oxlint-rules"
   ],
   "rules": {
     "typescript/await-thenable": "error",

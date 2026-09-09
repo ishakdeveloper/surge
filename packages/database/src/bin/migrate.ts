@@ -9,7 +9,7 @@ import { migrate } from "../Migrations.js";
  * should happen deliberately and once — not as a side effect of a deploy that
  * might be rolling several instances.
  *
- * `pnpm --filter @forge/database migrate`
+ * `pnpm --filter @surge/database migrate`
  */
 const url = process.env["DATABASE_URL"];
 

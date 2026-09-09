@@ -2,7 +2,7 @@
 
 Effect v4 monorepo. pnpm workspace + `tsc -b` project references, oxlint + dprint, vitest.
 
-`apps/` holds what deploys — `apps/server` is the Effect API, `apps/web` is the TanStack Start
+`apps/` holds what deploys — `apps/auth` is the Effect API, `apps/web` is the TanStack Start
 front end, and each owns its `Dockerfile`. `packages/` holds what they share: `packages/domain`
 is the contract both ends compile against, `packages/database` owns the connection and the
 schema. Dependencies point one way, from `apps/` into `packages/`.
@@ -105,7 +105,7 @@ at `/api/v1/docs`. Both transports run over the same stores, so a handler is not
 
 `pnpm build` compiles every package and bundles the two runnable entry points with Vite — the
 same tool the web app is built with, configured the same way. The API runs from
-`apps/server/build/bundle/main.js`, the web server's `apps/web/.output/server/index.mjs` is the web server, and the migration runner sits at
+`apps/auth/build/bundle/main.js`, the web server's `apps/web/.output/server/index.mjs` is the web server, and the migration runner sits at
 `packages/database/build/bundle/migrate.js` with its `.sql` files beside it.
 
 Bundling is an optimisation, not a workaround: `tsc` output runs on plain Node as it is. A bundle
@@ -116,7 +116,7 @@ other entry points, declarations, source maps and CJS duplicates. That is the di
 `packages/domain` and `packages/database` declare conditional `exports`:
 source under a `development` condition, built JavaScript otherwise. Every dev tool asks for
 `development` — `tsx` through `--conditions`, Vite and Vitest through `resolve.conditions` — and
-plain Node gets the built output. `apps/server` does the same for its own internal `#src/*`
+plain Node gets the built output. `apps/auth` does the same for its own internal `#src/*`
 imports, which is why they are Node subpath imports rather than a `@/` alias a bundler would have
 had to rewrite.
 
@@ -124,8 +124,8 @@ Each app owns a `Dockerfile`, built from the repository root because pnpm resolv
 package against the root lockfile and every sibling manifest:
 
 ```
-docker build -f apps/server/Dockerfile -t forge-api .
-docker build -f apps/web/Dockerfile    -t forge-web .
+docker build -f apps/auth/Dockerfile -t surge-auth .
+docker build -f apps/web/Dockerfile    -t surge-web .
 ```
 
 Neither image carries `node_modules`, and both run on Alpine even though the build stage needs
@@ -135,7 +135,7 @@ carries the migration runner, so a release applies migrations as its own step ra
 The web app builds through Nitro's Vite plugin, which turns Start's fetch handler into
 `.output/server/index.mjs` — a server `node` runs directly, with no host to write.
 
-The browser talks to the API directly. Every auth route and every RPC lives on `apps/server`, so
+The browser talks to the API directly. Every auth route and every RPC lives on `apps/auth`, so
 `VITE_AUTH_BASE_URL` names it and the web server proxies nothing. That prefix is not decoration:
 Vite only exposes `VITE_` values to the client bundle, and it substitutes them at build time — so
 the variable is a build argument for the web image, not a runtime one, and it must be the API's
@@ -176,7 +176,7 @@ Migrations are applied by a script, never at boot — two instances starting tog
 migrate. `packages/database` owns them:
 
 ```
-DATABASE_URL=postgresql://... pnpm --filter @forge/database migrate
+DATABASE_URL=postgresql://... pnpm --filter @surge/database migrate
 ```
 
 Every migration is idempotent and there is no ledger, so applying the whole set to any database

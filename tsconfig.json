@@ -10,7 +10,7 @@
       "path": "packages/database"
     },
     {
-      "path": "apps/server"
+      "path": "apps/auth"
     },
     {
       "path": "apps/web"

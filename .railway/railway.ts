@@ -31,7 +31,7 @@ import { defineRailway, github, postgres, preserve, project, service } from "rai
  * authorization the connection grants. `preserve()` below is for the values
  * that genuinely are secret.
  */
-const REPO = "ishakdeveloper/forge-effect";
+const REPO = "ishakdeveloper/surge";
 
 interface Target {
   /** Must be a branch that actually carries this code — both services build from it. */
@@ -91,7 +91,7 @@ const host = (name: string, subdomain: string, domain: string | undefined) => ({
 /** Everything the API needs that is not a secret and not a reference. */
 const shared = {
   DATABASE_SSL: "true",
-  EMAIL_FROM: "forge@example.com",
+  EMAIL_FROM: "surge@example.com",
 } as const;
 
 export default defineRailway((ctx) => {
@@ -108,13 +108,13 @@ export default defineRailway((ctx) => {
     source: github(REPO, { branch: target.branch }),
     build: {
       builder: "DOCKERFILE",
-      dockerfilePath: "apps/server/Dockerfile",
+      dockerfilePath: "apps/auth/Dockerfile",
       /**
        * A change to the front end should not rebuild the API. The shared
        * packages are listed because a change to either genuinely does.
        */
       watchPatterns: [
-        "apps/server/**",
+        "apps/auth/**",
         "packages/database/**",
         "packages/domain/**",
         "package.json",
@@ -201,5 +201,5 @@ export default defineRailway((ctx) => {
     },
   });
 
-  return project("forge", { resources: [db, api, web] });
+  return project("surge", { resources: [db, api, web] });
 });

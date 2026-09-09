@@ -10,7 +10,7 @@ example of a tenant-owned feature (`Contact`), which you delete and replace with
 your own.
 
 ```
-apps/server     Effect API — RPC for the app, HTTP for the public API and auth
+apps/auth     Effect API — RPC for the app, HTTP for the public API and auth
 apps/web        TanStack Start front end
 packages/domain the contract both ends compile against
 packages/database   connection, row-level security, migrations
@@ -70,7 +70,7 @@ Apply the schema — the migration runner reads the same `.env` — then start b
 servers:
 
 ```bash
-pnpm --filter @forge/database migrate
+pnpm --filter @surge/database migrate
 ```
 
 ```bash
@@ -88,11 +88,11 @@ Set the key when you want mail to actually leave.
 
 ## Making it yours
 
-**Rename.** The package scope is `@forge/*` and appears in imports throughout.
+**Rename.** The package scope is `@surge/*` and appears in imports throughout.
 One pass does it:
 
 ```bash
-grep -rl '@forge/' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=repos . | xargs perl -pi -e 's|\@forge/|\@acme/|g'
+grep -rl '@surge/' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=repos . | xargs perl -pi -e 's|\@surge/|\@acme/|g'
 ```
 
 Then the loose ends: `name` in each `package.json`, the database name in
@@ -105,7 +105,7 @@ plus its rows in `Permission.ts` and its route in the sidebar:
 
 ```
 packages/domain/src/contact/ContactRpc.ts
-apps/server/src/contact/
+apps/auth/src/contact/
 apps/web/src/atom/contact-atoms.ts
 apps/web/src/components/contact/
 apps/web/src/routes/_protected/contacts.tsx
@@ -137,10 +137,10 @@ A tenant-owned feature is five files and a migration, in this order:
    read that list, so a group added to one and not the other is a compile error
    rather than a call that fails at runtime.
 
-3. **A store** in `apps/server/`, wrapping its queries in `withOrgScope`.
+3. **A store** in `apps/auth/`, wrapping its queries in `withOrgScope`.
 
 4. **The handlers**, `YourRpcs.toLayer(...)`, guarded with `withPolicy` and
-   `permission(...)`. Provide the layer in `apps/server/src/Main.ts`.
+   `permission(...)`. Provide the layer in `apps/auth/src/Main.ts`.
 
 5. **Atoms** in `apps/web/src/atom/`. Reads are declared by naming the RPC —
    `AppRpc.query("ListThings", undefined, { reactivityKeys })` — and writes stay
@@ -151,13 +151,13 @@ Only step 4 is where you decide anything about authorization, and only step 1 is
 where you decide anything about isolation. The rest is transport.
 
 To expose it publicly as well, add it to `packages/domain/src/api/v1/Api.ts` and
-implement it in `apps/server/src/api/v1/Handlers.ts` over the same store. Read
+implement it in `apps/auth/src/api/v1/Handlers.ts` over the same store. Read
 `Wire.ts` first — it is the frozen contract and it explains what may change in
 it.
 
 ## Deploying
 
-`pnpm build` produces the API bundled to `apps/server/build/bundle/main.js`, the
+`pnpm build` produces the API bundled to `apps/auth/build/bundle/main.js`, the
 web app's Nitro output in `apps/web/.output/`, and the migration runner with its
 `.sql` files beside it. The API is bundled rather than merely compiled because
 the workspace packages export TypeScript source, which `tsc` output alone would
@@ -166,7 +166,7 @@ import as `.ts` files Node cannot load.
 Each app has its own Dockerfile, built from the repo root:
 
 ```bash
-docker build -f apps/server/Dockerfile -t acme-api .
+docker build -f apps/auth/Dockerfile -t acme-api .
 ```
 
 Migrations are applied by a script, never at boot — two instances starting

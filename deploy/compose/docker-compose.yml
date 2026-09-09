@@ -1,0 +1,160 @@
+# Local infrastructure. The Go services and the simulator run on the HOST, not
+# in here — that keeps the reload loop at a compile rather than an image build,
+# and leaves this 8GB Docker VM to the things that actually need it.
+#
+# Budget, roughly: redpanda 1G, valhalla 1-2G, postgres 512M, the rest small.
+
+name: surge
+
+services:
+  # Ports are deliberately off the defaults: this machine already has a native
+  # Postgres on 5432 and a Redis on 6379, and an ambiguous bind is a debugging
+  # trap you only notice after an hour of "why is that table missing".
+  postgres:
+    image: postgres:17-alpine
+    container_name: surge-postgres
+    environment:
+      POSTGRES_DB: surge
+      POSTGRES_USER: surge
+      POSTGRES_PASSWORD: surge
+    ports:
+      - "55433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U surge -d surge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Kafka, without the JVM or ZooKeeper. `dev-container` mode is what makes a
+  # single broker viable on a laptop: it disables the production memory and
+  # fsync assumptions that otherwise refuse to start on constrained hardware.
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: surge-redpanda
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --default-log-level=warn
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      # Host processes connect on localhost:19092; containers use redpanda:9092.
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
+    ports:
+      - "19092:19092"
+      - "18081:18081"
+      - "9644:9644"
+    volumes:
+      - redpanda:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: surge-redpanda-console
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_started
+
+  # The connection registry and per-instance push fanout for the WS gateway.
+  # Deliberately not Kafka: pushing to a socket that may already be gone gains
+  # nothing from durability.
+  redis:
+    image: redis:7-alpine
+    container_name: surge-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "56380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Road geometry and the time/distance matrix that batched assignment needs.
+  #
+  # Native arm64, unlike osrm-backend. The FIRST boot downloads a 189MB extract
+  # and builds tiles — 10-20 minutes, watch it once — then caches into the
+  # volume. `use_tiles_ignore_pbf` defaults to True, which would skip the build
+  # entirely, so it has to be False here for that first run to happen at all.
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: surge-valhalla
+    ports:
+      - "8002:8002"
+    volumes:
+      - valhalla:/custom_files
+    environment:
+      tile_urls: https://download.geofabrik.de/europe/netherlands/noord-holland-latest.osm.pbf
+      use_tiles_ignore_pbf: "False"
+      force_rebuild: "False"
+      build_admins: "True"
+      build_time_zones: "False"
+      build_elevation: "False"
+      serve_tiles: "True"
+      server_threads: "4"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8002/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 60
+      start_period: 20m
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: surge-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=6h
+      # The simulator moves the load in seconds; a 15s default scrape turns a
+      # ramp into three points. This is a load rig, so it scrapes fast.
+      - --enable-feature=otlp-write-receiver
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: surge-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: surge
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_USERS_DEFAULT_THEME: dark
+    # This host already runs other projects on 3000/3001, so Surge takes 3005.
+    ports:
+      - "3005:3000"
+    volumes:
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: surge-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+
+volumes:
+  pgdata:
+  redpanda:
+  valhalla:

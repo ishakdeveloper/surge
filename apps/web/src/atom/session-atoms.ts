@@ -1,6 +1,6 @@
-import { AppRpc } from "@/atom/app-rpc.js";
 import { Keys } from "@/atom/reactivity-keys.js";
 import { authClient } from "@/iam/auth-client.js";
+import { Identity, Unauthenticated } from "@surge/domain/iam/Identity";
 import { Effect, Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -13,19 +13,33 @@ export class SignInFailed extends Schema.TaggedError<SignInFailed>()("SignInFail
 }) {}
 
 /**
- * The signed-in identity, or a failure when there is no session.
+ * The signed-in identity, or `Unauthenticated` when there is no session.
  *
- * The identity carries the active organization, its role and the permissions
- * that follow from it, so it subscribes to the `organization` key and re-reads
- * itself whenever the active organization changes. Signing in and out happen
- * outside any atom, and still refresh it with `useAtomRefresh`.
+ * Read from better-auth directly rather than from an API call. There is no
+ * Effect server left to ask — every product endpoint is Go, and Go learns who
+ * the caller is from the JWT rather than by being asked. So the browser's own
+ * notion of "who am I" comes from the same place the cookie does.
+ *
+ * Decoded through `Identity` rather than trusted: `role` reaches us as a bare
+ * string from an `additionalFields` column, and `Identity` is the contract Go
+ * parses out of the token. A value that fails here would fail there too, and it
+ * is a defect either way — nothing a user can act on.
  */
-export const sessionAtom = Atom.withReactivity([Keys.organization])(
-  AppRpc.runtime.atom(
+export const sessionAtom = Atom.withReactivity([Keys.session])(
+  Atom.make(
     Effect.gen(function*() {
-      const client = yield* AppRpc;
+      const result = yield* Effect.promise(() => authClient.getSession());
 
-      return yield* client("Me", undefined);
+      if (result.data == null) {
+        return yield* Effect.fail(new Unauthenticated({ reason: "NoSession" }));
+      }
+
+      return yield* Schema.decodeUnknownEffect(Identity)({
+        userId: result.data.user.id,
+        email: result.data.user.email,
+        emailVerified: result.data.user.emailVerified,
+        role: (result.data.user as Record<string, unknown>)["role"],
+      }).pipe(Effect.catchTag("SchemaError", (error) => Effect.die(error)));
     }),
   ),
 );

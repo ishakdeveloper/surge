@@ -2,7 +2,7 @@
 #
 # Built from the repository root, not from this directory:
 #
-#   docker build -f apps/web/Dockerfile -t forge-web .
+#   docker build -f apps/web/Dockerfile -t surge-web .
 #
 # That is not a quirk of this file. pnpm resolves a workspace package against
 # the root lockfile and every sibling manifest, so the build context has to be
@@ -28,7 +28,7 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/server/package.json apps/server/
+COPY apps/auth/package.json apps/auth/
 COPY apps/web/package.json apps/web/
 COPY packages/database/package.json packages/database/
 COPY packages/domain/package.json packages/domain/
@@ -43,7 +43,7 @@ COPY . .
 # it, not this container.
 ARG VITE_AUTH_BASE_URL=http://localhost:3000
 ENV VITE_AUTH_BASE_URL=$VITE_AUTH_BASE_URL
-RUN pnpm --filter @forge/web build
+RUN pnpm --filter @surge/web build
 
 # Alpine for the same reason as the API image: nothing installs here, and the
 # rootfs is 86MB smaller than the Debian base the build needed.

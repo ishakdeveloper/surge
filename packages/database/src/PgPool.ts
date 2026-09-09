@@ -17,7 +17,7 @@ export class PgPool extends Context.Service<PgPool, Pg.Pool>()("PgPool") {
       const pool = new Pg.Pool({
         connectionString: Redacted.value(url),
         ssl,
-        application_name: "forge",
+        application_name: "surge-auth",
         connectionTimeoutMillis: 10_000,
         idleTimeoutMillis: 10_000,
       });

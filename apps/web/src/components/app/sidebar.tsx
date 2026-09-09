@@ -1,11 +1,10 @@
 import { signOut } from "@/atom/session-atoms.js";
-import { OrgSwitcher } from "@/components/app/org-switcher.js";
 import { Button } from "@/components/ui/button.js";
 import { Separator } from "@/components/ui/separator.js";
 import type { LinkProps } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { LayoutDashboard, Settings, Users } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Exported for the command palette, so the two cannot list different pages. */
@@ -15,12 +14,11 @@ export const nav: ReadonlyArray<{
   readonly icon: LucideIcon;
   readonly exact?: boolean;
 }> = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/contacts", label: "Contacts", icon: Users },
-  // `/settings` rather than a subpage: it redirects to General, and matching
-  // non-exactly is what keeps this item lit on every settings page instead of
-  // only one of them.
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
+  // Phase 4 adds /console, /ride and /drive here. They are absent rather than
+  // stubbed because the router's `to` is typed against the generated route
+  // tree, so a link to a route that does not exist is a compile error — which
+  // is the behaviour worth keeping.
 ];
 
 const item =
@@ -33,10 +31,9 @@ export const Sidebar = (props: { readonly email: string; readonly onSignOut: () 
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm font-semibold">forge</p>
-          <p className="text-muted-foreground text-xs">workspace</p>
+          <p className="text-sm font-semibold">Surge</p>
+          <p className="text-muted-foreground text-xs">Amsterdam</p>
         </div>
-        <OrgSwitcher />
       </div>
 
       {/* One line, and the difference between a feature and a secret. */}

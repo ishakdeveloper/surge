@@ -1,5 +1,4 @@
-import { Context, Schema } from "effect";
-import { PermissionSchema } from "./Permission.js";
+import { Schema } from "effect";
 
 /**
  * Branded ids. Construct with `UserId.make(value)`, which validates — never
@@ -10,46 +9,37 @@ export const UserId = Schema.String.pipe(Schema.brand("UserId")).annotate({
 });
 export type UserId = typeof UserId.Type;
 
-export const OrgId = Schema.String.pipe(Schema.brand("OrgId")).annotate({
-  identifier: "OrgId",
+/**
+ * What a person is to this system. One market, no tenancy, so a role is a
+ * fixed union rather than a per-organization string.
+ *
+ * `ops` is the dispatch console. A driver is also a rider in practice, but the
+ * role names which surface they signed up for, not what they are forbidden.
+ */
+export const Role = Schema.Literals(["rider", "driver", "ops"]).annotate({
+  identifier: "Role",
 });
-export type OrgId = typeof OrgId.Type;
+export type Role = typeof Role.Type;
 
 /**
- * The authenticated caller, as the rest of the system sees them.
+ * The authenticated caller.
  *
- * `orgId` is always present: a personal organization is created alongside every
- * user, so there is no orgless state to represent.
+ * This is the *claims contract*: `apps/auth` mints these fields into a JWT and
+ * every Go service parses them back out of one. It is the only shape both
+ * languages agree on for identity, so changing it is a cross-language change —
+ * `services/pkg/authz` reads the same names.
  */
 export class Identity extends Schema.Class<Identity>("Identity")({
   userId: UserId,
-  orgId: OrgId,
   email: Schema.String,
   emailVerified: Schema.Boolean,
-  /**
-   * Membership role in `orgId`. A plain string, not a fixed union — dynamic
-   * access control lets an organization define roles of its own.
-   */
-  role: Schema.String,
-  /**
-   * Effective permissions, already resolved from the role, any custom role and
-   * the member's own overrides. This is what policies read; `role` is for
-   * display.
-   */
-  permissions: Schema.Array(PermissionSchema),
+  role: Role,
 }) {}
-
-/**
- * Provided by the RPC auth middleware. Handlers read the caller — and their org
- * scope — from here rather than taking it as an argument, which is what keeps a
- * request from ever naming another tenant's org.
- */
-export class CurrentUser extends Context.Service<CurrentUser, Identity>()("CurrentUser") {}
 
 /**
  * The authentication failures a caller can act on. Everything else — a broken
  * adapter, a misconfigured secret — is a defect.
  */
 export class Unauthenticated extends Schema.TaggedError<Unauthenticated>()("Unauthenticated", {
-  reason: Schema.Literals(["NoSession", "SessionExpired", "NoActiveOrganization"]),
+  reason: Schema.Literals(["NoSession", "SessionExpired"]),
 }) {}

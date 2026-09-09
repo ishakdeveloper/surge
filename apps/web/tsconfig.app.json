@@ -14,7 +14,7 @@
     "paths": {
       "@/*": ["${configDir}/src/*"],
       "@test/*": ["${configDir}/test/*"],
-      "@forge/domain/*": ["../../packages/domain/src/*.js"]
+      "@surge/domain/*": ["../../packages/domain/src/*.js"]
     }
   }
 }

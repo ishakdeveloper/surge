@@ -1,0 +1,36 @@
+# The Go services run on the host, so Prometheus reaches them through Docker
+# Desktop's host gateway rather than through the compose network.
+#
+# 2s scrape, not the 15s default: the simulator moves load in seconds, and a
+# ramp from 500 to 40,000 drivers sampled every 15s is three data points and a
+# guess. Retention is short to pay for it.
+global:
+  scrape_interval: 2s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: redpanda
+    static_configs:
+      - targets: ["redpanda:9644"]
+    metrics_path: /public_metrics
+
+  # Host-run Go services. Each is listed with the instance label the dashboards
+  # group by; missing ones simply show as down until that phase builds them.
+  - job_name: surge
+    static_configs:
+      - targets: ["host.docker.internal:9101"]
+        labels: { service: simd }
+      - targets: ["host.docker.internal:9102"]
+        labels: { service: ingest }
+      - targets: ["host.docker.internal:9103"]
+        labels: { service: matcher }
+      - targets: ["host.docker.internal:9104"]
+        labels: { service: gateway }
+      - targets: ["host.docker.internal:9105"]
+        labels: { service: trip }
+      - targets: ["host.docker.internal:9106"]
+        labels: { service: core }

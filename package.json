@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@effect/tsgo/schema.json",
-  "name": "forge",
+  "name": "surge",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
   },
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint",
-    "dev": "pnpm --parallel --filter @forge/server --filter @forge/web dev",
-    "build": "pnpm --filter @forge/domain --filter @forge/database --filter @forge/server --filter @forge/web build",
+    "dev": "pnpm --parallel --filter @surge/auth --filter @surge/web dev",
+    "build": "pnpm --filter @surge/domain --filter @surge/database --filter @surge/auth --filter @surge/web build",
     "check": "tsc -b tsconfig.json && tsc -p tsconfig.tools.json",
     "check:watch": "tsc -b tsconfig.json --watch",
     "format": "dprint fmt",
@@ -28,7 +28,7 @@
   "devDependencies": {
     "@effect/tsgo": "0.36.5",
     "@effect/vitest": "catalog:",
-    "@forge/scripts": "workspace:*",
+    "@surge/scripts": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "^4.1.10",
     "dprint": "^0.55.2",

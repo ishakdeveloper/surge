@@ -8,7 +8,7 @@ import * as React from "react";
  * Shown while an account is unverified.
  *
  * Sign-in is deliberately not blocked — flip `requireEmailVerification` in
- * `apps/server/src/iam/Options.ts` if you want that instead. Gating here
+ * `apps/auth/src/iam/Options.ts` if you want that instead. Gating here
  * would strand anyone whose verification email failed to send.
  */
 export const VerifyEmailBanner = (props: { readonly email: string; }) => {

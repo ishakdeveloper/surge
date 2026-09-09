@@ -29,7 +29,7 @@ function findNearestPackageJson(startDir) {
   return null;
 }
 
-const DEFAULT_SCOPE = "@forge";
+const DEFAULT_SCOPE = "@surge";
 
 const rule = {
   meta: {

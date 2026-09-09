@@ -10,8 +10,7 @@ describe("reactivity keys", () => {
   /**
    * The whole point of the keys is that they cross module boundaries. Each atom
    * module builds its own `Atom.runtime`, so a switch published by
-   * `organization-atoms` only reaches the queries in `contact-atoms` and
-   * `access-atoms` if those separate runtimes share one `Reactivity` service.
+   * one atom module only reaches the queries in another if those separate runtimes share one `Reactivity` service.
    * They do — the default factory memoises it per registry — and this test
    * fails if that ever stops being true.
    */
@@ -20,11 +19,11 @@ describe("reactivity keys", () => {
     const writes = Atom.runtime(Layer.empty);
 
     let queried = 0;
-    const listAtom = Atom.withReactivity([Keys.organization])(
+    const listAtom = Atom.withReactivity([Keys.session])(
       reads.atom(Effect.sync(() => ++queried)),
     );
     const switchAtom = writes.fn<void>()(() => Effect.void, {
-      reactivityKeys: [Keys.organization],
+      reactivityKeys: [Keys.session],
     });
 
     const registry = AtomRegistry.make();
@@ -44,11 +43,11 @@ describe("reactivity keys", () => {
     const writes = Atom.runtime(Layer.empty);
 
     let queried = 0;
-    const listAtom = Atom.withReactivity([Keys.organization])(
+    const listAtom = Atom.withReactivity([Keys.session])(
       reads.atom(Effect.sync(() => ++queried)),
     );
     const renameContactAtom = writes.fn<void>()(() => Effect.void, {
-      reactivityKeys: [Keys.contacts],
+      reactivityKeys: [Keys.trips],
     });
 
     const registry = AtomRegistry.make();
@@ -72,11 +71,11 @@ describe("reactivity keys", () => {
     const writes = Atom.runtime(Layer.empty);
 
     let queried = 0;
-    const listAtom = Atom.withReactivity([Keys.organization])(
+    const listAtom = Atom.withReactivity([Keys.session])(
       reads.atom(Effect.sync(() => ++queried)),
     );
     const failingSwitchAtom = writes.fn<void>()(() => Effect.fail("nope" as const), {
-      reactivityKeys: [Keys.organization],
+      reactivityKeys: [Keys.session],
     });
 
     const registry = AtomRegistry.make();
