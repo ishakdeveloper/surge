@@ -13,7 +13,7 @@
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint",
     "dev": "pnpm --parallel --filter @surge/auth --filter @surge/web dev",
-    "build": "pnpm --filter @surge/domain --filter @surge/database --filter @surge/auth --filter @surge/web build",
+    "build": "pnpm --filter @surge/domain --filter @surge/client --filter @surge/database --filter @surge/auth --filter @surge/web build",
     "check": "tsc -b tsconfig.json && tsc -p tsconfig.tools.json",
     "check:watch": "tsc -b tsconfig.json --watch",
     "format": "dprint fmt",

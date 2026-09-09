@@ -18,15 +18,15 @@ it landed in the index — not the Kafka timestamp. It is how stale the map is,
 which is the number a rider would feel. Consumer lag says something different
 and, as it turned out, less useful.
 
-| Drivers | Target | Observed | age p50 | age p99 | Stale | simd RSS | ingest RSS |
-|--------:|-------:|---------:|--------:|--------:|------:|---------:|-----------:|
-| 5,000   | 1,250/s | 1,249/s | 10 ms | 25 ms | 0 | — | — |
-| 10,000  | 2,500/s | 2,526/s | 10 ms | 25 ms | 0 | — | — |
-| 20,000  | 5,000/s | 5,013/s | 10 ms | 25 ms | 0 | — | — |
-| **40,000** | **10,000/s** | **10,040/s** | **10 ms** | **50 ms** | **0** | 332 MB | 66 MB |
-| 60,000  | 15,000/s | 15,071/s | 10 ms | 25 ms | 0 | 318 MB | 61 MB |
-| 80,000  | 20,000/s | 19,590/s | 10 ms | 250 ms | 0 | 332 MB | 66 MB |
-| 100,000 | 25,000/s | 35,672/s ¹ | 10 ms | 5 s | 0 | 422 MB | 67 MB |
+|    Drivers |       Target |     Observed |   age p50 |   age p99 | Stale | simd RSS | ingest RSS |
+| ---------: | -----------: | -----------: | --------: | --------: | ----: | -------: | ---------: |
+|      5,000 |      1,250/s |      1,249/s |     10 ms |     25 ms |     0 |        — |          — |
+|     10,000 |      2,500/s |      2,526/s |     10 ms |     25 ms |     0 |        — |          — |
+|     20,000 |      5,000/s |      5,013/s |     10 ms |     25 ms |     0 |        — |          — |
+| **40,000** | **10,000/s** | **10,040/s** | **10 ms** | **50 ms** | **0** |   332 MB |      66 MB |
+|     60,000 |     15,000/s |     15,071/s |     10 ms |     25 ms |     0 |   318 MB |      61 MB |
+|     80,000 |     20,000/s |     19,590/s |     10 ms |    250 ms |     0 |   332 MB |      66 MB |
+|    100,000 |     25,000/s |   35,672/s ¹ |     10 ms |       5 s |     0 |   422 MB |      67 MB |
 
 ¹ Above target because the consumer was draining a backlog, not keeping pace.
 That figure is catch-up throughput, not steady state.
@@ -61,14 +61,14 @@ from after that fix.
 
 ### 2. Replaying the log on startup was wrong, not just slow
 
-The next run showed *more* drivers in the index than the simulator was running,
+The next run showed _more_ drivers in the index than the simulator was running,
 and tens of thousands of stale pings. A restarted consumer group was replaying
 six hours of retained pings.
 
 The fix is a design decision rather than a benchmark convenience: `ingest` now
 starts at the end of the log. A position is worth something for about as long
 as it takes the next ping to arrive, so replaying history spends minutes
-rebuilding where drivers *used to be*, produces a live-looking index full of
+rebuilding where drivers _used to be_, produces a live-looking index full of
 ghosts, and is overwritten within one ping interval anyway. The index is
 derived state with a four-second rebuild time — the honest recovery strategy is
 to wait four seconds.
