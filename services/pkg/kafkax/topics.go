@@ -57,9 +57,9 @@ const (
 // GeoPartitions is the shard count, and therefore the ceiling on matcher
 // parallelism.
 //
-// 64 against roughly 128 resolution-7 cells over Amsterdam: about two cells per
-// partition, so adding an instance moves a meaningful slice of the map without
-// any single partition owning a quarter of the city.
+// 32 against the ~128 resolution-7 cells that cover Amsterdam: about four cells
+// per partition. Enough that adding a matcher instance moves a meaningful slice
+// of the map, and enough that no single partition owns a quarter of the city.
 const GeoPartitions = 32
 
 type topicSpec struct {
