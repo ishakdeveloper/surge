@@ -150,6 +150,7 @@ build: ## Build every Go binary
 	$(GO) build -o bin/matcher ./services/matcher/cmd
 	$(GO) build -o bin/trip ./services/trip/cmd
 	$(GO) build -o bin/gateway ./services/gateway/cmd
+	$(GO) build -o bin/payments ./services/payments/cmd
 	$(GO) build -o bin/migrate ./tools/migrate
 
 test: ## Run both test suites
@@ -179,6 +180,9 @@ dev-gateway: build ## Run the API gateway (REST + WebSocket on :8100)
 
 dev-trip: build ## Run the trip service (gRPC on :8110)
 	@set -a; . ./.env; set +a; $(BIN)/trip
+
+dev-payments: build ## Run the payments service (metrics on :9107)
+	@set -a; . ./.env; set +a; $(BIN)/payments
 
 dev-sim: build ## Run the driver simulator
 	@set -a; . ./.env; set +a; \
