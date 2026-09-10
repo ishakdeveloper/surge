@@ -24,3 +24,6 @@ backend/bin/
 
 # Cluster secrets are created imperatively, never committed.
 deploy/k8s/11-secrets.yaml
+
+# Python bytecode from running the benchmark scripts.
+__pycache__/
