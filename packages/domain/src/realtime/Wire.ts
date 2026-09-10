@@ -226,6 +226,8 @@ export class DriverPosition extends Schema.Class<DriverPosition>("DriverPosition
   lng: Schema.Number,
   heading: Schema.Number,
   atMs: Schema.Number,
+  /** Predicted seconds until the driver reaches the pickup; 0 when there is no prediction. */
+  etaSeconds: Schema.Number,
 }) {}
 
 /** A driver's answer to a dispatched offer. `driverId` is absent for the same reason it is on {@link DriverPing}. */

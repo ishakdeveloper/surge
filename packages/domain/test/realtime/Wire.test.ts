@@ -135,6 +135,7 @@ describe("server messages", () => {
     expect(message.position.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
     expect(message.position.driverId).toBe("drv-000123");
     expect(message.position.lat).toBeCloseTo(52.3711, 4);
+    expect(message.position.etaSeconds).toBe(240);
   });
 
   it("decodes an error frame", async () => {

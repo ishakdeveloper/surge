@@ -141,4 +141,8 @@ type DriverPosition struct {
 	Lng      float64 `json:"lng"`
 	Heading  float64 `json:"heading"`
 	AtMs     int64   `json:"atMs"`
+	// EtaSeconds is the predicted wait until the driver reaches the pickup:
+	// 0 when there is none — before any pickup has been observed, or once the
+	// rider is in the car.
+	EtaSeconds float64 `json:"etaSeconds"`
 }

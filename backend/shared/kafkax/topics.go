@@ -62,6 +62,11 @@ const (
 	// keyed by cell and compacted: the trip service reads it from the start as
 	// the current state of pricing, not as a history.
 	TopicSurgeCells = "surge.cells"
+
+	// TopicPickupsObserved is every pickup the fleet made, keyed by the
+	// pickup's cell. Kept a day, so a gateway starting mid-afternoon learns
+	// the morning's traffic rather than predicting from nothing.
+	TopicPickupsObserved = "pickups.observed"
 )
 
 // GeoPartitions is the shard count, and therefore the ceiling on matcher
@@ -99,6 +104,7 @@ func specs() []topicSpec {
 		{TopicTripEvents, 16, nil},
 		{TopicWSPush, 16, map[string]*string{"retention.ms": stringPtr("600000")}},
 		{TopicFleetFrames, GeoPartitions, map[string]*string{"retention.ms": stringPtr("60000")}},
+		{TopicPickupsObserved, 8, map[string]*string{"retention.ms": stringPtr("86400000")}},
 		{TopicSurgeCells, 8, map[string]*string{
 			"cleanup.policy":            compact,
 			"min.cleanable.dirty.ratio": stringPtr("0.1"),

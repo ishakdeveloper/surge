@@ -49,7 +49,7 @@ func main() {
 		}},
 		"server_driver_position.json": wire.ServerMessage{Tag: wire.TagDriverPosition, Position: &wire.DriverPosition{
 			TripID: "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80", DriverID: "drv-000123",
-			Lat: 52.3711, Lng: 4.8963, Heading: 90, AtMs: 1757512341000,
+			Lat: 52.3711, Lng: 4.8963, Heading: 90, AtMs: 1757512341000, EtaSeconds: 240,
 		}},
 		"server_trip_updated.json": wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{
 			TripID:   "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",

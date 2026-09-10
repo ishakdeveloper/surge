@@ -95,8 +95,15 @@ func run() error {
 
 	connections := domain.NewRegistry()
 	fleet := domain.NewFleet()
+	eta := domain.NewEtaModel()
+	etaError := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "surge_gateway_eta_error_seconds",
+		Help:    "Absolute error predicting an observed pickup: the learned model against a fixed 30 km/h.",
+		Buckets: []float64{5, 10, 20, 30, 45, 60, 90, 120, 180, 300, 600},
+	}, []string{"model"})
+	registry.MustRegister(etaError)
 
-	hub := ws.NewHub(connections, verifier, producer, webOrigins, fleet, clients.Trip, ws.Hooks{
+	hub := ws.NewHub(connections, verifier, producer, webOrigins, fleet, clients.Trip, eta, ws.Hooks{
 		OnConnect: func(role string) { metrics.connects.WithLabelValues(role).Inc() },
 		OnDisconnect: func(role string, reason domain.EvictionReason) {
 			metrics.disconnects.WithLabelValues(role, string(reason)).Inc()
@@ -133,6 +140,16 @@ func run() error {
 		return err
 	}
 	defer frames.Close()
+
+	// Pickups the fleet made, which the ETA riders are shown is learned from.
+	pickups, err := events.NewPickupConsumer(brokers, eta, func(learned, naive float64) {
+		etaError.WithLabelValues("learned").Observe(learned)
+		etaError.WithLabelValues("naive").Observe(naive)
+	})
+	if err != nil {
+		return err
+	}
+	defer pickups.Close()
 
 	guard := authz.Middleware(verifier, func(reason string) {
 		metrics.rejected.WithLabelValues(reason).Inc()
@@ -185,11 +202,12 @@ func run() error {
 		subsystem string
 		err       error
 	}
-	errs := make(chan failure, 4)
+	errs := make(chan failure, 5)
 
 	go func() { errs <- failure{"metrics", registry.ServeMetrics(ctx, metricsAddr)} }()
 	go func() { errs <- failure{"push consumer", pushes.Run(ctx)} }()
 	go func() { errs <- failure{"fleet consumer", frames.Run(ctx)} }()
+	go func() { errs <- failure{"pickup consumer", pickups.Run(ctx)} }()
 	go hub.RunFleet(ctx)
 	go func() {
 		slog.Info("gateway listening", "addr", httpAddr, "trip", tripAddr, "origins", webOrigins)

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"net/http"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ishakdeveloper/surge/services/gateway/internal/domain"
 	"github.com/ishakdeveloper/surge/shared/authz"
+	"github.com/ishakdeveloper/surge/shared/geo"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
 	"github.com/ishakdeveloper/surge/shared/tracing"
@@ -52,6 +54,8 @@ type Hub struct {
 	// is checked against who is asking.
 	fleet *domain.Fleet
 	trips trippb.TripServiceClient
+	// eta predicts how long a followed driver is from the pickup.
+	eta *domain.EtaModel
 
 	// Subscriptions, by connection id. Held here rather than on the connection
 	// because they are what the fan-out iterates; a connection that closes
@@ -70,15 +74,16 @@ type follower struct {
 	connection *domain.Connection
 	tripID     string
 	driverID   string
+	pickup     geo.Point
 }
 
 func NewHub(
 	registry *domain.Registry, verifier authz.Verifier, producer *kgo.Client, origins []string,
-	fleet *domain.Fleet, trips trippb.TripServiceClient, hooks Hooks,
+	fleet *domain.Fleet, trips trippb.TripServiceClient, eta *domain.EtaModel, hooks Hooks,
 ) *Hub {
 	return &Hub{
 		registry: registry, verifier: verifier, producer: producer, origins: origins, hooks: hooks,
-		fleet: fleet, trips: trips,
+		fleet: fleet, trips: trips, eta: eta,
 		watchers: map[string]watcher{}, followers: map[string]follower{},
 	}
 }
@@ -260,6 +265,7 @@ func (h *Hub) dispatch(ctx context.Context, connection *domain.Connection, messa
 		h.mu.Lock()
 		h.followers[connection.ID] = follower{
 			connection: connection, tripID: message.TripID, driverID: response.GetTrip().GetDriverId(),
+			pickup: geo.Point{Lat: response.GetTrip().GetPickup().GetLat(), Lng: response.GetTrip().GetPickup().GetLng()},
 		}
 		h.mu.Unlock()
 
@@ -449,6 +455,13 @@ func (h *Hub) fanOut(now time.Time) {
 		position := wire.DriverPosition{
 			TripID: f.tripID, DriverID: driver.ID,
 			Lat: driver.Lat, Lng: driver.Lng, Heading: driver.Heading, AtMs: now.UnixMilli(),
+		}
+		// A wait only means something while the driver is on the way.
+		if driver.Status == wire.StatusEnRoutePickup {
+			meters := geo.DistanceMeters(geo.Point{Lat: driver.Lat, Lng: driver.Lng}, f.pickup)
+			if seconds, ok := h.eta.Predict(meters); ok {
+				position.EtaSeconds = math.Round(seconds)
+			}
 		}
 		if payload, err := json.Marshal(wire.ServerMessage{Tag: wire.TagDriverPosition, Position: &position}); err == nil {
 			_ = f.connection.Send(payload)
