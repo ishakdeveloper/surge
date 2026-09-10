@@ -5,6 +5,18 @@
 # trade. A real deployment uses managed Postgres and a Redpanda operator, and
 # neither belongs in a file that also runs a simulator.
 ---
+# The second database, created by the image's initdb hook. Only ever runs on an
+# empty data directory, which with emptyDir means every pod restart — fine here,
+# and the reason `create database` need not be idempotent.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: postgres-init, namespace: surge }
+data:
+  01-databases.sql: |
+    CREATE DATABASE surge_auth;
+    COMMENT ON DATABASE surge IS 'Trip, and everything else the Go services own.';
+    COMMENT ON DATABASE surge_auth IS 'better-auth only. No Go service connects here.';
+---
 apiVersion: v1
 kind: Service
 metadata: { name: postgres, namespace: surge }
@@ -32,12 +44,20 @@ spec:
             - { name: POSTGRES_PASSWORD, value: surge }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
           ports: [{ name: postgres, containerPort: 5432 }]
-          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true }
           readinessProbe:
-            exec: { command: ["pg_isready", "-U", "surge", "-d", "surge"] }
+            # Probes surge_auth rather than surge: it is created by the init
+            # hook, so it is ready strictly later. A probe on the first database
+            # would report ready while the second did not yet exist, and the
+            # auth migration job would start and fail.
+            exec: { command: ["pg_isready", "-U", "surge", "-d", "surge_auth"] }
             initialDelaySeconds: 5
             periodSeconds: 5
-      volumes: [{ name: data, emptyDir: {} }]
+      volumes:
+        - { name: data, emptyDir: {} }
+        - { name: init, configMap: { name: postgres-init } }
 ---
 apiVersion: v1
 kind: Service

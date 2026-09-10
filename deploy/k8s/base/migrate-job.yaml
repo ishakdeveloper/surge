@@ -20,5 +20,7 @@ spec:
         - name: migrate
           image: surge/migrate:dev
           imagePullPolicy: IfNotPresent
+          # DATABASE_URL only. This job owns the trip schema and has no reason
+          # to hold a credential for the auth database.
           envFrom:
             - configMapRef: { name: surge-config }

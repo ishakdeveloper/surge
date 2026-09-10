@@ -39,6 +39,7 @@ configMapGenerator:
       - REDIS_ADDR=redis:6379
       - VALHALLA_URL=http://valhalla:8002
       - DATABASE_URL=postgresql://surge:surge@postgres:5432/surge
+      - AUTH_DATABASE_URL=postgresql://surge:surge@postgres:5432/surge_auth
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       # Sampled even here: exporting every span at ten thousand pings a second
       # makes the collector the bottleneck and the service under test spend its

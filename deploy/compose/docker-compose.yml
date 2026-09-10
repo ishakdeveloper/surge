@@ -28,6 +28,9 @@ services:
       - "55433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Creates the second database. The image runs anything in here once, on
+      # an empty data directory — so `make nuke` is what re-runs it.
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U surge -d surge"]
       interval: 5s

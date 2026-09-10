@@ -89,10 +89,11 @@ down: ## Stop infrastructure, keep the volumes
 logs: ## Follow infrastructure logs
 	$(COMPOSE) logs -f
 
-# Two migrators, one convention: idempotent, ledger-free, never run at boot.
-# packages/database owns better-auth's tables, services/migrations owns the
-# trip tables, and neither writes to the other's.
-migrate: build ## Apply database migrations (both languages)
+# Two migrators, two databases, one convention: idempotent, ledger-free, never
+# run at boot. packages/database owns better-auth's schema in surge_auth;
+# backend/migrations owns the trip schema in surge. Neither can reach the
+# other's, which is the point.
+migrate: build ## Apply migrations to both databases
 	pnpm --filter @surge/database migrate
 	@set -a; . ./.env; set +a; $(BIN)/migrate
 

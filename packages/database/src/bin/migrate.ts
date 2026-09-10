@@ -2,7 +2,12 @@ import { Redacted } from "effect";
 import { migrate } from "../Migrations.js";
 
 /**
- * Applies the migrations to `DATABASE_URL`.
+ * Applies the migrations to `AUTH_DATABASE_URL`.
+ *
+ * Named for what it is. This package holds better-auth's schema and nothing
+ * else, and it lives in its own database — so a variable called DATABASE_URL
+ * would invite exactly the mistake the split exists to prevent: pointing the
+ * auth migrator at the database the Go services own.
  *
  * A script rather than something the server does at boot. Two servers starting
  * at once would both migrate, and a schema change is the one operation that
@@ -11,10 +16,10 @@ import { migrate } from "../Migrations.js";
  *
  * `pnpm --filter @surge/database migrate`
  */
-const url = process.env["DATABASE_URL"];
+const url = process.env["AUTH_DATABASE_URL"];
 
 if (url === undefined || url === "") {
-  console.error("DATABASE_URL is not set.");
+  console.error("AUTH_DATABASE_URL is not set.");
   process.exit(1);
 }
 

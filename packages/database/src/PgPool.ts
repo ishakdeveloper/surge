@@ -11,7 +11,7 @@ import * as Pg from "pg";
 export class PgPool extends Context.Service<PgPool, Pg.Pool>()("PgPool") {
   static layer: Layer.Layer<PgPool> = Layer.effect(PgPool)(
     Effect.gen(function*() {
-      const url = yield* Config.redacted("DATABASE_URL");
+      const url = yield* Config.redacted("AUTH_DATABASE_URL");
       const ssl = yield* Config.boolean("DATABASE_SSL").pipe(Config.withDefault(false));
 
       const pool = new Pg.Pool({
