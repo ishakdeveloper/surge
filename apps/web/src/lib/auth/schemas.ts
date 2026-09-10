@@ -29,3 +29,15 @@ export const OtpCode = Schema.String.check(
   Schema.isMinLength(6, { message: "The code is 6 digits." }),
   Schema.isMaxLength(6, { message: "The code is 6 digits." }),
 );
+
+/**
+ * The roles a person can choose when signing up.
+ *
+ * `ops` is absent on purpose: it is granted, never claimed, and the auth server
+ * clamps anything else back to `rider`. Offering it here would be a control that
+ * silently does nothing.
+ */
+export const SignUpRole = Schema.Literals(["rider", "driver"]).annotate({
+  identifier: "SignUpRole",
+});
+export type SignUpRole = typeof SignUpRole.Type;

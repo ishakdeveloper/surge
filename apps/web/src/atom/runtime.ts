@@ -1,3 +1,4 @@
+import { browserGeolocation } from "@/lib/browser-geolocation.js";
 import { AuthToken } from "@surge/client/AuthToken";
 import { Realtime } from "@surge/client/Realtime";
 import { SurgeApi } from "@surge/client/SurgeApi";
@@ -51,7 +52,7 @@ const platform = Layer.mergeAll(
  * the token they are already authenticating with instead of asking better-auth
  * a second question it has already answered.
  */
-const services = Layer.mergeAll(SurgeApi.layer, Realtime.layer).pipe(
+const services = Layer.mergeAll(SurgeApi.layer, Realtime.layer, browserGeolocation).pipe(
   Layer.provideMerge(AuthToken.layer),
   Layer.provide(platform),
   Layer.provide(browserConfig),

@@ -1,6 +1,6 @@
 import { runtime } from "@/atom/runtime.js";
 import { Realtime } from "@surge/client/Realtime";
-import type { DriverStatus, Offer } from "@surge/domain/realtime/Wire";
+import type { Offer } from "@surge/domain/realtime/Wire";
 import { Effect, Stream } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -59,20 +59,6 @@ export const nowAtom = Atom.make(
   { initialValue: Date.now() },
 );
 
-/** Report a position. `Realtime` owns the epoch and sequence; nothing here does. */
-export const reportPosition = runtime.fn(
-  Effect.fnUntraced(function*(position: {
-    readonly lat: number;
-    readonly lng: number;
-    readonly heading: number;
-    readonly speedMps: number;
-    readonly status: DriverStatus;
-  }) {
-    const realtime = yield* Realtime;
-    yield* realtime.ping(position);
-  }),
-);
-
 /**
  * Answer an offer.
  *
@@ -84,8 +70,26 @@ export const reportPosition = runtime.fn(
  * a trip the driver is now on, not as a cache that needs refreshing.
  */
 export const answerOffer = runtime.fn(
-  Effect.fnUntraced(function*(answer: { readonly offer: Offer; readonly accepted: boolean; }) {
-    const realtime = yield* Realtime;
-    yield* realtime.reply(answer.offer, answer.accepted);
-  }),
+  Effect.fnUntraced(
+    function*(answer: { readonly offer: Offer; readonly accepted: boolean; }, get: Atom.FnContext) {
+      const realtime = yield* Realtime;
+      yield* realtime.reply(answer.offer, answer.accepted);
+      get.set(answeredAtom, {
+        tripIds: new Set([...get(answeredAtom).tripIds, answer.offer.tripId]),
+      });
+    },
+  ),
 );
+
+/**
+ * Offers already answered, by trip id, so they leave the list at once rather
+ * than when they expire. `offersAtom` is a record of what arrived; this is what
+ * the driver did about it, kept apart so neither has to be rewritten.
+ */
+export interface Answered {
+  readonly tripIds: ReadonlySet<Offer["tripId"]>;
+}
+
+// Wrapped in an object on purpose: `Atom.make` given a bare Set — anything
+// iterable — resolves to its Effect overload, since an Effect is iterable too.
+export const answeredAtom = Atom.make<Answered>({ tripIds: new Set<Offer["tripId"]>() });

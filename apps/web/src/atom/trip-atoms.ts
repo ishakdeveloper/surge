@@ -1,17 +1,20 @@
 import { Keys } from "@/atom/reactivity-keys.js";
 import { runtime } from "@/atom/runtime.js";
+import { Realtime } from "@surge/client/Realtime";
 import { SurgeApi } from "@surge/client/SurgeApi";
 import type { FareId, TripId } from "@surge/domain/api/Primitives";
-import { type Coordinate, isFinished } from "@surge/domain/trip/Trip";
-import { Effect, Schedule, Stream } from "effect";
-import { Atom } from "effect/unstable/reactivity";
+import { type Coordinate, isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
+import { Effect, Option, Stream } from "effect";
+import { AsyncResult, Atom, Reactivity } from "effect/unstable/reactivity";
 
 /**
- * Trips, over the generated REST surface.
+ * Trips, over the generated REST surface, kept fresh by the WebSocket.
  *
  * Reads subscribe with `Atom.withReactivity`; writes announce with
- * `reactivityKeys`, so booking a trip refreshes the list without either side
- * knowing the other exists.
+ * `reactivityKeys`. What makes it live is `tripPushesAtom` below: the trip
+ * service pushes every change to the people on the trip, and that one atom
+ * turns each push into an invalidation, so every trip query reruns the moment
+ * the server knows something new — and none of them polls.
  */
 
 /**
@@ -46,9 +49,7 @@ export const bookTrip = runtime.fn(
     readonly idempotencyKey: string;
   }) {
     const api = yield* SurgeApi;
-    return yield* api.trips.create({
-      payload: { fareId: booking.fareId, idempotencyKey: booking.idempotencyKey },
-    });
+    return yield* api.trips.create({ payload: booking });
   }),
   { reactivityKeys: [Keys.trips] },
 );
@@ -67,7 +68,40 @@ export const cancelTrip = runtime.fn(
   { reactivityKeys: [Keys.trips] },
 );
 
-/** The caller's own trips. There is no parameter for whose — the token decides. */
+/**
+ * The driver's three steps. The trip service refuses them from anyone but the
+ * assigned driver, and refuses them out of order, so the page only has to offer
+ * the one that comes next.
+ */
+export const arriveTrip = runtime.fn(
+  Effect.fnUntraced(function*(tripId: TripId) {
+    const api = yield* SurgeApi;
+    return yield* api.trips.arrive({ params: { tripId } });
+  }),
+  { reactivityKeys: [Keys.trips] },
+);
+
+export const startTrip = runtime.fn(
+  Effect.fnUntraced(function*(tripId: TripId) {
+    const api = yield* SurgeApi;
+    return yield* api.trips.start({ params: { tripId } });
+  }),
+  { reactivityKeys: [Keys.trips] },
+);
+
+export const completeTrip = runtime.fn(
+  Effect.fnUntraced(function*(tripId: TripId) {
+    const api = yield* SurgeApi;
+    return yield* api.trips.complete({ params: { tripId } });
+  }),
+  { reactivityKeys: [Keys.trips] },
+);
+
+/**
+ * The caller's own trips, newest first. There is no parameter for whose — the
+ * token decides, and it decides which side of a trip too: a rider sees the
+ * trips they booked, a driver the ones they were assigned.
+ */
 export const tripsAtom = Atom.withReactivity([Keys.trips])(
   runtime.atom(
     Effect.gen(function*() {
@@ -79,32 +113,54 @@ export const tripsAtom = Atom.withReactivity([Keys.trips])(
 );
 
 /**
- * One trip, followed until it stops moving.
+ * The trip the caller is on right now, if any: still waiting for a driver, or
+ * with one on the way or aboard.
  *
- * Polled, and this is the part of the system that should not stay polled. Every
- * other piece of live state here arrives over the WebSocket; a trip's status
- * does not, because nothing yet produces rider-addressed messages to `ws.push`
- * — the matcher only publishes offers, which are addressed to drivers. Two
- * seconds for the few seconds a match takes is off the hot path and costs
- * nothing measurable, but it is the wrong shape for this system and is written
- * here rather than hidden in a component so that it is easy to delete.
- *
- * The stream stops on its own once the trip reaches a terminal state, so a
- * completed trip is not polled forever by a tab somebody left open.
+ * Derived rather than fetched, so there is one list of trips and this is a view
+ * of it — a second request for "the current one" would be a second answer that
+ * could disagree with the first.
  */
+export const activeTripAtom = Atom.readable((get) =>
+  AsyncResult.map(
+    get(tripsAtom),
+    (trips): Option.Option<Trip> =>
+      Option.fromNullishOr(trips.find((trip) => isPending(trip.status) || isUnderway(trip.status))),
+  )
+);
+
+/** One trip. Refreshed by pushes like every other trip query. */
 export const tripAtom = Atom.family((tripId: TripId) =>
   Atom.withReactivity([Keys.trips])(
     runtime.atom(
-      Stream.unwrap(
-        Effect.map(SurgeApi, (api) =>
-          Stream.fromEffectRepeat(api.trips.get({ params: { tripId } })).pipe(
-            Stream.schedule(Schedule.spaced("2 seconds")),
-            Stream.map((response) =>
-              response.trip
-            ),
-            Stream.takeUntil((trip) => isFinished(trip.status)),
-          )),
-      ),
+      Effect.gen(function*() {
+        const api = yield* SurgeApi;
+        const { trip } = yield* api.trips.get({ params: { tripId } });
+        return trip;
+      }),
     ),
   )
+);
+
+/**
+ * Pushes, turned into invalidation.
+ *
+ * Mounted once by each page that shows trips. Two things invalidate: a
+ * `TripUpdated` push, which says a trip moved, and a *re*connect, which says
+ * one might have — a push sent while the socket was down is gone, because the
+ * gateway keeps no replay, so coming back is treated as having missed
+ * something. The first connection is exempt: nothing can have been missed
+ * before there was anything to miss.
+ */
+export const tripPushesAtom = runtime.atom(
+  Stream.unwrap(
+    Effect.map(Realtime, (realtime) =>
+      Stream.merge(
+        realtime.tripUpdates,
+        realtime.status.pipe(
+          Stream.changes,
+          Stream.filter((status) => status === "Connected"),
+          Stream.drop(1),
+        ),
+      ).pipe(Stream.mapEffect(() => Reactivity.invalidate([Keys.trips])))),
+  ),
 );

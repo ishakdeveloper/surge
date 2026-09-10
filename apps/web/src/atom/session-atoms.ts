@@ -1,5 +1,6 @@
 import { Keys } from "@/atom/reactivity-keys.js";
 import { authClient } from "@/iam/auth-client.js";
+import type { SignUpRole } from "@/lib/auth/schemas.js";
 import { Identity, Unauthenticated } from "@surge/domain/iam/Identity";
 import { Effect, Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
@@ -58,7 +59,11 @@ const fromAuthResult = (result: { readonly error: { readonly status?: number; } 
 export const signIn = (credentials: { readonly email: string; readonly password: string; }) =>
   Effect.promise(() => authClient.signIn.email(credentials)).pipe(Effect.flatMap(fromAuthResult));
 
-export const signUp = (credentials: { readonly email: string; readonly password: string; }) =>
+export const signUp = (credentials: {
+  readonly email: string;
+  readonly password: string;
+  readonly role: SignUpRole;
+}) =>
   Effect.promise(() =>
     authClient.signUp.email({
       ...credentials,

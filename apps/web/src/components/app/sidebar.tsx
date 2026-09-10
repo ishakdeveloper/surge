@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator.js";
 import type { LinkProps } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { LayoutDashboard } from "lucide-react";
+import { Car, LayoutDashboard, Navigation } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Exported for the command palette, so the two cannot list different pages. */
@@ -15,10 +15,11 @@ export const nav: ReadonlyArray<{
   readonly exact?: boolean;
 }> = [
   { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
-  // Phase 4 adds /console, /ride and /drive here. They are absent rather than
-  // stubbed because the router's `to` is typed against the generated route
-  // tree, so a link to a route that does not exist is a compile error — which
-  // is the behaviour worth keeping.
+  { to: "/ride", label: "Ride", icon: Car },
+  { to: "/drive", label: "Drive", icon: Navigation },
+  // /console joins these when the fleet feed exists to draw. Absent rather than
+  // stubbed, because `to` is typed against the generated route tree and a link
+  // to a route that does not exist should be a compile error.
 ];
 
 const item =

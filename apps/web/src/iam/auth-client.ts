@@ -1,4 +1,9 @@
-import { emailOTPClient, jwtClient, magicLinkClient } from "better-auth/client/plugins";
+import {
+  emailOTPClient,
+  inferAdditionalFields,
+  jwtClient,
+  magicLinkClient,
+} from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 /**
@@ -37,5 +42,16 @@ const baseURL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:3200";
  */
 export const authClient = createAuthClient({
   baseURL,
-  plugins: [magicLinkClient(), emailOTPClient(), jwtClient()],
+  plugins: [
+    magicLinkClient(),
+    emailOTPClient(),
+    jwtClient(),
+    /**
+     * `role` is an additional user field on the server, and sign-up sends one:
+     * riders and drivers choose on the way in. Declaring it here is what types
+     * that argument — the server clamps the value regardless, so an account can
+     * never make itself `ops` by sending it.
+     */
+    inferAdditionalFields({ user: { role: { type: "string", required: false, input: true } } }),
+  ],
 });

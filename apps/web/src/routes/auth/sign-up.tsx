@@ -1,10 +1,11 @@
 import { sessionAtom, signInWithGoogle, signUp } from "@/atom/session-atoms.js";
 import { AuthCard, AuthLink, GoogleButton } from "@/components/auth/auth-card.js";
+import { roleField } from "@/components/auth/role-field.js";
 import { textField } from "@/components/auth/text-field.js";
 import { Alert, AlertDescription } from "@/components/ui/alert.js";
 import { Button } from "@/components/ui/button.js";
 import { submitMessage } from "@/lib/auth/auth-result.js";
-import { Email, NewPassword } from "@/lib/auth/schemas.js";
+import { Email, NewPassword, SignUpRole } from "@/lib/auth/schemas.js";
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { FormBuilder, FormReact } from "@lucas-barake/effect-form-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -17,12 +18,17 @@ const form = FormReact.make(
     .addField("email", Email)
     // The minimum is enforced here rather than only server-side, so the rule is
     // visible before a round trip.
-    .addField("password", NewPassword),
+    .addField("password", NewPassword)
+    // Chosen once, here. There is no switching later: a driver's history is
+    // trips they drove and a rider's is trips they took, and one account that
+    // was both would make every list ambiguous.
+    .addField("role", SignUpRole),
   {
     mode: { validation: "onBlur" },
     fields: {
       email: textField({ label: "Email", type: "email", autoComplete: "email" }),
       password: textField({ label: "Password", type: "password", autoComplete: "new-password" }),
+      role: roleField({ legend: "I want to" }),
     },
     onSubmit: (_, { decoded }) => signUp(decoded),
   },
@@ -60,17 +66,18 @@ const SignUp = () => {
   return (
     <AuthCard
       title="Create an account"
-      description="A personal organization is created with your account."
+      description="Riders book trips. Drivers are offered them."
       footer={
         <span>
           Already have an account? <AuthLink to="/auth/sign-in">Sign in</AuthLink>
         </span>
       }
     >
-      <form.Initialize defaultValues={{ email: "", password: "" }}>
+      <form.Initialize defaultValues={{ email: "", password: "", role: "rider" }}>
         <div className="flex flex-col gap-4">
           <form.email submitted={submitted} />
           <form.password submitted={submitted} />
+          <form.role submitted={submitted} />
           {result._tag === "Failure" && (
             <Alert variant="destructive">
               <AlertDescription>

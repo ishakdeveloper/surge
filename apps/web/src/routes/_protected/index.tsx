@@ -1,14 +1,13 @@
 import { sessionAtom } from "@/atom/session-atoms.js";
 import { QueryError } from "@/components/app/query-error.js";
 import { useAtomValue } from "@effect/atom-react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 /**
- * A placeholder, and a live check.
+ * Where a signed-in person lands, and a live check.
  *
- * Phase 4 replaces this with the console, the rider app and the driver app.
- * Until then it earns its place by rendering the decoded `Identity` — which is
+ * It points each role at its surface, and it renders the decoded `Identity` —
  * the one thing the whole auth arrangement has to get right, because the same
  * three fields are what Go parses out of the JWT. If the role shown here is
  * wrong, every Go service is about to be wrong in the same way.
@@ -41,6 +40,17 @@ const Home = () => {
         <dt className="text-muted-foreground">Email verified</dt>
         <dd className="font-mono">{session.value.emailVerified ? "yes" : "no"}</dd>
       </dl>
+
+      {session.value.role === "rider" && (
+        <Link to="/ride" className="text-primary text-sm underline-offset-4 hover:underline">
+          Book a ride →
+        </Link>
+      )}
+      {session.value.role === "driver" && (
+        <Link to="/drive" className="text-primary text-sm underline-offset-4 hover:underline">
+          Start a shift →
+        </Link>
+      )}
     </section>
   );
 };

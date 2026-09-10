@@ -1,3 +1,5 @@
+import { runtime } from "@/atom/runtime.js";
+import { RegistryProvider } from "@effect/atom-react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -5,6 +7,7 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import { render } from "@testing-library/react";
+import { Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -31,7 +34,20 @@ const mount = async (load: () => Promise<{ readonly node: React.ReactNode; }>) =
 
   await router.load();
 
-  return render(<RouterProvider router={router as never} />);
+  // The runtime's layer is seeded with one that never finishes building. The
+  // pages below open a WebSocket and call the gateway the moment their atoms
+  // are read, and under jsdom the gateway on this machine is real — so without
+  // this a page test would connect to a running system, or retry against one
+  // that is not there, for as long as the test process lives. What is under
+  // test is that the modules and their bindings hold together, and a page
+  // waiting on a runtime that never arrives still renders its loading state.
+  const inert = Layer.effectContext(Effect.never);
+
+  return render(
+    <RegistryProvider initialValues={[[runtime.layer, inert]]}>
+      <RouterProvider router={router as never} />
+    </RegistryProvider>,
+  );
 };
 
 describe("page modules", () => {
@@ -41,8 +57,8 @@ describe("page modules", () => {
    */
   const pages = [
     ["home", () => import("@/routes/_protected/index.js")],
-    // Phase 4 adds /console, /ride and /drive here. One entry is a thin table,
-    // not a broken test: what it guards is the wiring of whatever is listed.
+    ["ride", () => import("@/routes/_protected/ride/index.js")],
+    ["drive", () => import("@/routes/_protected/drive/index.js")],
   ] as const;
 
   for (const [name, load] of pages) {
