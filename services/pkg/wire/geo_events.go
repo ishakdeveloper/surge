@@ -253,3 +253,37 @@ type Offer struct {
 	// match latency is measured end to end rather than per hop.
 	RequestedAtMs int64 `json:"requestedAtMs"`
 }
+
+// TagShardCheckpoint marks a record on the compacted `geo.state` topic.
+const TagShardCheckpoint = "ShardCheckpoint"
+
+// ShardCheckpoint is what a shard writes down before letting go of a cell.
+//
+// Deliberately small, and what it leaves out is the point. Driver positions are
+// absent: they re-arrive within one ping interval, so checkpointing them would
+// write ten thousand records a second to buy four seconds of recovery. What
+// cannot be rebuilt from the stream is the promises — which driver is being
+// held for which trip, and until when — because nothing else in the system
+// remembers them.
+//
+// Keyed by resolution-7 cell on a topic co-partitioned with `geo.events`, so
+// owning partition N of one means owning partition N of the other and a
+// restoring shard reads exactly its own cells.
+type ShardCheckpoint struct {
+	Tag  string `json:"_tag"`
+	Cell string `json:"cell"`
+	AtMs int64  `json:"atMs"`
+	// Offers is empty when the cell has nothing outstanding, which is the
+	// normal case and is written anyway — a compacted topic needs the empty
+	// record to supersede a previous non-empty one.
+	Offers []CheckpointedOffer `json:"offers"`
+}
+
+// CheckpointedOffer is one outstanding hold.
+type CheckpointedOffer struct {
+	TripID        string `json:"tripId"`
+	DriverID      string `json:"driverId"`
+	ReplyCell     string `json:"replyCell"`
+	RequestedAtMs int64  `json:"requestedAtMs"`
+	ExpiresAtMs   int64  `json:"expiresAtMs"`
+}

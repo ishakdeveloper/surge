@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -57,6 +58,17 @@ func run() error {
 	}
 	useKafka, err := config.BoolOr("SIM_KAFKA", true)
 	if err != nil {
+		return err
+	}
+
+	riderSettings := sim.DefaultRiderConfig()
+	if riderSettings.RequestsPerSecond, err = floatOr("SIM_REQUESTS_PER_SECOND", riderSettings.RequestsPerSecond); err != nil {
+		return err
+	}
+	if riderSettings.AcceptRate, err = floatOr("SIM_ACCEPT_RATE", riderSettings.AcceptRate); err != nil {
+		return err
+	}
+	if riderSettings.AcceptLatency, err = config.DurationOr("SIM_ACCEPT_LATENCY", riderSettings.AcceptLatency); err != nil {
 		return err
 	}
 
@@ -137,6 +149,39 @@ func run() error {
 		"pingsPerSecond", float64(settings.Drivers)/settings.PingInterval.Seconds(),
 	)
 
+	// Demand, and the drivers who answer it. Only with Kafka: the discard
+	// transport is a control run measuring the simulator itself, and there is
+	// nothing on the other end to match against.
+	if useKafka {
+		riderSettings.Seed = settings.Seed
+		riders, err := sim.NewRiders(brokers, config.StringOr("SIM_RIDER_GROUP", "sim-drivers"), pool, riderSettings,
+			sim.RiderHooks{
+				OnRequest:  func() { metrics.requests.Inc() },
+				OnOffer:    func() { metrics.offers.Inc() },
+				OnAccepted: func() { metrics.replies.WithLabelValues("accepted").Inc() },
+				OnDeclined: func() { metrics.replies.WithLabelValues("declined").Inc() },
+				OnError:    func(error) { metrics.pingErrors.Inc() },
+				OnDuplicate: func(tripID string) {
+					// Must stay at zero. A non-zero value means two drivers
+					// held live offers for one rider, which is the exact
+					// failure the single-writer sharding exists to prevent.
+					metrics.duplicates.Inc()
+					slog.Error("DOUBLE DISPATCH", "trip", tripID)
+				},
+			})
+		if err != nil {
+			return err
+		}
+		defer riders.Close()
+
+		go func() { _ = riders.Run(ctx) }()
+		slog.Info("demand started",
+			"requestsPerSecond", riderSettings.RequestsPerSecond,
+			"acceptRate", riderSettings.AcceptRate,
+			"acceptLatency", riderSettings.AcceptLatency,
+		)
+	}
+
 	errs := make(chan error, 2)
 	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
 	go func() { errs <- serveControl(ctx, controlAddr, fleet, pool) }()
@@ -158,6 +203,10 @@ func run() error {
 }
 
 type metrics struct {
+	duplicates prometheus.Counter
+	requests   prometheus.Counter
+	offers     prometheus.Counter
+	replies    *prometheus.CounterVec
 	drivers    prometheus.Gauge
 	pings      prometheus.Counter
 	pingErrors prometheus.Counter
@@ -168,6 +217,19 @@ type metrics struct {
 
 func newMetrics(registry *obs.Registry) *metrics {
 	m := &metrics{
+		duplicates: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "surge_sim_double_dispatch_total",
+			Help: "Trips offered to a second driver while already accepted. Must be zero.",
+		}),
+		requests: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "surge_sim_requests_total", Help: "Ride requests generated.",
+		}),
+		offers: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "surge_sim_offers_received_total", Help: "Offers delivered to simulated drivers.",
+		}),
+		replies: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "surge_sim_offer_replies_total", Help: "Driver answers, by outcome.",
+		}, []string{"outcome"}),
 		drivers: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "surge_sim_drivers",
 			Help: "Simulated drivers currently configured.",
@@ -195,7 +257,8 @@ func newMetrics(registry *obs.Registry) *metrics {
 		}, []string{"outcome"}),
 	}
 
-	registry.MustRegister(m.drivers, m.pings, m.pingErrors, m.arrivals, m.poolSize, m.routeFetch)
+	registry.MustRegister(m.duplicates, m.requests, m.offers, m.replies,
+		m.drivers, m.pings, m.pingErrors, m.arrivals, m.poolSize, m.routeFetch)
 	return m
 }
 
@@ -299,6 +362,21 @@ func serveControl(ctx context.Context, addr string, fleet *sim.Sim, pool *sim.Ro
 		return fmt.Errorf("simd: control api: %w", err)
 	}
 	return nil
+}
+
+// floatOr mirrors config.IntOr for a float: unset takes the default, set but
+// unparseable is an error.
+func floatOr(key string, fallback float64) (float64, error) {
+	raw := config.StringOr(key, "")
+	if raw == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, fmt.Errorf("config: %s=%q is not a valid number: %w", key, raw, err)
+	}
+	return parsed, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

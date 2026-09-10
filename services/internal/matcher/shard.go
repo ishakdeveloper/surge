@@ -147,6 +147,13 @@ type Shard struct {
 
 	// seen is the idempotency window: request keys already acted on.
 	seen map[string]time.Time
+
+	// restoredHolds are reservations recovered from a checkpoint whose driver
+	// has not been seen again yet, applied when they reappear.
+	restoredHolds map[string]string
+	// checkpointed tracks every cell this shard has written a checkpoint for,
+	// so it can write an empty record to supersede it.
+	checkpointed map[string]struct{}
 }
 
 func NewShard(partition int32, config Config) *Shard {
@@ -159,6 +166,9 @@ func NewShard(partition int32, config Config) *Shard {
 		pending:   make(map[string]*pendingRequest),
 		offers:    make(map[string]*heldOffer),
 		seen:      make(map[string]time.Time),
+
+		restoredHolds: make(map[string]string),
+		checkpointed:  make(map[string]struct{}),
 	}
 }
 
@@ -217,6 +227,14 @@ func (s *Shard) driverEntered(event wire.GeoEvent, now time.Time) (Outcome, erro
 		shardCell: event.Cell,
 		status:    payload.Status,
 		seq:       payload.Seq,
+	}
+
+	if trip, held := s.restoredHolds[payload.DriverID]; held {
+		// A reservation that survived a rebalance, meeting its driver again.
+		if _, live := s.offers[trip]; live {
+			driver.reservedFor = trip
+		}
+		delete(s.restoredHolds, payload.DriverID)
 	}
 
 	s.place(driver)
@@ -586,6 +604,12 @@ func (s *Shard) Tick(now time.Time) Outcome {
 		}
 	}
 
+	for driverID, trip := range s.restoredHolds {
+		if _, live := s.offers[trip]; !live {
+			delete(s.restoredHolds, driverID)
+		}
+	}
+
 	return outcome
 }
 
@@ -680,3 +704,85 @@ func (s *Shard) remove(driver *driverState) {
 	s.unindex(driver)
 	delete(s.drivers, driver.id)
 }
+
+// Checkpoint captures the state that cannot be rebuilt from the stream.
+//
+// One record per cell this shard holds offers for, plus an empty record for
+// every cell it has previously written — compaction keeps the last record per
+// key, so an empty one is how a cell is told it has nothing outstanding.
+func (s *Shard) Checkpoint(now time.Time) []wire.ShardCheckpoint {
+	byCell := make(map[string][]wire.CheckpointedOffer)
+
+	// Every cell that was ever written needs a record, or a stale non-empty one
+	// survives compaction and a restoring shard reinstates offers that were
+	// resolved before the handover.
+	for cell := range s.checkpointed {
+		byCell[cell] = nil
+	}
+
+	for _, offer := range s.offers {
+		cell := offer.replyCell
+		if driver, ok := s.drivers[offer.driverID]; ok {
+			cell = driver.shardCell
+		}
+
+		byCell[cell] = append(byCell[cell], wire.CheckpointedOffer{
+			TripID:        offer.tripID,
+			DriverID:      offer.driverID,
+			ReplyCell:     offer.replyCell,
+			RequestedAtMs: offer.requestedAtMs,
+			ExpiresAtMs:   offer.expires.UnixMilli(),
+		})
+	}
+
+	records := make([]wire.ShardCheckpoint, 0, len(byCell))
+	for cell, offers := range byCell {
+		records = append(records, wire.ShardCheckpoint{
+			Tag:    wire.TagShardCheckpoint,
+			Cell:   cell,
+			AtMs:   now.UnixMilli(),
+			Offers: offers,
+		})
+		s.checkpointed[cell] = struct{}{}
+	}
+
+	return records
+}
+
+// Restore rebuilds the holds from a checkpoint.
+//
+// The drivers themselves are NOT restored, and cannot be: their positions come
+// from the ping stream and will arrive on their own within a ping interval. So
+// a restored hold is recorded against a driver the shard has not met yet, and
+// applied the moment they turn up. In the meantime the offer's deadline still
+// runs, which means a hold whose driver never reappears expires by itself
+// rather than leaking.
+func (s *Shard) Restore(records []wire.ShardCheckpoint, now time.Time) {
+	for _, record := range records {
+		s.checkpointed[record.Cell] = struct{}{}
+
+		for _, offer := range record.Offers {
+			expires := time.UnixMilli(offer.ExpiresAtMs)
+			if !expires.After(now) {
+				// Expired while the partition was in flight. Letting it lapse
+				// is correct: the requester has already been told, or is about
+				// to time out on its own.
+				continue
+			}
+
+			s.offers[offer.TripID] = &heldOffer{
+				tripID:        offer.TripID,
+				driverID:      offer.DriverID,
+				replyCell:     offer.ReplyCell,
+				requestedAtMs: offer.RequestedAtMs,
+				expires:       expires,
+			}
+			s.restoredHolds[offer.DriverID] = offer.TripID
+		}
+	}
+}
+
+// RestoredHolds is how many reservations are waiting for their driver to
+// reappear. It falls to zero within a ping interval of a rebalance, and a value
+// that stays above zero means drivers are not coming back.
+func (s *Shard) RestoredHolds() int { return len(s.restoredHolds) }

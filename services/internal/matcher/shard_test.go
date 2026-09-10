@@ -370,3 +370,116 @@ func TestNoDriverIsEverDoubleBooked(t *testing.T) {
 		t.Errorf("%d of %d drivers were dispatched; the rest were never offered", len(held), drivers)
 	}
 }
+
+// A rebalance moves a partition mid-offer. What has to survive is the promise —
+// which driver is held for which trip — because nothing else in the system
+// remembers it. What must NOT be carried over is driver positions: they arrive
+// again on their own, and writing them down would be ten thousand records a
+// second to buy four seconds.
+func TestCheckpointCarriesPromisesAndNotPositions(t *testing.T) {
+	losing := matcher.NewShard(0, matcher.DefaultConfig())
+	must(t, losing, entered(t, "drv-1", nearby, 1), base)
+	first := must(t, losing, request(t, "trip-a", dam), base)
+
+	if len(first.Offers) != 1 {
+		t.Fatalf("setup: expected an offer, got %+v", first)
+	}
+
+	records := losing.Checkpoint(base.Add(time.Second))
+	if len(records) == 0 {
+		t.Fatal("an outstanding offer produced no checkpoint")
+	}
+
+	held := 0
+	for _, record := range records {
+		held += len(record.Offers)
+	}
+	if held != 1 {
+		t.Fatalf("checkpoint carries %d offers, want 1", held)
+	}
+
+	// The partition moves to another instance.
+	gaining := matcher.NewShard(0, matcher.DefaultConfig())
+	gaining.Restore(records, base.Add(2*time.Second))
+
+	if gaining.Offers() != 1 {
+		t.Fatalf("the promise did not survive the handover, %d offers restored", gaining.Offers())
+	}
+	// Positions are not restored, deliberately.
+	if gaining.Drivers() != 0 {
+		t.Errorf("driver positions were carried over; they should come from the ping stream")
+	}
+	if gaining.RestoredHolds() != 1 {
+		t.Errorf("the hold should be waiting for its driver to reappear, got %d", gaining.RestoredHolds())
+	}
+
+	// When the driver's next ping arrives, the hold is applied — so the new
+	// owner will not hand them to somebody else.
+	must(t, gaining, entered(t, "drv-1", nearby, 2), base.Add(3*time.Second))
+	if gaining.RestoredHolds() != 0 {
+		t.Error("the hold was not applied when the driver reappeared")
+	}
+
+	taken := must(t, gaining, request(t, "trip-b", dam), base.Add(4*time.Second))
+	if len(taken.Offers) != 0 {
+		t.Fatalf("a driver reserved before the rebalance was re-offered after it: %+v", taken.Offers)
+	}
+}
+
+// A hold whose driver never comes back must lapse rather than leak. Otherwise a
+// rebalance during an offer permanently removes a driver from the pool.
+func TestRestoredHoldExpiresIfTheDriverNeverReturns(t *testing.T) {
+	config := matcher.DefaultConfig()
+	config.OfferTTL = 5 * time.Second
+
+	losing := matcher.NewShard(0, config)
+	must(t, losing, entered(t, "drv-1", nearby, 1), base)
+	must(t, losing, request(t, "trip-a", dam), base)
+
+	gaining := matcher.NewShard(0, config)
+	gaining.Restore(losing.Checkpoint(base.Add(time.Second)), base.Add(time.Second))
+
+	if gaining.Offers() != 1 {
+		t.Fatalf("setup: expected a restored offer, got %d", gaining.Offers())
+	}
+
+	// The offer's own deadline still runs across the handover.
+	gaining.Tick(base.Add(10 * time.Second))
+
+	if gaining.Offers() != 0 {
+		t.Error("the restored offer outlived its deadline")
+	}
+	if gaining.RestoredHolds() != 0 {
+		t.Error("the hold leaked after its offer expired")
+	}
+}
+
+// Compaction keeps the last record per key, so a cell that no longer has offers
+// needs an empty record to supersede its previous one — otherwise a restoring
+// shard reinstates offers that were resolved before the handover.
+func TestCheckpointSupersedesResolvedOffers(t *testing.T) {
+	shard := matcher.NewShard(0, matcher.DefaultConfig())
+	must(t, shard, entered(t, "drv-1", nearby, 1), base)
+	first := must(t, shard, request(t, "trip-a", dam), base)
+
+	shard.Checkpoint(base.Add(time.Second))
+
+	must(t, shard, wire.GeoEvent{
+		Tag:  wire.TagOfferReplied,
+		Cell: first.Offers[0].ReplyCell,
+		Replied: &wire.OfferRepliedPayload{
+			TripID: "trip-a", DriverID: "drv-1", Accepted: true,
+		},
+	}, base.Add(2*time.Second))
+
+	records := shard.Checkpoint(base.Add(3 * time.Second))
+
+	if len(records) == 0 {
+		t.Fatal("a cell with a previous checkpoint must still be written")
+	}
+	for _, record := range records {
+		if len(record.Offers) != 0 {
+			t.Fatalf("a resolved offer is still checkpointed: %+v", record.Offers)
+		}
+	}
+}

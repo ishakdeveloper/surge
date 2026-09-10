@@ -165,3 +165,19 @@ func (p *RoutePool) Random(source *rand.Rand) *routing.Route {
 	}
 	return p.routes[source.IntN(len(p.routes))]
 }
+
+// RandomPoint returns a point somewhere along a random route.
+//
+// Used for rider pickups. Better than a random point in the bounding box for
+// the same reason it is better for drivers: it is on a road. A pickup in the
+// middle of the IJ produces a request no driver can reach, which would show up
+// as a matching failure rather than as the bad input it is.
+func (p *RoutePool) RandomPoint(source *rand.Rand) (geo.Point, bool) {
+	route := p.Random(source)
+	if route == nil {
+		return geo.Point{}, false
+	}
+
+	point, _ := route.Path.At(source.Float64() * route.Path.Length())
+	return point, true
+}

@@ -9,7 +9,7 @@ GO      := cd services && go
 BIN     := services/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs migrate build test check fmt dev-auth dev-sim dev-ingest load control clean nuke
+.PHONY: help up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -37,6 +37,7 @@ migrate: ## Apply database migrations
 build: ## Build every Go binary
 	$(GO) build -o bin/simd ./cmd/simd
 	$(GO) build -o bin/ingest ./cmd/ingest
+	$(GO) build -o bin/matcher ./cmd/matcher
 
 test: ## Run both test suites
 	$(GO) vet ./... && cd services && go test ./...
@@ -55,6 +56,10 @@ dev-auth: ## Run the auth service (the only Node in any request path)
 dev-ingest: build ## Run location ingest
 	@set -a; . ./.env; set +a; \
 	INGEST_GROUP=$${INGEST_GROUP:-ingest} $(BIN)/ingest
+
+dev-matcher: build ## Run a matcher instance (run several; they share the partitions)
+	@set -a; . ./.env; set +a; \
+	MATCHER_METRICS_ADDR=$${MATCHER_METRICS_ADDR:-:9103} $(BIN)/matcher
 
 dev-sim: build ## Run the driver simulator
 	@set -a; . ./.env; set +a; \
@@ -77,6 +82,17 @@ control: ## Simulator-only control run, pings discarded
 stats: ## Current simulator and ingest state
 	@echo "sim:    $$(curl -s localhost:8101/sim/stats)"
 	@echo "ingest: $$(curl -s localhost:8102/debug/stats)"
+
+# Chaos.
+#
+# Both targets exist to answer one question: does a partition changing hands
+# ever hand one driver to two riders? The invariant is
+# surge_sim_double_dispatch_total, and it must stay at zero through both.
+chaos-scale: ## Add a matcher instance under load and watch the rebalance
+	@bash scripts/chaos.sh scale
+
+chaos-kill: ## kill -9 a matcher mid-offer and watch recovery
+	@bash scripts/chaos.sh kill
 
 clean: ## Remove build output
 	rm -rf $(BIN) apps/*/build packages/*/build apps/web/.output
