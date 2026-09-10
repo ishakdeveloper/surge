@@ -261,6 +261,26 @@ func (r *Postgres) LedgerBalance(ctx context.Context, account string) (int64, er
 	return balance, nil
 }
 
+func (r *Postgres) EventHandled(ctx context.Context, eventID string) (bool, error) {
+	var handled bool
+	if err := r.pool.QueryRow(ctx,
+		`select exists (select 1 from processor_event where event_id = $1)`, eventID,
+	).Scan(&handled); err != nil {
+		return false, fmt.Errorf("repository: event handled: %w", err)
+	}
+	return handled, nil
+}
+
+func (r *Postgres) MarkEventHandled(ctx context.Context, eventID, eventType string) error {
+	if _, err := r.pool.Exec(ctx,
+		`insert into processor_event (event_id, type) values ($1, $2) on conflict (event_id) do nothing`,
+		eventID, eventType,
+	); err != nil {
+		return fmt.Errorf("repository: mark event handled: %w", err)
+	}
+	return nil
+}
+
 // Apply writes a change in one transaction.
 func (r *Postgres) Apply(ctx context.Context, change domain.Change) error {
 	for _, txn := range change.Txns {

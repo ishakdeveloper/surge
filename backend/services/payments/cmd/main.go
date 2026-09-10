@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/fake"
 	paymentshandler "github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/grpc"
 	"github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/repository"
+	surgestripe "github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/stripe"
 	"github.com/ishakdeveloper/surge/services/payments/internal/service"
 	"github.com/ishakdeveloper/surge/shared/authz"
 	"github.com/ishakdeveloper/surge/shared/config"
@@ -73,9 +75,16 @@ func run() error {
 		return err
 	}
 
-	processor, err := openProcessor()
+	processor, stripeProcessor, err := openProcessor()
 	if err != nil {
 		return err
+	}
+	if stripeProcessor != nil && !strings.HasPrefix(webURL, "https://") {
+		// Stripe refuses onboarding links whose return address is not HTTPS,
+		// localhost included. Everything else works; say so at boot rather
+		// than in a driver's failed click.
+		slog.Warn("PAYMENTS_WEB_URL is not https; Stripe will refuse driver onboarding links until it is",
+			"web_url", webURL)
 	}
 
 	shutdownTracing, err := tracing.Init(ctx, "payments",
@@ -142,7 +151,18 @@ func run() error {
 		// reads who is asking from context and never from the request.
 		grpc.UnaryInterceptor(authz.UnaryServerInterceptor()),
 	)
-	paymentspb.RegisterPaymentsServiceServer(server, paymentshandler.NewHandler(payments))
+	var webhooks paymentshandler.WebhookReceiver
+	if stripeProcessor != nil {
+		secret, err := config.String("STRIPE_WEBHOOK_SECRET")
+		if err != nil {
+			return err
+		}
+		// A deployed event destination signs with its own secret; `stripe
+		// listen` signs both kinds with one, so this defaults to it.
+		thinSecret := config.StringOr("STRIPE_THIN_WEBHOOK_SECRET", secret)
+		webhooks = surgestripe.NewWebhooks(stripeProcessor, payments, repo, secret, thinSecret)
+	}
+	paymentspb.RegisterPaymentsServiceServer(server, paymentshandler.NewHandler(payments, webhooks))
 	healthServer := health.NewServer()
 	healthpb.RegisterHealthServer(server, healthServer)
 	healthServer.SetServingStatus("surge.payments.v1.PaymentsService", healthpb.HealthCheckResponse_SERVING)
@@ -179,15 +199,30 @@ func run() error {
 // Stripe unless told otherwise, so a deploy that forgets to choose fails for
 // want of a key, rather than starting on a processor that charges nobody and
 // looking healthy while every ride is free.
-func openProcessor() (service.Processor, error) {
+//
+// The Stripe processor is also returned on its own, because only it has
+// webhooks to receive.
+func openProcessor() (service.Processor, *surgestripe.Processor, error) {
 	switch name := config.StringOr("PAYMENTS_PROCESSOR", "stripe"); name {
 	case "fake":
 		slog.Warn("PAYMENTS_PROCESSOR=fake: holds, captures and transfers are simulated, and no card is charged")
-		return fake.New(), nil
+		return fake.New(), nil, nil
 	case "stripe":
-		return nil, errors.New("payments: the Stripe processor is not wired in yet; set PAYMENTS_PROCESSOR=fake")
+		key, err := config.String("STRIPE_SECRET_KEY")
+		if err != nil {
+			return nil, nil, err
+		}
+		if strings.HasPrefix(key, "sk_live_") {
+			// Not refused — a platform may run on a secret key — but said,
+			// because a restricted key limits what a leaked one can do.
+			slog.Warn("STRIPE_SECRET_KEY is a live secret key; a restricted key (rk_live_) is safer")
+		}
+		stripeProcessor := surgestripe.New(key, surgestripe.Options{
+			PaymentMethodConfiguration: config.StringOr("PAYMENTS_PAYMENT_METHOD_CONFIG", ""),
+		})
+		return stripeProcessor, stripeProcessor, nil
 	default:
-		return nil, &config.InvalidError{
+		return nil, nil, &config.InvalidError{
 			Key: "PAYMENTS_PROCESSOR", Value: name, Want: "processor",
 			Err: errors.New("want stripe or fake"),
 		}

@@ -187,6 +187,20 @@ dev-trip: build ## Run the trip service (gRPC on :8110)
 dev-payments: build ## Run the payments service (metrics on :9107)
 	@set -a; . ./.env; set +a; $(BIN)/payments
 
+# Stripe's events, forwarded to the gateway's webhook routes. The key comes from
+# .env rather than `stripe login`, so there is one place a key lives; the
+# signing secret it prints is the one STRIPE_WEBHOOK_SECRET must hold. Connect
+# events arrive on the same routes, and v2 accounts report changes only as thin
+# events, which need their own flags.
+stripe-listen: ## Forward Stripe webhooks to the local gateway
+	@set -a; . ./.env; set +a; stripe listen --api-key "$$STRIPE_SECRET_KEY" \
+		--events setup_intent.succeeded,payment_intent.amount_capturable_updated,payment_intent.payment_failed,payment_intent.succeeded,payment_intent.canceled \
+		--forward-to localhost:8100/webhooks/stripe \
+		--forward-connect-to localhost:8100/webhooks/stripe \
+		--thin-events 'v2.core.account[configuration.recipient].capability_status_updated,v2.core.account[requirements].updated' \
+		--forward-thin-to localhost:8100/webhooks/stripe/thin \
+		--forward-thin-connect-to localhost:8100/webhooks/stripe/thin
+
 dev-sim: build ## Run the driver simulator
 	@set -a; . ./.env; set +a; \
 	SIM_DRIVERS=$${DRIVERS:-1000} $(BIN)/simd

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	paymentspb "github.com/ishakdeveloper/surge/shared/proto/payments"
 	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -19,7 +20,8 @@ import (
 
 // Clients are the downstream services.
 type Clients struct {
-	Trip trippb.TripServiceClient
+	Trip     trippb.TripServiceClient
+	Payments paymentspb.PaymentsServiceClient
 
 	trip      *grpc.ClientConn
 	simulator *grpc.ClientConn
@@ -49,8 +51,9 @@ func Dial(tripAddr, simulatorAddr, paymentsAddr string) (*Clients, error) {
 		return nil, err
 	}
 	return &Clients{
-		Trip: trippb.NewTripServiceClient(trip),
-		trip: trip, simulator: simulator, payments: payments,
+		Trip:     trippb.NewTripServiceClient(trip),
+		Payments: paymentspb.NewPaymentsServiceClient(payments),
+		trip:     trip, simulator: simulator, payments: payments,
 	}, nil
 }
 

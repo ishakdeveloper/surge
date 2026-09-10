@@ -159,6 +159,13 @@ type Repository interface {
 	// LedgerBalance sums an account's entries.
 	LedgerBalance(ctx context.Context, account string) (int64, error)
 
+	// EventHandled and MarkEventHandled are the webhook ledger. The processor
+	// delivers at least once; an event is marked only after it has been
+	// applied, so a crash in between is a redelivery that applies it again —
+	// safely, because every change it causes is a compare-and-set.
+	EventHandled(ctx context.Context, eventID string) (bool, error)
+	MarkEventHandled(ctx context.Context, eventID, eventType string) error
+
 	// Apply writes a change atomically, or returns ErrConflict and writes
 	// nothing when anything it was decided against has moved.
 	Apply(ctx context.Context, change Change) error

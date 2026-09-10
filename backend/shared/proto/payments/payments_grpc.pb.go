@@ -24,6 +24,7 @@ const (
 	PaymentsService_GetTripPayment_FullMethodName    = "/surge.payments.v1.PaymentsService/GetTripPayment"
 	PaymentsService_GetPayoutAccount_FullMethodName  = "/surge.payments.v1.PaymentsService/GetPayoutAccount"
 	PaymentsService_StartOnboarding_FullMethodName   = "/surge.payments.v1.PaymentsService/StartOnboarding"
+	PaymentsService_DeliverWebhook_FullMethodName    = "/surge.payments.v1.PaymentsService/DeliverWebhook"
 	PaymentsService_ListEarnings_FullMethodName      = "/surge.payments.v1.PaymentsService/ListEarnings"
 )
 
@@ -63,6 +64,15 @@ type PaymentsServiceClient interface {
 	// redirects wherever a request said is an open redirect with a trusted
 	// domain in front of it.
 	StartOnboarding(ctx context.Context, in *StartOnboardingRequest, opts ...grpc.CallOption) (*StartOnboardingResponse, error)
+	// DeliverWebhook hands this service a processor webhook exactly as it
+	// arrived.
+	//
+	// Internal, and deliberately without an HTTP binding: it is not part of the
+	// REST API, the published document or the generated client. The gateway
+	// calls it from a raw route outside /v1, because a webhook carries no bearer
+	// token — its signature is what authenticates it, and only this service
+	// holds the secret that checks one.
+	DeliverWebhook(ctx context.Context, in *DeliverWebhookRequest, opts ...grpc.CallOption) (*DeliverWebhookResponse, error)
 	// ListEarnings is a driver's share of each trip, newest first, and what is
 	// still owed to them.
 	ListEarnings(ctx context.Context, in *ListEarningsRequest, opts ...grpc.CallOption) (*ListEarningsResponse, error)
@@ -126,6 +136,16 @@ func (c *paymentsServiceClient) StartOnboarding(ctx context.Context, in *StartOn
 	return out, nil
 }
 
+func (c *paymentsServiceClient) DeliverWebhook(ctx context.Context, in *DeliverWebhookRequest, opts ...grpc.CallOption) (*DeliverWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeliverWebhookResponse)
+	err := c.cc.Invoke(ctx, PaymentsService_DeliverWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *paymentsServiceClient) ListEarnings(ctx context.Context, in *ListEarningsRequest, opts ...grpc.CallOption) (*ListEarningsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListEarningsResponse)
@@ -172,6 +192,15 @@ type PaymentsServiceServer interface {
 	// redirects wherever a request said is an open redirect with a trusted
 	// domain in front of it.
 	StartOnboarding(context.Context, *StartOnboardingRequest) (*StartOnboardingResponse, error)
+	// DeliverWebhook hands this service a processor webhook exactly as it
+	// arrived.
+	//
+	// Internal, and deliberately without an HTTP binding: it is not part of the
+	// REST API, the published document or the generated client. The gateway
+	// calls it from a raw route outside /v1, because a webhook carries no bearer
+	// token — its signature is what authenticates it, and only this service
+	// holds the secret that checks one.
+	DeliverWebhook(context.Context, *DeliverWebhookRequest) (*DeliverWebhookResponse, error)
 	// ListEarnings is a driver's share of each trip, newest first, and what is
 	// still owed to them.
 	ListEarnings(context.Context, *ListEarningsRequest) (*ListEarningsResponse, error)
@@ -199,6 +228,9 @@ func (UnimplementedPaymentsServiceServer) GetPayoutAccount(context.Context, *Get
 }
 func (UnimplementedPaymentsServiceServer) StartOnboarding(context.Context, *StartOnboardingRequest) (*StartOnboardingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartOnboarding not implemented")
+}
+func (UnimplementedPaymentsServiceServer) DeliverWebhook(context.Context, *DeliverWebhookRequest) (*DeliverWebhookResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeliverWebhook not implemented")
 }
 func (UnimplementedPaymentsServiceServer) ListEarnings(context.Context, *ListEarningsRequest) (*ListEarningsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListEarnings not implemented")
@@ -314,6 +346,24 @@ func _PaymentsService_StartOnboarding_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PaymentsService_DeliverWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeliverWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServiceServer).DeliverWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentsService_DeliverWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServiceServer).DeliverWebhook(ctx, req.(*DeliverWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PaymentsService_ListEarnings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListEarningsRequest)
 	if err := dec(in); err != nil {
@@ -358,6 +408,10 @@ var PaymentsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartOnboarding",
 			Handler:    _PaymentsService_StartOnboarding_Handler,
+		},
+		{
+			MethodName: "DeliverWebhook",
+			Handler:    _PaymentsService_DeliverWebhook_Handler,
 		},
 		{
 			MethodName: "ListEarnings",

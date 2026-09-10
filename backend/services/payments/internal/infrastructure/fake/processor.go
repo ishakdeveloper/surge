@@ -21,7 +21,10 @@ import (
 const (
 	CardVisa                   = "pm_card_visa"
 	CardAuthenticationRequired = "pm_card_threeDSecure2Required"
-	CardDeclined               = "pm_card_chargeDeclined"
+	// CardDeclined saves and is declined when held, as Stripe's
+	// pm_card_chargeCustomerFail does. Its pm_card_chargeDeclined is refused
+	// when saved, so it could never reach a booking to be declined at.
+	CardDeclined = "pm_card_chargeCustomerFail"
 )
 
 type state string

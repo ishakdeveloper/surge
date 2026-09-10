@@ -30,6 +30,10 @@ type ConnectedAccount struct {
 	RequirementsDue bool
 }
 
+// ErrInvalidWebhook is a webhook whose signature does not check out: not from
+// the processor, or altered on the way. Refused, never applied.
+var ErrInvalidWebhook = errors.New("service: webhook signature is not valid")
+
 // Where the processor sends a driver back to from onboarding: done, or a link
 // that expired and needs making again.
 const (

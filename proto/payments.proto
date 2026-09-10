@@ -116,6 +116,16 @@ service PaymentsService {
     };
   }
 
+  // DeliverWebhook hands this service a processor webhook exactly as it
+  // arrived.
+  //
+  // Internal, and deliberately without an HTTP binding: it is not part of the
+  // REST API, the published document or the generated client. The gateway
+  // calls it from a raw route outside /v1, because a webhook carries no bearer
+  // token — its signature is what authenticates it, and only this service
+  // holds the secret that checks one.
+  rpc DeliverWebhook(DeliverWebhookRequest) returns (DeliverWebhookResponse);
+
   // ListEarnings is a driver's share of each trip, newest first, and what is
   // still owed to them.
   rpc ListEarnings(ListEarningsRequest) returns (ListEarningsResponse) {
@@ -132,6 +142,26 @@ service PaymentsService {
       }
     };
   }
+}
+
+message DeliverWebhookRequest {
+  WebhookKind kind = 1;
+  // The body, byte for byte. The signature is over these exact bytes, so
+  // anything that re-encodes the body on the way breaks verification.
+  bytes payload = 2;
+  // The Stripe-Signature header.
+  string signature = 3;
+}
+
+message DeliverWebhookResponse {}
+
+enum WebhookKind {
+  WEBHOOK_KIND_UNSPECIFIED = 0;
+  // A full event: the object as it was when the event happened.
+  WEBHOOK_KIND_SNAPSHOT = 1;
+  // A thin event from an event destination: a notification naming an object,
+  // which is then read fresh. How v2 accounts report changes.
+  WEBHOOK_KIND_THIN = 2;
 }
 
 message CreateSetupIntentRequest {}

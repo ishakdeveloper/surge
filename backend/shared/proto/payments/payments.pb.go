@@ -24,6 +24,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type WebhookKind int32
+
+const (
+	WebhookKind_WEBHOOK_KIND_UNSPECIFIED WebhookKind = 0
+	// A full event: the object as it was when the event happened.
+	WebhookKind_WEBHOOK_KIND_SNAPSHOT WebhookKind = 1
+	// A thin event from an event destination: a notification naming an object,
+	// which is then read fresh. How v2 accounts report changes.
+	WebhookKind_WEBHOOK_KIND_THIN WebhookKind = 2
+)
+
+// Enum value maps for WebhookKind.
+var (
+	WebhookKind_name = map[int32]string{
+		0: "WEBHOOK_KIND_UNSPECIFIED",
+		1: "WEBHOOK_KIND_SNAPSHOT",
+		2: "WEBHOOK_KIND_THIN",
+	}
+	WebhookKind_value = map[string]int32{
+		"WEBHOOK_KIND_UNSPECIFIED": 0,
+		"WEBHOOK_KIND_SNAPSHOT":    1,
+		"WEBHOOK_KIND_THIN":        2,
+	}
+)
+
+func (x WebhookKind) Enum() *WebhookKind {
+	p := new(WebhookKind)
+	*p = x
+	return p
+}
+
+func (x WebhookKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WebhookKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_payments_proto_enumTypes[0].Descriptor()
+}
+
+func (WebhookKind) Type() protoreflect.EnumType {
+	return &file_payments_proto_enumTypes[0]
+}
+
+func (x WebhookKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use WebhookKind.Descriptor instead.
+func (WebhookKind) EnumDescriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{0}
+}
+
 // PaymentStatus is the payment state machine, as a client sees it.
 type PaymentStatus int32
 
@@ -73,11 +125,11 @@ func (x PaymentStatus) String() string {
 }
 
 func (PaymentStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[0].Descriptor()
+	return file_payments_proto_enumTypes[1].Descriptor()
 }
 
 func (PaymentStatus) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[0]
+	return &file_payments_proto_enumTypes[1]
 }
 
 func (x PaymentStatus) Number() protoreflect.EnumNumber {
@@ -86,7 +138,7 @@ func (x PaymentStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PaymentStatus.Descriptor instead.
 func (PaymentStatus) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{0}
+	return file_payments_proto_rawDescGZIP(), []int{1}
 }
 
 type PayoutAccountStatus int32
@@ -128,11 +180,11 @@ func (x PayoutAccountStatus) String() string {
 }
 
 func (PayoutAccountStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[1].Descriptor()
+	return file_payments_proto_enumTypes[2].Descriptor()
 }
 
 func (PayoutAccountStatus) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[1]
+	return &file_payments_proto_enumTypes[2]
 }
 
 func (x PayoutAccountStatus) Number() protoreflect.EnumNumber {
@@ -141,7 +193,7 @@ func (x PayoutAccountStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PayoutAccountStatus.Descriptor instead.
 func (PayoutAccountStatus) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{1}
+	return file_payments_proto_rawDescGZIP(), []int{2}
 }
 
 type EarningStatus int32
@@ -182,11 +234,11 @@ func (x EarningStatus) String() string {
 }
 
 func (EarningStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[2].Descriptor()
+	return file_payments_proto_enumTypes[3].Descriptor()
 }
 
 func (EarningStatus) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[2]
+	return &file_payments_proto_enumTypes[3]
 }
 
 func (x EarningStatus) Number() protoreflect.EnumNumber {
@@ -195,7 +247,106 @@ func (x EarningStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EarningStatus.Descriptor instead.
 func (EarningStatus) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{2}
+	return file_payments_proto_rawDescGZIP(), []int{3}
+}
+
+type DeliverWebhookRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Kind  WebhookKind            `protobuf:"varint,1,opt,name=kind,proto3,enum=surge.payments.v1.WebhookKind" json:"kind,omitempty"`
+	// The body, byte for byte. The signature is over these exact bytes, so
+	// anything that re-encodes the body on the way breaks verification.
+	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	// The Stripe-Signature header.
+	Signature     string `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeliverWebhookRequest) Reset() {
+	*x = DeliverWebhookRequest{}
+	mi := &file_payments_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeliverWebhookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeliverWebhookRequest) ProtoMessage() {}
+
+func (x *DeliverWebhookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payments_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeliverWebhookRequest.ProtoReflect.Descriptor instead.
+func (*DeliverWebhookRequest) Descriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *DeliverWebhookRequest) GetKind() WebhookKind {
+	if x != nil {
+		return x.Kind
+	}
+	return WebhookKind_WEBHOOK_KIND_UNSPECIFIED
+}
+
+func (x *DeliverWebhookRequest) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *DeliverWebhookRequest) GetSignature() string {
+	if x != nil {
+		return x.Signature
+	}
+	return ""
+}
+
+type DeliverWebhookResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeliverWebhookResponse) Reset() {
+	*x = DeliverWebhookResponse{}
+	mi := &file_payments_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeliverWebhookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeliverWebhookResponse) ProtoMessage() {}
+
+func (x *DeliverWebhookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payments_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeliverWebhookResponse.ProtoReflect.Descriptor instead.
+func (*DeliverWebhookResponse) Descriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{1}
 }
 
 type CreateSetupIntentRequest struct {
@@ -206,7 +357,7 @@ type CreateSetupIntentRequest struct {
 
 func (x *CreateSetupIntentRequest) Reset() {
 	*x = CreateSetupIntentRequest{}
-	mi := &file_payments_proto_msgTypes[0]
+	mi := &file_payments_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -218,7 +369,7 @@ func (x *CreateSetupIntentRequest) String() string {
 func (*CreateSetupIntentRequest) ProtoMessage() {}
 
 func (x *CreateSetupIntentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[0]
+	mi := &file_payments_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -231,7 +382,7 @@ func (x *CreateSetupIntentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSetupIntentRequest.ProtoReflect.Descriptor instead.
 func (*CreateSetupIntentRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{0}
+	return file_payments_proto_rawDescGZIP(), []int{2}
 }
 
 type CreateSetupIntentResponse struct {
@@ -244,7 +395,7 @@ type CreateSetupIntentResponse struct {
 
 func (x *CreateSetupIntentResponse) Reset() {
 	*x = CreateSetupIntentResponse{}
-	mi := &file_payments_proto_msgTypes[1]
+	mi := &file_payments_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -256,7 +407,7 @@ func (x *CreateSetupIntentResponse) String() string {
 func (*CreateSetupIntentResponse) ProtoMessage() {}
 
 func (x *CreateSetupIntentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[1]
+	mi := &file_payments_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -269,7 +420,7 @@ func (x *CreateSetupIntentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSetupIntentResponse.ProtoReflect.Descriptor instead.
 func (*CreateSetupIntentResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{1}
+	return file_payments_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreateSetupIntentResponse) GetClientSecret() string {
@@ -287,7 +438,7 @@ type GetPaymentMethodRequest struct {
 
 func (x *GetPaymentMethodRequest) Reset() {
 	*x = GetPaymentMethodRequest{}
-	mi := &file_payments_proto_msgTypes[2]
+	mi := &file_payments_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -299,7 +450,7 @@ func (x *GetPaymentMethodRequest) String() string {
 func (*GetPaymentMethodRequest) ProtoMessage() {}
 
 func (x *GetPaymentMethodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[2]
+	mi := &file_payments_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -312,7 +463,7 @@ func (x *GetPaymentMethodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPaymentMethodRequest.ProtoReflect.Descriptor instead.
 func (*GetPaymentMethodRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{2}
+	return file_payments_proto_rawDescGZIP(), []int{4}
 }
 
 type GetPaymentMethodResponse struct {
@@ -327,7 +478,7 @@ type GetPaymentMethodResponse struct {
 
 func (x *GetPaymentMethodResponse) Reset() {
 	*x = GetPaymentMethodResponse{}
-	mi := &file_payments_proto_msgTypes[3]
+	mi := &file_payments_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -339,7 +490,7 @@ func (x *GetPaymentMethodResponse) String() string {
 func (*GetPaymentMethodResponse) ProtoMessage() {}
 
 func (x *GetPaymentMethodResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[3]
+	mi := &file_payments_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -352,7 +503,7 @@ func (x *GetPaymentMethodResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPaymentMethodResponse.ProtoReflect.Descriptor instead.
 func (*GetPaymentMethodResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{3}
+	return file_payments_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetPaymentMethodResponse) GetSaved() bool {
@@ -381,7 +532,7 @@ type Card struct {
 
 func (x *Card) Reset() {
 	*x = Card{}
-	mi := &file_payments_proto_msgTypes[4]
+	mi := &file_payments_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -393,7 +544,7 @@ func (x *Card) String() string {
 func (*Card) ProtoMessage() {}
 
 func (x *Card) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[4]
+	mi := &file_payments_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -406,7 +557,7 @@ func (x *Card) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Card.ProtoReflect.Descriptor instead.
 func (*Card) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{4}
+	return file_payments_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Card) GetBrand() string {
@@ -446,7 +597,7 @@ type GetTripPaymentRequest struct {
 
 func (x *GetTripPaymentRequest) Reset() {
 	*x = GetTripPaymentRequest{}
-	mi := &file_payments_proto_msgTypes[5]
+	mi := &file_payments_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -458,7 +609,7 @@ func (x *GetTripPaymentRequest) String() string {
 func (*GetTripPaymentRequest) ProtoMessage() {}
 
 func (x *GetTripPaymentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[5]
+	mi := &file_payments_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -471,7 +622,7 @@ func (x *GetTripPaymentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTripPaymentRequest.ProtoReflect.Descriptor instead.
 func (*GetTripPaymentRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{5}
+	return file_payments_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetTripPaymentRequest) GetTripId() string {
@@ -490,7 +641,7 @@ type GetTripPaymentResponse struct {
 
 func (x *GetTripPaymentResponse) Reset() {
 	*x = GetTripPaymentResponse{}
-	mi := &file_payments_proto_msgTypes[6]
+	mi := &file_payments_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -502,7 +653,7 @@ func (x *GetTripPaymentResponse) String() string {
 func (*GetTripPaymentResponse) ProtoMessage() {}
 
 func (x *GetTripPaymentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[6]
+	mi := &file_payments_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -515,7 +666,7 @@ func (x *GetTripPaymentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTripPaymentResponse.ProtoReflect.Descriptor instead.
 func (*GetTripPaymentResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{6}
+	return file_payments_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetTripPaymentResponse) GetPayment() *Payment {
@@ -548,7 +699,7 @@ type Payment struct {
 
 func (x *Payment) Reset() {
 	*x = Payment{}
-	mi := &file_payments_proto_msgTypes[7]
+	mi := &file_payments_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -560,7 +711,7 @@ func (x *Payment) String() string {
 func (*Payment) ProtoMessage() {}
 
 func (x *Payment) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[7]
+	mi := &file_payments_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -573,7 +724,7 @@ func (x *Payment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Payment.ProtoReflect.Descriptor instead.
 func (*Payment) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{7}
+	return file_payments_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Payment) GetId() string {
@@ -661,7 +812,7 @@ type GetPayoutAccountRequest struct {
 
 func (x *GetPayoutAccountRequest) Reset() {
 	*x = GetPayoutAccountRequest{}
-	mi := &file_payments_proto_msgTypes[8]
+	mi := &file_payments_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -673,7 +824,7 @@ func (x *GetPayoutAccountRequest) String() string {
 func (*GetPayoutAccountRequest) ProtoMessage() {}
 
 func (x *GetPayoutAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[8]
+	mi := &file_payments_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -686,7 +837,7 @@ func (x *GetPayoutAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayoutAccountRequest.ProtoReflect.Descriptor instead.
 func (*GetPayoutAccountRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{8}
+	return file_payments_proto_rawDescGZIP(), []int{10}
 }
 
 type GetPayoutAccountResponse struct {
@@ -698,7 +849,7 @@ type GetPayoutAccountResponse struct {
 
 func (x *GetPayoutAccountResponse) Reset() {
 	*x = GetPayoutAccountResponse{}
-	mi := &file_payments_proto_msgTypes[9]
+	mi := &file_payments_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -710,7 +861,7 @@ func (x *GetPayoutAccountResponse) String() string {
 func (*GetPayoutAccountResponse) ProtoMessage() {}
 
 func (x *GetPayoutAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[9]
+	mi := &file_payments_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -723,7 +874,7 @@ func (x *GetPayoutAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayoutAccountResponse.ProtoReflect.Descriptor instead.
 func (*GetPayoutAccountResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{9}
+	return file_payments_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetPayoutAccountResponse) GetAccount() *PayoutAccount {
@@ -745,7 +896,7 @@ type PayoutAccount struct {
 
 func (x *PayoutAccount) Reset() {
 	*x = PayoutAccount{}
-	mi := &file_payments_proto_msgTypes[10]
+	mi := &file_payments_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -757,7 +908,7 @@ func (x *PayoutAccount) String() string {
 func (*PayoutAccount) ProtoMessage() {}
 
 func (x *PayoutAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[10]
+	mi := &file_payments_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -770,7 +921,7 @@ func (x *PayoutAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PayoutAccount.ProtoReflect.Descriptor instead.
 func (*PayoutAccount) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{10}
+	return file_payments_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *PayoutAccount) GetStatus() PayoutAccountStatus {
@@ -795,7 +946,7 @@ type StartOnboardingRequest struct {
 
 func (x *StartOnboardingRequest) Reset() {
 	*x = StartOnboardingRequest{}
-	mi := &file_payments_proto_msgTypes[11]
+	mi := &file_payments_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -807,7 +958,7 @@ func (x *StartOnboardingRequest) String() string {
 func (*StartOnboardingRequest) ProtoMessage() {}
 
 func (x *StartOnboardingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[11]
+	mi := &file_payments_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -820,7 +971,7 @@ func (x *StartOnboardingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartOnboardingRequest.ProtoReflect.Descriptor instead.
 func (*StartOnboardingRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{11}
+	return file_payments_proto_rawDescGZIP(), []int{13}
 }
 
 type StartOnboardingResponse struct {
@@ -835,7 +986,7 @@ type StartOnboardingResponse struct {
 
 func (x *StartOnboardingResponse) Reset() {
 	*x = StartOnboardingResponse{}
-	mi := &file_payments_proto_msgTypes[12]
+	mi := &file_payments_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -847,7 +998,7 @@ func (x *StartOnboardingResponse) String() string {
 func (*StartOnboardingResponse) ProtoMessage() {}
 
 func (x *StartOnboardingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[12]
+	mi := &file_payments_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -860,7 +1011,7 @@ func (x *StartOnboardingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartOnboardingResponse.ProtoReflect.Descriptor instead.
 func (*StartOnboardingResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{12}
+	return file_payments_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StartOnboardingResponse) GetUrl() string {
@@ -882,7 +1033,7 @@ type ListEarningsRequest struct {
 
 func (x *ListEarningsRequest) Reset() {
 	*x = ListEarningsRequest{}
-	mi := &file_payments_proto_msgTypes[13]
+	mi := &file_payments_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -894,7 +1045,7 @@ func (x *ListEarningsRequest) String() string {
 func (*ListEarningsRequest) ProtoMessage() {}
 
 func (x *ListEarningsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[13]
+	mi := &file_payments_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -907,7 +1058,7 @@ func (x *ListEarningsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEarningsRequest.ProtoReflect.Descriptor instead.
 func (*ListEarningsRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{13}
+	return file_payments_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListEarningsRequest) GetPageSize() int32 {
@@ -940,7 +1091,7 @@ type ListEarningsResponse struct {
 
 func (x *ListEarningsResponse) Reset() {
 	*x = ListEarningsResponse{}
-	mi := &file_payments_proto_msgTypes[14]
+	mi := &file_payments_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -952,7 +1103,7 @@ func (x *ListEarningsResponse) String() string {
 func (*ListEarningsResponse) ProtoMessage() {}
 
 func (x *ListEarningsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[14]
+	mi := &file_payments_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -965,7 +1116,7 @@ func (x *ListEarningsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEarningsResponse.ProtoReflect.Descriptor instead.
 func (*ListEarningsResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{14}
+	return file_payments_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListEarningsResponse) GetEarnings() []*Earning {
@@ -1018,7 +1169,7 @@ type Earning struct {
 
 func (x *Earning) Reset() {
 	*x = Earning{}
-	mi := &file_payments_proto_msgTypes[15]
+	mi := &file_payments_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1030,7 +1181,7 @@ func (x *Earning) String() string {
 func (*Earning) ProtoMessage() {}
 
 func (x *Earning) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[15]
+	mi := &file_payments_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1043,7 +1194,7 @@ func (x *Earning) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Earning.ProtoReflect.Descriptor instead.
 func (*Earning) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{15}
+	return file_payments_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Earning) GetTripId() string {
@@ -1099,7 +1250,12 @@ var File_payments_proto protoreflect.FileDescriptor
 
 const file_payments_proto_rawDesc = "" +
 	"\n" +
-	"\x0epayments.proto\x12\x11surge.payments.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\x1a\n" +
+	"\x0epayments.proto\x12\x11surge.payments.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\x83\x01\n" +
+	"\x15DeliverWebhookRequest\x122\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x1e.surge.payments.v1.WebhookKindR\x04kind\x12\x18\n" +
+	"\apayload\x18\x02 \x01(\fR\apayload\x12\x1c\n" +
+	"\tsignature\x18\x03 \x01(\tR\tsignature\"\x18\n" +
+	"\x16DeliverWebhookResponse\"\x1a\n" +
 	"\x18CreateSetupIntentRequest\"@\n" +
 	"\x19CreateSetupIntentResponse\x12#\n" +
 	"\rclient_secret\x18\x01 \x01(\tR\fclientSecret\"\x19\n" +
@@ -1165,7 +1321,11 @@ const file_payments_proto_rawDesc = "" +
 	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x128\n" +
 	"\x06status\x18\x06 \x01(\x0e2 .surge.payments.v1.EarningStatusR\x06status\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt*\x84\x02\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt*]\n" +
+	"\vWebhookKind\x12\x1c\n" +
+	"\x18WEBHOOK_KIND_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15WEBHOOK_KIND_SNAPSHOT\x10\x01\x12\x15\n" +
+	"\x11WEBHOOK_KIND_THIN\x10\x02*\x84\x02\n" +
 	"\rPaymentStatus\x12\x1e\n" +
 	"\x1aPAYMENT_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aPAYMENT_STATUS_AUTHORIZING\x10\x01\x12\"\n" +
@@ -1184,7 +1344,7 @@ const file_payments_proto_rawDesc = "" +
 	"\x1aEARNING_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15EARNING_STATUS_UNPAID\x10\x01\x12\x1e\n" +
 	"\x1aEARNING_STATUS_TRANSFERRED\x10\x02\x12\x1b\n" +
-	"\x17EARNING_STATUS_REVERSED\x10\x032\x8c\r\n" +
+	"\x17EARNING_STATUS_REVERSED\x10\x032\xf3\r\n" +
 	"\x0fPaymentsService\x12\x9f\x02\n" +
 	"\x11CreateSetupIntent\x12+.surge.payments.v1.CreateSetupIntentRequest\x1a,.surge.payments.v1.CreateSetupIntentResponse\"\xae\x01\x92A\x85\x01\n" +
 	"\bpayments*\x11createSetupIntentJf\n" +
@@ -1211,7 +1371,8 @@ const file_payments_proto_rawDesc = "" +
 	"\bpayments*\x0fstartOnboardingJf\n" +
 	"\adefault\x12[\n" +
 	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
-	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/v1/payments/payout-account\x12\x83\x02\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/v1/payments/payout-account\x12e\n" +
+	"\x0eDeliverWebhook\x12(.surge.payments.v1.DeliverWebhookRequest\x1a).surge.payments.v1.DeliverWebhookResponse\x12\x83\x02\n" +
 	"\fListEarnings\x12&.surge.payments.v1.ListEarningsRequest\x1a'.surge.payments.v1.ListEarningsResponse\"\xa1\x01\x92A\x80\x01\n" +
 	"\bpayments*\flistEarningsJf\n" +
 	"\adefault\x12[\n" +
@@ -1230,58 +1391,64 @@ func file_payments_proto_rawDescGZIP() []byte {
 	return file_payments_proto_rawDescData
 }
 
-var file_payments_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_payments_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_payments_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_payments_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_payments_proto_goTypes = []any{
-	(PaymentStatus)(0),                // 0: surge.payments.v1.PaymentStatus
-	(PayoutAccountStatus)(0),          // 1: surge.payments.v1.PayoutAccountStatus
-	(EarningStatus)(0),                // 2: surge.payments.v1.EarningStatus
-	(*CreateSetupIntentRequest)(nil),  // 3: surge.payments.v1.CreateSetupIntentRequest
-	(*CreateSetupIntentResponse)(nil), // 4: surge.payments.v1.CreateSetupIntentResponse
-	(*GetPaymentMethodRequest)(nil),   // 5: surge.payments.v1.GetPaymentMethodRequest
-	(*GetPaymentMethodResponse)(nil),  // 6: surge.payments.v1.GetPaymentMethodResponse
-	(*Card)(nil),                      // 7: surge.payments.v1.Card
-	(*GetTripPaymentRequest)(nil),     // 8: surge.payments.v1.GetTripPaymentRequest
-	(*GetTripPaymentResponse)(nil),    // 9: surge.payments.v1.GetTripPaymentResponse
-	(*Payment)(nil),                   // 10: surge.payments.v1.Payment
-	(*GetPayoutAccountRequest)(nil),   // 11: surge.payments.v1.GetPayoutAccountRequest
-	(*GetPayoutAccountResponse)(nil),  // 12: surge.payments.v1.GetPayoutAccountResponse
-	(*PayoutAccount)(nil),             // 13: surge.payments.v1.PayoutAccount
-	(*StartOnboardingRequest)(nil),    // 14: surge.payments.v1.StartOnboardingRequest
-	(*StartOnboardingResponse)(nil),   // 15: surge.payments.v1.StartOnboardingResponse
-	(*ListEarningsRequest)(nil),       // 16: surge.payments.v1.ListEarningsRequest
-	(*ListEarningsResponse)(nil),      // 17: surge.payments.v1.ListEarningsResponse
-	(*Earning)(nil),                   // 18: surge.payments.v1.Earning
-	(*timestamppb.Timestamp)(nil),     // 19: google.protobuf.Timestamp
+	(WebhookKind)(0),                  // 0: surge.payments.v1.WebhookKind
+	(PaymentStatus)(0),                // 1: surge.payments.v1.PaymentStatus
+	(PayoutAccountStatus)(0),          // 2: surge.payments.v1.PayoutAccountStatus
+	(EarningStatus)(0),                // 3: surge.payments.v1.EarningStatus
+	(*DeliverWebhookRequest)(nil),     // 4: surge.payments.v1.DeliverWebhookRequest
+	(*DeliverWebhookResponse)(nil),    // 5: surge.payments.v1.DeliverWebhookResponse
+	(*CreateSetupIntentRequest)(nil),  // 6: surge.payments.v1.CreateSetupIntentRequest
+	(*CreateSetupIntentResponse)(nil), // 7: surge.payments.v1.CreateSetupIntentResponse
+	(*GetPaymentMethodRequest)(nil),   // 8: surge.payments.v1.GetPaymentMethodRequest
+	(*GetPaymentMethodResponse)(nil),  // 9: surge.payments.v1.GetPaymentMethodResponse
+	(*Card)(nil),                      // 10: surge.payments.v1.Card
+	(*GetTripPaymentRequest)(nil),     // 11: surge.payments.v1.GetTripPaymentRequest
+	(*GetTripPaymentResponse)(nil),    // 12: surge.payments.v1.GetTripPaymentResponse
+	(*Payment)(nil),                   // 13: surge.payments.v1.Payment
+	(*GetPayoutAccountRequest)(nil),   // 14: surge.payments.v1.GetPayoutAccountRequest
+	(*GetPayoutAccountResponse)(nil),  // 15: surge.payments.v1.GetPayoutAccountResponse
+	(*PayoutAccount)(nil),             // 16: surge.payments.v1.PayoutAccount
+	(*StartOnboardingRequest)(nil),    // 17: surge.payments.v1.StartOnboardingRequest
+	(*StartOnboardingResponse)(nil),   // 18: surge.payments.v1.StartOnboardingResponse
+	(*ListEarningsRequest)(nil),       // 19: surge.payments.v1.ListEarningsRequest
+	(*ListEarningsResponse)(nil),      // 20: surge.payments.v1.ListEarningsResponse
+	(*Earning)(nil),                   // 21: surge.payments.v1.Earning
+	(*timestamppb.Timestamp)(nil),     // 22: google.protobuf.Timestamp
 }
 var file_payments_proto_depIdxs = []int32{
-	7,  // 0: surge.payments.v1.GetPaymentMethodResponse.card:type_name -> surge.payments.v1.Card
-	10, // 1: surge.payments.v1.GetTripPaymentResponse.payment:type_name -> surge.payments.v1.Payment
-	0,  // 2: surge.payments.v1.Payment.status:type_name -> surge.payments.v1.PaymentStatus
-	19, // 3: surge.payments.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
-	19, // 4: surge.payments.v1.Payment.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 5: surge.payments.v1.GetPayoutAccountResponse.account:type_name -> surge.payments.v1.PayoutAccount
-	1,  // 6: surge.payments.v1.PayoutAccount.status:type_name -> surge.payments.v1.PayoutAccountStatus
-	18, // 7: surge.payments.v1.ListEarningsResponse.earnings:type_name -> surge.payments.v1.Earning
-	2,  // 8: surge.payments.v1.Earning.status:type_name -> surge.payments.v1.EarningStatus
-	19, // 9: surge.payments.v1.Earning.created_at:type_name -> google.protobuf.Timestamp
-	3,  // 10: surge.payments.v1.PaymentsService.CreateSetupIntent:input_type -> surge.payments.v1.CreateSetupIntentRequest
-	5,  // 11: surge.payments.v1.PaymentsService.GetPaymentMethod:input_type -> surge.payments.v1.GetPaymentMethodRequest
-	8,  // 12: surge.payments.v1.PaymentsService.GetTripPayment:input_type -> surge.payments.v1.GetTripPaymentRequest
-	11, // 13: surge.payments.v1.PaymentsService.GetPayoutAccount:input_type -> surge.payments.v1.GetPayoutAccountRequest
-	14, // 14: surge.payments.v1.PaymentsService.StartOnboarding:input_type -> surge.payments.v1.StartOnboardingRequest
-	16, // 15: surge.payments.v1.PaymentsService.ListEarnings:input_type -> surge.payments.v1.ListEarningsRequest
-	4,  // 16: surge.payments.v1.PaymentsService.CreateSetupIntent:output_type -> surge.payments.v1.CreateSetupIntentResponse
-	6,  // 17: surge.payments.v1.PaymentsService.GetPaymentMethod:output_type -> surge.payments.v1.GetPaymentMethodResponse
-	9,  // 18: surge.payments.v1.PaymentsService.GetTripPayment:output_type -> surge.payments.v1.GetTripPaymentResponse
-	12, // 19: surge.payments.v1.PaymentsService.GetPayoutAccount:output_type -> surge.payments.v1.GetPayoutAccountResponse
-	15, // 20: surge.payments.v1.PaymentsService.StartOnboarding:output_type -> surge.payments.v1.StartOnboardingResponse
-	17, // 21: surge.payments.v1.PaymentsService.ListEarnings:output_type -> surge.payments.v1.ListEarningsResponse
-	16, // [16:22] is the sub-list for method output_type
-	10, // [10:16] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	0,  // 0: surge.payments.v1.DeliverWebhookRequest.kind:type_name -> surge.payments.v1.WebhookKind
+	10, // 1: surge.payments.v1.GetPaymentMethodResponse.card:type_name -> surge.payments.v1.Card
+	13, // 2: surge.payments.v1.GetTripPaymentResponse.payment:type_name -> surge.payments.v1.Payment
+	1,  // 3: surge.payments.v1.Payment.status:type_name -> surge.payments.v1.PaymentStatus
+	22, // 4: surge.payments.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
+	22, // 5: surge.payments.v1.Payment.updated_at:type_name -> google.protobuf.Timestamp
+	16, // 6: surge.payments.v1.GetPayoutAccountResponse.account:type_name -> surge.payments.v1.PayoutAccount
+	2,  // 7: surge.payments.v1.PayoutAccount.status:type_name -> surge.payments.v1.PayoutAccountStatus
+	21, // 8: surge.payments.v1.ListEarningsResponse.earnings:type_name -> surge.payments.v1.Earning
+	3,  // 9: surge.payments.v1.Earning.status:type_name -> surge.payments.v1.EarningStatus
+	22, // 10: surge.payments.v1.Earning.created_at:type_name -> google.protobuf.Timestamp
+	6,  // 11: surge.payments.v1.PaymentsService.CreateSetupIntent:input_type -> surge.payments.v1.CreateSetupIntentRequest
+	8,  // 12: surge.payments.v1.PaymentsService.GetPaymentMethod:input_type -> surge.payments.v1.GetPaymentMethodRequest
+	11, // 13: surge.payments.v1.PaymentsService.GetTripPayment:input_type -> surge.payments.v1.GetTripPaymentRequest
+	14, // 14: surge.payments.v1.PaymentsService.GetPayoutAccount:input_type -> surge.payments.v1.GetPayoutAccountRequest
+	17, // 15: surge.payments.v1.PaymentsService.StartOnboarding:input_type -> surge.payments.v1.StartOnboardingRequest
+	4,  // 16: surge.payments.v1.PaymentsService.DeliverWebhook:input_type -> surge.payments.v1.DeliverWebhookRequest
+	19, // 17: surge.payments.v1.PaymentsService.ListEarnings:input_type -> surge.payments.v1.ListEarningsRequest
+	7,  // 18: surge.payments.v1.PaymentsService.CreateSetupIntent:output_type -> surge.payments.v1.CreateSetupIntentResponse
+	9,  // 19: surge.payments.v1.PaymentsService.GetPaymentMethod:output_type -> surge.payments.v1.GetPaymentMethodResponse
+	12, // 20: surge.payments.v1.PaymentsService.GetTripPayment:output_type -> surge.payments.v1.GetTripPaymentResponse
+	15, // 21: surge.payments.v1.PaymentsService.GetPayoutAccount:output_type -> surge.payments.v1.GetPayoutAccountResponse
+	18, // 22: surge.payments.v1.PaymentsService.StartOnboarding:output_type -> surge.payments.v1.StartOnboardingResponse
+	5,  // 23: surge.payments.v1.PaymentsService.DeliverWebhook:output_type -> surge.payments.v1.DeliverWebhookResponse
+	20, // 24: surge.payments.v1.PaymentsService.ListEarnings:output_type -> surge.payments.v1.ListEarningsResponse
+	18, // [18:25] is the sub-list for method output_type
+	11, // [11:18] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_payments_proto_init() }
@@ -1294,8 +1461,8 @@ func file_payments_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payments_proto_rawDesc), len(file_payments_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   16,
+			NumEnums:      4,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

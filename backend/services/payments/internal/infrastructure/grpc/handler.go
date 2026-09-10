@@ -18,12 +18,41 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type Handler struct {
-	paymentspb.UnimplementedPaymentsServiceServer
-	service *service.Service
+// WebhookReceiver verifies and applies a processor's webhook.
+type WebhookReceiver interface {
+	Receive(ctx context.Context, thin bool, payload []byte, signature string) error
 }
 
-func NewHandler(payments *service.Service) *Handler { return &Handler{service: payments} }
+type Handler struct {
+	paymentspb.UnimplementedPaymentsServiceServer
+	service  *service.Service
+	webhooks WebhookReceiver
+}
+
+// NewHandler takes the webhook receiver separately because not every
+// processor has one: the fake answers synchronously and sends nothing later.
+func NewHandler(payments *service.Service, webhooks WebhookReceiver) *Handler {
+	return &Handler{service: payments, webhooks: webhooks}
+}
+
+// DeliverWebhook needs no caller, unlike everything else here: the gateway
+// forwards it without one, and the signature is the authentication.
+func (h *Handler) DeliverWebhook(ctx context.Context, request *paymentspb.DeliverWebhookRequest) (*paymentspb.DeliverWebhookResponse, error) {
+	if h.webhooks == nil {
+		return nil, status.Error(codes.FailedPrecondition, "this processor sends no webhooks")
+	}
+
+	thin := request.GetKind() == paymentspb.WebhookKind_WEBHOOK_KIND_THIN
+	err := h.webhooks.Receive(ctx, thin, request.GetPayload(), request.GetSignature())
+	switch {
+	case errors.Is(err, service.ErrInvalidWebhook):
+		return nil, status.Error(codes.InvalidArgument, "the webhook signature does not check out")
+	case err != nil:
+		// Internal, which the gateway answers with a 5xx, and Stripe retries.
+		return nil, status.Errorf(codes.Internal, "could not apply the webhook: %v", err)
+	}
+	return &paymentspb.DeliverWebhookResponse{}, nil
+}
 
 // callerAs returns the caller when they hold one of the roles. A driver asking
 // for a rider's card is not a caller who forgot a field; it is a request this

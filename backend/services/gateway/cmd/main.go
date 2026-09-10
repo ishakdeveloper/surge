@@ -30,6 +30,7 @@ import (
 	"github.com/ishakdeveloper/surge/shared/config"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	"github.com/ishakdeveloper/surge/shared/obs"
+	paymentspb "github.com/ishakdeveloper/surge/shared/proto/payments"
 	"github.com/ishakdeveloper/surge/shared/retry"
 	"github.com/ishakdeveloper/surge/shared/tracing"
 	"github.com/prometheus/client_golang/prometheus"
@@ -151,6 +152,13 @@ func run() error {
 	// request context for the metadata annotator to forward. Everything under
 	// /v1 needs a caller; nothing under it is public.
 	mux.Handle("/v1/", guard(rest))
+
+	// Stripe's webhooks, outside the guard: Stripe has no token to send, and
+	// the signature payments checks is what authenticates one.
+	mux.Handle("POST /webhooks/stripe",
+		gatewayhttp.StripeWebhooks(clients.Payments, paymentspb.WebhookKind_WEBHOOK_KIND_SNAPSHOT))
+	mux.Handle("POST /webhooks/stripe/thin",
+		gatewayhttp.StripeWebhooks(clients.Payments, paymentspb.WebhookKind_WEBHOOK_KIND_THIN))
 
 	// The API document, generated from the same annotations. Served rather
 	// than published separately, so what a client reads and what the gateway

@@ -24,7 +24,21 @@ type InMemory struct {
 	earnings    map[string]domain.Earning
 	posted      map[string]bool
 	balances    map[string]int64
+	events      map[string]bool
 	facts       []domain.Fact
+}
+
+func (r *InMemory) EventHandled(_ context.Context, eventID string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.events[eventID], nil
+}
+
+func (r *InMemory) MarkEventHandled(_ context.Context, eventID, _ string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.events[eventID] = true
+	return nil
 }
 
 func NewInMemory() *InMemory {
@@ -32,7 +46,7 @@ func NewInMemory() *InMemory {
 		customers: map[string]domain.Customer{}, payments: map[string]domain.Payment{},
 		byTrip: map[string]string{}, byProcessor: map[string]string{},
 		accounts: map[string]domain.PayoutAccount{}, earnings: map[string]domain.Earning{},
-		posted: map[string]bool{}, balances: map[string]int64{},
+		posted: map[string]bool{}, balances: map[string]int64{}, events: map[string]bool{},
 	}
 }
 
