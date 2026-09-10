@@ -47,17 +47,17 @@ proto: ## Regenerate gRPC code from proto/
 	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=proto \
-		--go_out=services/pkg/proto --go_opt=module=github.com/ishakdeveloper/surge/pkg/proto \
-		--go-grpc_out=services/pkg/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/pkg/proto \
+		--go_out=services/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
+		--go-grpc_out=services/shared/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		proto/*.proto
 	cd services && gofmt -w pkg/proto
 
 build: ## Build every Go binary
-	$(GO) build -o bin/simd ./cmd/simd
-	$(GO) build -o bin/ingest ./cmd/ingest
-	$(GO) build -o bin/matcher ./cmd/matcher
-	$(GO) build -o bin/trip ./cmd/trip
-	$(GO) build -o bin/migrate ./cmd/migrate
+	$(GO) build -o bin/simd ./simulator/cmd
+	$(GO) build -o bin/ingest ./ingest/cmd
+	$(GO) build -o bin/matcher ./matcher/cmd
+	$(GO) build -o bin/trip ./trip/cmd
+	$(GO) build -o bin/migrate ./migrate/cmd
 
 test: ## Run both test suites
 	$(GO) vet ./... && cd services && go test ./...
