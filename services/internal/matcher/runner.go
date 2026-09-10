@@ -7,7 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/ishakdeveloper/surge/pkg/kafkax"
+	"github.com/ishakdeveloper/surge/pkg/tracing"
 	"github.com/ishakdeveloper/surge/pkg/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -263,30 +266,14 @@ func (r *Runner) run(w *worker) {
 
 		case batch := <-w.records:
 			for _, record := range batch {
-				event, err := wire.DecodeGeoEvent(record.Value)
-				if err != nil {
-					if r.hooks.OnHandlerError != nil {
-						r.hooks.OnHandlerError(err)
-					}
-					continue
-				}
-
-				outcome, err := w.shard.Handle(event, time.Now())
-				if err != nil {
-					if r.hooks.OnHandlerError != nil {
-						r.hooks.OnHandlerError(err)
-					}
-					continue
-				}
-
-				if r.hooks.OnEvent != nil {
-					r.hooks.OnEvent(event.Tag)
-				}
-				r.emit(outcome)
+				r.handle(w, record)
 			}
 
 		case now := <-tick.C:
-			r.emit(w.shard.Tick(now))
+			// Expiries have no inbound record to inherit a trace from, so they
+			// start their own. A timed-out offer is worth seeing as a trace in
+			// its own right: it is a rider waiting.
+			r.emit(context.Background(), w.shard.Tick(now))
 
 		case <-report.C:
 			if r.hooks.OnShardState != nil {
@@ -297,13 +284,56 @@ func (r *Runner) run(w *worker) {
 	}
 }
 
+// handle processes one record inside a span continued from its producer.
+func (r *Runner) handle(w *worker, record *kgo.Record) {
+	ctx, span := tracing.Consume(context.Background(), record, "matcher.event")
+	defer span.End()
+
+	event, err := wire.DecodeGeoEvent(record.Value)
+	if err != nil {
+		tracing.Fail(span, err)
+		if r.hooks.OnHandlerError != nil {
+			r.hooks.OnHandlerError(err)
+		}
+		return
+	}
+
+	span.SetName("matcher." + event.Tag)
+	span.SetAttributes(
+		attribute.String("surge.cell", event.Cell),
+		attribute.Int("surge.partition", int(w.shard.Partition())),
+	)
+
+	outcome, err := w.shard.Handle(event, time.Now())
+	if err != nil {
+		tracing.Fail(span, err)
+		if r.hooks.OnHandlerError != nil {
+			r.hooks.OnHandlerError(err)
+		}
+		return
+	}
+
+	if len(outcome.Matched) > 0 {
+		span.SetAttributes(
+			attribute.String("surge.trip", outcome.Matched[0].TripID),
+			attribute.String("surge.driver", outcome.Matched[0].DriverID),
+			attribute.Float64("surge.match_latency_seconds", outcome.Matched[0].Latency.Seconds()),
+		)
+	}
+
+	if r.hooks.OnEvent != nil {
+		r.hooks.OnEvent(event.Tag)
+	}
+	r.emit(ctx, outcome)
+}
+
 // emit sends everything an outcome produced, and counts what happened.
-func (r *Runner) emit(outcome Outcome) {
+func (r *Runner) emit(ctx context.Context, outcome Outcome) {
 	for _, event := range outcome.GeoEvents {
-		r.produce(kafkax.TopicGeoEvents, event.Cell, event)
+		r.produce(ctx, kafkax.TopicGeoEvents, event.Cell, event)
 	}
 	for _, offer := range outcome.Offers {
-		r.produce(kafkax.TopicWSPush, offer.DriverID, offer)
+		r.produce(ctx, kafkax.TopicWSPush, offer.DriverID, offer)
 	}
 
 	for _, match := range outcome.Matched {
@@ -323,7 +353,7 @@ func (r *Runner) emit(outcome Outcome) {
 	}
 }
 
-func (r *Runner) produce(topic, key string, message any) {
+func (r *Runner) produce(ctx context.Context, topic, key string, message any) {
 	payload, err := json.Marshal(message)
 	if err != nil {
 		if r.hooks.OnProduceFailure != nil {
@@ -332,7 +362,7 @@ func (r *Runner) produce(topic, key string, message any) {
 		return
 	}
 
-	r.producer.Produce(context.Background(), &kgo.Record{
+	tracing.Produce(ctx, r.producer, &kgo.Record{
 		Topic: topic,
 		Key:   []byte(key),
 		Value: payload,

@@ -19,6 +19,7 @@ import (
 	"github.com/ishakdeveloper/surge/pkg/config"
 	"github.com/ishakdeveloper/surge/pkg/kafkax"
 	"github.com/ishakdeveloper/surge/pkg/obs"
+	"github.com/ishakdeveloper/surge/pkg/tracing"
 	"github.com/ishakdeveloper/surge/pkg/wire"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -67,6 +68,17 @@ func run() error {
 		"offerTTL", settings.OfferTTL,
 		"searchRings", settings.SearchRings,
 	)
+
+	shutdownTracing, err := tracing.Init(ctx, "matcher",
+		config.StringOr("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = shutdownTracing(flush)
+	}()
 
 	registry := obs.NewRegistry("matcher")
 	metrics := newMetrics(registry)

@@ -29,6 +29,7 @@ import (
 	"github.com/ishakdeveloper/surge/pkg/kafkax"
 	"github.com/ishakdeveloper/surge/pkg/obs"
 	"github.com/ishakdeveloper/surge/pkg/routing"
+	"github.com/ishakdeveloper/surge/pkg/tracing"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -79,6 +80,17 @@ func run() error {
 	if settings.PingInterval, err = config.DurationOr("SIM_PING_INTERVAL", settings.PingInterval); err != nil {
 		return err
 	}
+
+	shutdownTracing, err := tracing.Init(ctx, "simd",
+		config.StringOr("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = shutdownTracing(flush)
+	}()
 
 	registry := obs.NewRegistry("simd")
 	metrics := newMetrics(registry)

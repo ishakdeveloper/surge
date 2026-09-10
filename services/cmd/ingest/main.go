@@ -26,6 +26,7 @@ import (
 	"github.com/ishakdeveloper/surge/pkg/config"
 	"github.com/ishakdeveloper/surge/pkg/kafkax"
 	"github.com/ishakdeveloper/surge/pkg/obs"
+	"github.com/ishakdeveloper/surge/pkg/tracing"
 	"github.com/ishakdeveloper/surge/pkg/wire"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -50,6 +51,17 @@ func run() error {
 	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
 		return err
 	}
+
+	shutdownTracing, err := tracing.Init(ctx, "ingest",
+		config.StringOr("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = shutdownTracing(flush)
+	}()
 
 	registry := obs.NewRegistry("ingest")
 	metrics := newMetrics(registry)
@@ -152,6 +164,10 @@ func consume(ctx context.Context, client *kgo.Client, producer *kgo.Client, inde
 		})
 
 		fetches.EachRecord(func(record *kgo.Record) {
+			// The span the producer opened continues here, across the broker.
+			recordCtx, span := tracing.Consume(ctx, record, "ingest.ping")
+			defer span.End()
+
 			var ping wire.DriverPing
 			if err := json.Unmarshal(record.Value, &ping); err != nil {
 				metrics.rejected.WithLabelValues("malformed").Inc()
@@ -199,7 +215,9 @@ func consume(ctx context.Context, client *kgo.Client, producer *kgo.Client, inde
 				// Keyed by shard cell. This single line is the sharding: the
 				// broker's partitioner turns a place into an owner, and every
 				// event for that place lands in the same partition in order.
-				producer.Produce(ctx, &kgo.Record{
+				// Traced, so the matcher's span is a child of this one and a
+				// single trip reads as one trace rather than four.
+				tracing.Produce(recordCtx, producer, &kgo.Record{
 					Topic: kafkax.TopicGeoEvents,
 					Key:   []byte(event.Cell),
 					Value: payload,

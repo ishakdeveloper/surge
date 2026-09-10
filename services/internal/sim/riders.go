@@ -10,8 +10,10 @@ import (
 
 	"github.com/ishakdeveloper/surge/pkg/geo"
 	"github.com/ishakdeveloper/surge/pkg/kafkax"
+	"github.com/ishakdeveloper/surge/pkg/tracing"
 	"github.com/ishakdeveloper/surge/pkg/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // RiderConfig is the demand side of the knob.
@@ -167,7 +169,17 @@ func (r *Riders) request(ctx context.Context) error {
 			},
 		}
 
-		r.emit(ctx, kafkax.TopicGeoEvents, cell.String(), event)
+		// The root span of a trip. Everything downstream — ingest, the shard
+		// that matches it, the offer, the driver's answer — hangs off this one,
+		// which is what makes "what happened to trip-1234" a single query.
+		requestCtx, span := tracing.Tracer("sim").Start(ctx, "rider.request")
+		span.SetAttributes(
+			attribute.String("surge.trip", tripID),
+			attribute.String("surge.cell", cell.String()),
+		)
+
+		r.emit(requestCtx, kafkax.TopicGeoEvents, cell.String(), event)
+		span.End()
 
 		if r.hooks.OnRequest != nil {
 			r.hooks.OnRequest()
@@ -190,6 +202,12 @@ func (r *Riders) answer(ctx context.Context) {
 		}
 
 		fetches.EachRecord(func(record *kgo.Record) {
+			// Continues the trip's trace into the driver's decision, so the
+			// seconds a human spends deciding are visible as a span rather than
+			// as an unexplained gap.
+			offerCtx, span := tracing.Consume(ctx, record, "driver.offer")
+			defer span.End()
+
 			var offer wire.Offer
 			if err := json.Unmarshal(record.Value, &offer); err != nil {
 				return
@@ -213,7 +231,7 @@ func (r *Riders) answer(ctx context.Context) {
 				if r.hooks.OnDuplicate != nil {
 					r.hooks.OnDuplicate(offer.TripID)
 				}
-				go r.reply(ctx, offer, false, 0)
+				go r.reply(offerCtx, offer, false, 0)
 				return
 			}
 
@@ -225,7 +243,13 @@ func (r *Riders) answer(ctx context.Context) {
 
 			// One goroutine per offer, so a slow answer does not hold up the
 			// rest of the batch. Offers are rare relative to pings.
-			go r.reply(ctx, offer, accepted, delay)
+			span.SetAttributes(
+				attribute.String("surge.trip", offer.TripID),
+				attribute.String("surge.driver", offer.DriverID),
+				attribute.Bool("surge.accepted", accepted),
+			)
+
+			go r.reply(offerCtx, offer, accepted, delay)
 		})
 	}
 }
@@ -285,7 +309,7 @@ func (r *Riders) emit(ctx context.Context, topic, key string, message any) {
 		return
 	}
 
-	r.producer.Produce(ctx, &kgo.Record{
+	tracing.Produce(ctx, r.producer, &kgo.Record{
 		Topic: topic,
 		Key:   []byte(key),
 		Value: payload,
