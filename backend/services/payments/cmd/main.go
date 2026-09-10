@@ -128,6 +128,12 @@ func run() error {
 		return fmt.Errorf("payments: ping: %w", err)
 	}
 
+	producer, err := kafkax.NewProducer(brokers)
+	if err != nil {
+		return err
+	}
+	defer producer.Close()
+
 	repo := repository.NewPostgres(pool)
 	payments, err := service.New(service.Options{
 		Repository:    repo,
@@ -135,16 +141,13 @@ func run() error {
 		CommissionBps: commission,
 		WebURL:        webURL,
 		Sweep:         service.SweepPolicy{Action: actionTimeout, Hold: holdMaxAge},
+		// Every change is pushed to the people it concerns, which is what
+		// keeps the rider's and driver's screens live without polling.
+		Notifier: events.NewNotifier(producer),
 	})
 	if err != nil {
 		return err
 	}
-
-	producer, err := kafkax.NewProducer(brokers)
-	if err != nil {
-		return err
-	}
-	defer producer.Close()
 
 	relay := outbox.NewRelay(pool, repository.OutboxTable, producer, outbox.Options{
 		Hooks: outbox.PrometheusHooks(registry, "payments"),

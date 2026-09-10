@@ -298,6 +298,60 @@ func local_request_PaymentsService_RefundTrip_0(ctx context.Context, marshaler r
 	return msg, metadata, err
 }
 
+func request_PaymentsService_CreateAccountSession_0(ctx context.Context, marshaler runtime.Marshaler, client PaymentsServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq CreateAccountSessionRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.CreateAccountSession(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_PaymentsService_CreateAccountSession_0(ctx context.Context, marshaler runtime.Marshaler, server PaymentsServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq CreateAccountSessionRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.CreateAccountSession(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+func request_PaymentsService_CreateDashboardLink_0(ctx context.Context, marshaler runtime.Marshaler, client PaymentsServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq CreateDashboardLinkRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.CreateDashboardLink(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_PaymentsService_CreateDashboardLink_0(ctx context.Context, marshaler runtime.Marshaler, server PaymentsServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq CreateDashboardLinkRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.CreateDashboardLink(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 var filter_PaymentsService_ListEarnings_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_PaymentsService_ListEarnings_0(ctx context.Context, marshaler runtime.Marshaler, client PaymentsServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
@@ -519,6 +573,46 @@ func RegisterPaymentsServiceHandlerServer(ctx context.Context, mux *runtime.Serv
 		}
 		forward_PaymentsService_RefundTrip_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPost, pattern_PaymentsService_CreateAccountSession_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/surge.payments.v1.PaymentsService/CreateAccountSession", runtime.WithHTTPPathPattern("/v1/payments/account-sessions"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_PaymentsService_CreateAccountSession_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_PaymentsService_CreateAccountSession_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodPost, pattern_PaymentsService_CreateDashboardLink_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/surge.payments.v1.PaymentsService/CreateDashboardLink", runtime.WithHTTPPathPattern("/v1/payments/payout-account/dashboard-link"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_PaymentsService_CreateDashboardLink_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_PaymentsService_CreateDashboardLink_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodGet, pattern_PaymentsService_ListEarnings_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -732,6 +826,40 @@ func RegisterPaymentsServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 		}
 		forward_PaymentsService_RefundTrip_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPost, pattern_PaymentsService_CreateAccountSession_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/surge.payments.v1.PaymentsService/CreateAccountSession", runtime.WithHTTPPathPattern("/v1/payments/account-sessions"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_PaymentsService_CreateAccountSession_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_PaymentsService_CreateAccountSession_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodPost, pattern_PaymentsService_CreateDashboardLink_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/surge.payments.v1.PaymentsService/CreateDashboardLink", runtime.WithHTTPPathPattern("/v1/payments/payout-account/dashboard-link"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_PaymentsService_CreateDashboardLink_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_PaymentsService_CreateDashboardLink_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodGet, pattern_PaymentsService_ListEarnings_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -753,27 +881,31 @@ func RegisterPaymentsServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 }
 
 var (
-	pattern_PaymentsService_CreateSetupIntent_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "setup-intents"}, ""))
-	pattern_PaymentsService_GetPaymentMethod_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "method"}, ""))
-	pattern_PaymentsService_GetTripPayment_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "payments", "trips", "trip_id"}, ""))
-	pattern_PaymentsService_GetPayoutAccount_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "payout-account"}, ""))
-	pattern_PaymentsService_StartOnboarding_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "payout-account"}, ""))
-	pattern_PaymentsService_GetBalance_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "balance"}, ""))
-	pattern_PaymentsService_CreateWithdrawal_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "withdrawals"}, ""))
-	pattern_PaymentsService_ListWithdrawals_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "withdrawals"}, ""))
-	pattern_PaymentsService_RefundTrip_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"v1", "payments", "trips", "trip_id", "refund"}, ""))
-	pattern_PaymentsService_ListEarnings_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "earnings"}, ""))
+	pattern_PaymentsService_CreateSetupIntent_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "setup-intents"}, ""))
+	pattern_PaymentsService_GetPaymentMethod_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "method"}, ""))
+	pattern_PaymentsService_GetTripPayment_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "payments", "trips", "trip_id"}, ""))
+	pattern_PaymentsService_GetPayoutAccount_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "payout-account"}, ""))
+	pattern_PaymentsService_StartOnboarding_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "payout-account"}, ""))
+	pattern_PaymentsService_GetBalance_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "balance"}, ""))
+	pattern_PaymentsService_CreateWithdrawal_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "withdrawals"}, ""))
+	pattern_PaymentsService_ListWithdrawals_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "withdrawals"}, ""))
+	pattern_PaymentsService_RefundTrip_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"v1", "payments", "trips", "trip_id", "refund"}, ""))
+	pattern_PaymentsService_CreateAccountSession_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "account-sessions"}, ""))
+	pattern_PaymentsService_CreateDashboardLink_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "payments", "payout-account", "dashboard-link"}, ""))
+	pattern_PaymentsService_ListEarnings_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "payments", "earnings"}, ""))
 )
 
 var (
-	forward_PaymentsService_CreateSetupIntent_0 = runtime.ForwardResponseMessage
-	forward_PaymentsService_GetPaymentMethod_0  = runtime.ForwardResponseMessage
-	forward_PaymentsService_GetTripPayment_0    = runtime.ForwardResponseMessage
-	forward_PaymentsService_GetPayoutAccount_0  = runtime.ForwardResponseMessage
-	forward_PaymentsService_StartOnboarding_0   = runtime.ForwardResponseMessage
-	forward_PaymentsService_GetBalance_0        = runtime.ForwardResponseMessage
-	forward_PaymentsService_CreateWithdrawal_0  = runtime.ForwardResponseMessage
-	forward_PaymentsService_ListWithdrawals_0   = runtime.ForwardResponseMessage
-	forward_PaymentsService_RefundTrip_0        = runtime.ForwardResponseMessage
-	forward_PaymentsService_ListEarnings_0      = runtime.ForwardResponseMessage
+	forward_PaymentsService_CreateSetupIntent_0    = runtime.ForwardResponseMessage
+	forward_PaymentsService_GetPaymentMethod_0     = runtime.ForwardResponseMessage
+	forward_PaymentsService_GetTripPayment_0       = runtime.ForwardResponseMessage
+	forward_PaymentsService_GetPayoutAccount_0     = runtime.ForwardResponseMessage
+	forward_PaymentsService_StartOnboarding_0      = runtime.ForwardResponseMessage
+	forward_PaymentsService_GetBalance_0           = runtime.ForwardResponseMessage
+	forward_PaymentsService_CreateWithdrawal_0     = runtime.ForwardResponseMessage
+	forward_PaymentsService_ListWithdrawals_0      = runtime.ForwardResponseMessage
+	forward_PaymentsService_RefundTrip_0           = runtime.ForwardResponseMessage
+	forward_PaymentsService_CreateAccountSession_0 = runtime.ForwardResponseMessage
+	forward_PaymentsService_CreateDashboardLink_0  = runtime.ForwardResponseMessage
+	forward_PaymentsService_ListEarnings_0         = runtime.ForwardResponseMessage
 )

@@ -100,7 +100,7 @@ func (s *Service) Refund(ctx context.Context, tripID string, amountCents int64, 
 		txns = append(txns, domain.ReversalTxn(*refund, driverID))
 	}
 
-	err = s.repo.Apply(ctx, domain.Change{Refund: refund, Txns: txns})
+	err = s.apply(ctx, domain.Change{Refund: refund, Txns: txns})
 	if errors.Is(err, domain.ErrConflict) {
 		// A retry with the same key landed first. Both reached the processor
 		// under the same key, so there is one refund; return it.

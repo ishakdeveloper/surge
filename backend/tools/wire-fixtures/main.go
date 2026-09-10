@@ -58,6 +58,10 @@ func main() {
 			Status:   "TRIP_STATUS_ACCEPTED",
 			AtMs:     1757512331000,
 		}},
+		"server_payments_changed.json": wire.ServerMessage{Tag: wire.TagPaymentsChanged, Payments: &wire.PaymentsChange{
+			TripID: "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+			AtMs:   1757512345000,
+		}},
 		"server_offer.json": wire.ServerMessage{Tag: wire.TagOffer, Offer: &wire.Offer{
 			Tag:            wire.TagOffer,
 			TripID:         "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",

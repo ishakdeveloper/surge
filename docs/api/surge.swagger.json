@@ -29,6 +29,39 @@
     "application/json"
   ],
   "paths": {
+    "/v1/payments/account-sessions": {
+      "post": {
+        "summary": "CreateAccountSession lets the driver's browser render Stripe's embedded\ncomponents for their account: the notification banner that keeps it in\ngood standing as Stripe's requirements change.",
+        "operationId": "createAccountSession",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateAccountSessionResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateAccountSessionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
     "/v1/payments/balance": {
       "get": {
         "summary": "GetBalance is what a driver can take out now, what is on its way to their\nbalance, and what they have earned that has not reached it yet.",
@@ -162,6 +195,39 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/v1StartOnboardingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/payout-account/dashboard-link": {
+      "post": {
+        "summary": "CreateDashboardLink is a single-use link into the driver's Stripe\ndashboard, where they see their payouts and change their bank.",
+        "operationId": "createDashboardLink",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateDashboardLinkResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateDashboardLinkRequest"
             }
           }
         ],
@@ -951,6 +1017,30 @@
         }
       },
       "description": "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which."
+    },
+    "v1CreateAccountSessionRequest": {
+      "type": "object"
+    },
+    "v1CreateAccountSessionResponse": {
+      "type": "object",
+      "properties": {
+        "clientSecret": {
+          "type": "string",
+          "description": "Handed to Stripe's Connect.js, and good for one session."
+        }
+      }
+    },
+    "v1CreateDashboardLinkRequest": {
+      "type": "object"
+    },
+    "v1CreateDashboardLinkResponse": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Single use: redirect to it at once."
+        }
+      }
     },
     "v1CreateSetupIntentRequest": {
       "type": "object"

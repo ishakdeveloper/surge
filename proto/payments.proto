@@ -192,6 +192,47 @@ service PaymentsService {
     };
   }
 
+  // CreateAccountSession lets the driver's browser render Stripe's embedded
+  // components for their account: the notification banner that keeps it in
+  // good standing as Stripe's requirements change.
+  rpc CreateAccountSession(CreateAccountSessionRequest) returns (CreateAccountSessionResponse) {
+    option (google.api.http) = {
+      post: "/v1/payments/account-sessions"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "createAccountSession"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // CreateDashboardLink is a single-use link into the driver's Stripe
+  // dashboard, where they see their payouts and change their bank.
+  rpc CreateDashboardLink(CreateDashboardLinkRequest) returns (CreateDashboardLinkResponse) {
+    option (google.api.http) = {
+      post: "/v1/payments/payout-account/dashboard-link"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "createDashboardLink"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
   // DeliverWebhook hands this service a processor webhook exactly as it
   // arrived.
   //
@@ -326,6 +367,20 @@ enum RefundReversal {
   REFUND_REVERSAL_REVERSED = 3;
   // The driver's balance could not cover it; the platform carries it.
   REFUND_REVERSAL_FAILED = 4;
+}
+
+message CreateAccountSessionRequest {}
+
+message CreateAccountSessionResponse {
+  // Handed to Stripe's Connect.js, and good for one session.
+  string client_secret = 1;
+}
+
+message CreateDashboardLinkRequest {}
+
+message CreateDashboardLinkResponse {
+  // Single use: redirect to it at once.
+  string url = 1;
 }
 
 message DeliverWebhookRequest {

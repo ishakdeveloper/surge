@@ -8,6 +8,7 @@ import {
   type FleetUpdate,
   type Offer,
   OfferReply,
+  type PaymentsChange,
   type ServerMessage,
   ServerMessageFromJson,
   type TripUpdate,
@@ -79,6 +80,12 @@ export interface RealtimeService {
   readonly fleet: Stream.Stream<FleetUpdate>;
   /** The assigned driver's position, once a second while following a trip. */
   readonly positions: Stream.Stream<DriverPosition>;
+  /**
+   * Something about the caller's money changed — what `/ride` watches for a
+   * bank asking the rider to confirm, and `/drive/earnings` for a balance
+   * moving.
+   */
+  readonly paymentsChanged: Stream.Stream<PaymentsChange>;
   /** For the reconnecting banner. Emits the current value on subscribe. */
   readonly status: Stream.Stream<ConnectionStatus>;
 
@@ -298,6 +305,13 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
             (message) =>
               message._tag === "DriverPosition"
                 ? Result.succeed(message.position)
+                : Result.fail(message),
+          ),
+          paymentsChanged: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "PaymentsChanged"
+                ? Result.succeed(message.payments)
                 : Result.fail(message),
           ),
           status: SubscriptionRef.changes(connection),

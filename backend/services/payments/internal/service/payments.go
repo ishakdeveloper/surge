@@ -53,6 +53,12 @@ type Processor interface {
 	// Payout sends money from a connected account's balance to its bank.
 	// ErrPayoutRefused, carrying the processor's reason, when it will not.
 	Payout(ctx context.Context, request PayoutRequest) (Payout, error)
+
+	// AccountSession lets a driver's browser render the processor's embedded
+	// components for their account — the notification banner above all.
+	AccountSession(ctx context.Context, accountID string) (clientSecret string, err error)
+	// DashboardLink is a single-use link into the driver's own dashboard.
+	DashboardLink(ctx context.Context, accountID string) (string, error)
 }
 
 // Outcome is how a request for a hold was answered.
@@ -128,6 +134,7 @@ type Service struct {
 	commissionBps int
 	webURL        string
 	sweep         SweepPolicy
+	notifier      Notifier
 	now           func() time.Time
 	newID         func() string
 }
@@ -144,8 +151,10 @@ type Options struct {
 	// Sweep is how long stuck payments are left; zero durations take the
 	// defaults.
 	Sweep SweepPolicy
-	Now   func() time.Time
-	NewID func() string
+	// Notifier is optional; without one, changes are simply not pushed.
+	Notifier Notifier
+	Now      func() time.Time
+	NewID    func() string
 }
 
 func New(options Options) (*Service, error) {
@@ -160,8 +169,12 @@ func New(options Options) (*Service, error) {
 		commissionBps: options.CommissionBps,
 		webURL:        options.WebURL,
 		sweep:         options.Sweep,
+		notifier:      options.Notifier,
 		now:           options.Now,
 		newID:         options.NewID,
+	}
+	if service.notifier == nil {
+		service.notifier = silentNotifier{}
 	}
 	if service.sweep.Authorizing <= 0 {
 		service.sweep.Authorizing = DefaultSweepPolicy.Authorizing
@@ -229,7 +242,7 @@ func (s *Service) TripRequested(ctx context.Context, trip Trip) error {
 	// Stored before the processor is asked. A crash mid-request then leaves a
 	// payment that says a hold may exist, which the redelivery finishes, rather
 	// than a hold on a rider's card that nothing here knows about.
-	if err := s.repo.Apply(ctx, domain.Change{Payment: payment, From: from}); err != nil {
+	if err := s.apply(ctx, domain.Change{Payment: payment, From: from}); err != nil {
 		return err
 	}
 	return s.authorize(ctx, payment)
@@ -292,7 +305,7 @@ func (s *Service) settle(ctx context.Context, payment *domain.Payment, answer Au
 	if err := next.Transition(to, s.now()); err != nil {
 		return err
 	}
-	return s.repo.Apply(ctx, domain.Change{Payment: &next, From: from, Facts: domain.FactsOf(&next, from)})
+	return s.apply(ctx, domain.Change{Payment: &next, From: from, Facts: domain.FactsOf(&next, from)})
 }
 
 // AuthorizationSettled applies what the processor reported about a hold after
@@ -359,7 +372,7 @@ func (s *Service) capture(ctx context.Context, payment *domain.Payment, driverID
 	// The capture, what the driver earned, and the ledger entries saying
 	// where the money now sits: one write, so none of them exists without
 	// the others.
-	if err := s.repo.Apply(ctx, domain.Change{
+	if err := s.apply(ctx, domain.Change{
 		Payment: &next, From: from,
 		Earning: &earning,
 		Txns:    []domain.Txn{domain.CaptureTxn(&next, earning)},
@@ -423,7 +436,7 @@ func (s *Service) payDriver(ctx context.Context, tripID string) error {
 		next.ProcessorTransferID = transferID
 	}
 
-	return s.repo.Apply(ctx, domain.Change{
+	return s.apply(ctx, domain.Change{
 		Earning: &next, EarningFrom: domain.EarningUnpaid,
 		Txns: []domain.Txn{domain.TransferTxn(next)},
 	})
@@ -485,5 +498,5 @@ func (s *Service) release(ctx context.Context, payment *domain.Payment) error {
 	if err := next.Transition(domain.StatusReleased, s.now()); err != nil {
 		return err
 	}
-	return s.repo.Apply(ctx, domain.Change{Payment: &next, From: from})
+	return s.apply(ctx, domain.Change{Payment: &next, From: from})
 }

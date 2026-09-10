@@ -135,6 +135,26 @@ describe("server messages", () => {
     expect(message.position.lat).toBeCloseTo(52.3711, 4);
   });
 
+  /**
+   * The payments service's doorbell: a hold needs the rider, a card was saved,
+   * an earning moved. It names a trip when there is one, and an empty string —
+   * not an absent field — when there is not.
+   */
+  it("decodes a payments change", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_payments_changed.json")));
+
+    if (message._tag !== "PaymentsChanged") {
+      throw new Error(`expected a payments change, got ${message._tag}`);
+    }
+    expect(message.payments.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
+    expect(message.payments.atMs).toBe(1757512345000);
+
+    const untied = await Effect.runPromise(
+      decodeServer(`{"_tag":"PaymentsChanged","payments":{"tripId":"","atMs":1}}`),
+    );
+    expect(untied._tag).toBe("PaymentsChanged");
+  });
+
   it("decodes an error frame", async () => {
     const message = await Effect.runPromise(decodeServer(fixture("server_error.json")));
 

@@ -374,6 +374,7 @@ type ServerMessage struct {
 	Trip     *TripUpdate     `json:"trip,omitempty"`
 	Fleet    *FleetUpdate    `json:"fleet,omitempty"`
 	Position *DriverPosition `json:"position,omitempty"`
+	Payments *PaymentsChange `json:"payments,omitempty"`
 	// Error carries a human-meaningful reason when the gateway refuses
 	// something, so a client can distinguish "your token expired" from "the
 	// network dropped".
@@ -420,6 +421,9 @@ func (m ServerMessage) Valid() bool {
 		return m.Fleet != nil
 	case TagDriverPosition:
 		return m.Position != nil
+	case TagPaymentsChanged:
+		// A trip id is optional: a card saved is about no one trip.
+		return m.Payments != nil
 	case TagServerError, TagServerWelcome:
 		return true
 	default:

@@ -64,7 +64,7 @@ func (s *Service) DisputeOpened(ctx context.Context, opened DisputeOpened) error
 		change.Txns = append(change.Txns, domain.DisputeReversalTxn(*dispute, driverID))
 	}
 
-	err = s.repo.Apply(ctx, change)
+	err = s.apply(ctx, change)
 	if errors.Is(err, domain.ErrConflict) {
 		// The same dispute, delivered twice at once. The reversal went out
 		// under one key, so there is one; the other delivery stored it.
@@ -123,7 +123,7 @@ func (s *Service) DisputeClosed(ctx context.Context, processorDisputeID string, 
 	next.UpdatedAt = s.now()
 	if !won {
 		next.Status = domain.DisputeLost
-		return s.repo.Apply(ctx, domain.Change{Dispute: &next, DisputeFrom: domain.DisputeOpen})
+		return s.apply(ctx, domain.Change{Dispute: &next, DisputeFrom: domain.DisputeOpen})
 	}
 	next.Status = domain.DisputeWon
 
@@ -155,7 +155,7 @@ func (s *Service) DisputeClosed(ctx context.Context, processorDisputeID string, 
 		change.Txns = append(change.Txns, domain.DisputeRestoreTxn(next, driverID))
 	}
 
-	if err := s.repo.Apply(ctx, change); err != nil {
+	if err := s.apply(ctx, change); err != nil {
 		if errors.Is(err, domain.ErrConflict) {
 			return nil
 		}

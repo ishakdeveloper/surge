@@ -95,7 +95,13 @@ func (s *Service) CardSaved(ctx context.Context, processorCustomerID string, met
 	customer.PaymentMethodID = method.PaymentMethodID
 	customer.Card = method.Card
 	customer.UpdatedAt = s.now()
-	return s.repo.SaveCustomer(ctx, customer)
+	if err := s.repo.SaveCustomer(ctx, customer); err != nil {
+		return err
+	}
+	// The card was confirmed in the browser and reported by webhook; the
+	// page that saved it learns it arrived from this.
+	s.tell(ctx, "", customer.UserID)
+	return nil
 }
 
 // Customer is a rider's record, or the zero value when they have none — a
@@ -173,10 +179,36 @@ func (s *Service) AccountUpdated(ctx context.Context, update ConnectedAccount) e
 	if err := s.repo.SavePayoutAccount(ctx, account); err != nil {
 		return err
 	}
+	s.tell(ctx, "", account.DriverID)
 	if !account.CanReceive() {
 		return nil
 	}
 	return s.PayOutstanding(ctx, account.DriverID)
+}
+
+// AccountSession lets a driver's browser render the processor's embedded
+// components for their account.
+func (s *Service) AccountSession(ctx context.Context, driverID string) (string, error) {
+	account, found, err := s.PayoutAccount(ctx, driverID)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", ErrNoPayoutAccount
+	}
+	return s.processor.AccountSession(ctx, account.ProcessorAccountID)
+}
+
+// DashboardLink is a single-use link into a driver's own dashboard.
+func (s *Service) DashboardLink(ctx context.Context, driverID string) (string, error) {
+	account, found, err := s.PayoutAccount(ctx, driverID)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", ErrNoPayoutAccount
+	}
+	return s.processor.DashboardLink(ctx, account.ProcessorAccountID)
 }
 
 // DefaultPageSize and MaxPageSize bound a listing, as the trip service's do.

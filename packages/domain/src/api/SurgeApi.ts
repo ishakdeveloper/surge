@@ -36,16 +36,16 @@ import {
   WithdrawalId,
 } from "./Primitives.js";
 // non-recursive definitions
-export type V1GetBalanceResponse = typeof V1GetBalanceResponse.Type;
-export const V1GetBalanceResponse = Schema.Struct({
-  "balance": Schema.Struct({
-    "availableCents": CentsFromString,
-    "pendingCents": CentsFromString,
-    "owedCents": CentsFromString,
-    "currency": Schema.String,
-    "canWithdraw": Schema.Boolean,
+export type V1CreateAccountSessionRequest = typeof V1CreateAccountSessionRequest.Type;
+export const V1CreateAccountSessionRequest = Schema.Struct({}).annotate({
+  "identifier": "v1CreateAccountSessionRequest",
+});
+export type V1CreateAccountSessionResponse = typeof V1CreateAccountSessionResponse.Type;
+export const V1CreateAccountSessionResponse = Schema.Struct({
+  "clientSecret": Schema.String.annotate({
+    "description": "Handed to Stripe's Connect.js, and good for one session.",
   }),
-}).annotate({ "identifier": "v1GetBalanceResponse" });
+}).annotate({ "identifier": "v1CreateAccountSessionResponse" });
 export type V1ErrorBody = typeof V1ErrorBody.Type;
 export const V1ErrorBody = Schema.Struct({
   "error": Schema.Struct({
@@ -60,6 +60,16 @@ export const V1ErrorBody = Schema.Struct({
     "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends.",
   "identifier": "v1ErrorBody",
 });
+export type V1GetBalanceResponse = typeof V1GetBalanceResponse.Type;
+export const V1GetBalanceResponse = Schema.Struct({
+  "balance": Schema.Struct({
+    "availableCents": CentsFromString,
+    "pendingCents": CentsFromString,
+    "owedCents": CentsFromString,
+    "currency": Schema.String,
+    "canWithdraw": Schema.Boolean,
+  }),
+}).annotate({ "identifier": "v1GetBalanceResponse" });
 export type V1ListEarningsResponse = typeof V1ListEarningsResponse.Type;
 export const V1ListEarningsResponse = Schema.Struct({
   "earnings": Schema.Array(Schema.Struct({
@@ -132,6 +142,14 @@ export const V1StartOnboardingResponse = Schema.Struct({
       "Single use and short-lived: redirect to it at once, and never send it\nanywhere else — it opens the driver's identity details to whoever follows\nit.",
   }),
 }).annotate({ "identifier": "v1StartOnboardingResponse" });
+export type V1CreateDashboardLinkRequest = typeof V1CreateDashboardLinkRequest.Type;
+export const V1CreateDashboardLinkRequest = Schema.Struct({}).annotate({
+  "identifier": "v1CreateDashboardLinkRequest",
+});
+export type V1CreateDashboardLinkResponse = typeof V1CreateDashboardLinkResponse.Type;
+export const V1CreateDashboardLinkResponse = Schema.Struct({
+  "url": Schema.String.annotate({ "description": "Single use: redirect to it at once." }),
+}).annotate({ "identifier": "v1CreateDashboardLinkResponse" });
 export type V1CreateSetupIntentRequest = typeof V1CreateSetupIntentRequest.Type;
 export const V1CreateSetupIntentRequest = Schema.Struct({}).annotate({
   "identifier": "v1CreateSetupIntentRequest",
@@ -831,6 +849,31 @@ export const V1PreviewTripResponse = Schema.Struct({
   }).annotate({ "description": "Route is a driveable path with its cost." }),
 }).annotate({ "identifier": "v1PreviewTripResponse" });
 // schemas
+export type PaymentsCreateAccountSessionRequestJson =
+  typeof PaymentsCreateAccountSessionRequestJson.Type;
+export const PaymentsCreateAccountSessionRequestJson = V1CreateAccountSessionRequest;
+export type PaymentsCreateAccountSession200 = typeof PaymentsCreateAccountSession200.Type;
+export const PaymentsCreateAccountSession200 = V1CreateAccountSessionResponse;
+export type PaymentsCreateAccountSession400 = typeof PaymentsCreateAccountSession400.Type;
+export const PaymentsCreateAccountSession400 = V1ErrorBody;
+export type PaymentsCreateAccountSession401 = typeof PaymentsCreateAccountSession401.Type;
+export const PaymentsCreateAccountSession401 = V1ErrorBody;
+export type PaymentsCreateAccountSession403 = typeof PaymentsCreateAccountSession403.Type;
+export const PaymentsCreateAccountSession403 = V1ErrorBody;
+export type PaymentsCreateAccountSession404 = typeof PaymentsCreateAccountSession404.Type;
+export const PaymentsCreateAccountSession404 = V1ErrorBody;
+export type PaymentsCreateAccountSession409 = typeof PaymentsCreateAccountSession409.Type;
+export const PaymentsCreateAccountSession409 = V1ErrorBody;
+export type PaymentsCreateAccountSession429 = typeof PaymentsCreateAccountSession429.Type;
+export const PaymentsCreateAccountSession429 = V1ErrorBody;
+export type PaymentsCreateAccountSession500 = typeof PaymentsCreateAccountSession500.Type;
+export const PaymentsCreateAccountSession500 = V1ErrorBody;
+export type PaymentsCreateAccountSession501 = typeof PaymentsCreateAccountSession501.Type;
+export const PaymentsCreateAccountSession501 = V1ErrorBody;
+export type PaymentsCreateAccountSession503 = typeof PaymentsCreateAccountSession503.Type;
+export const PaymentsCreateAccountSession503 = V1ErrorBody;
+export type PaymentsCreateAccountSession504 = typeof PaymentsCreateAccountSession504.Type;
+export const PaymentsCreateAccountSession504 = V1ErrorBody;
 export type PaymentsGetBalance200 = typeof PaymentsGetBalance200.Type;
 export const PaymentsGetBalance200 = V1GetBalanceResponse;
 export type PaymentsGetBalance400 = typeof PaymentsGetBalance400.Type;
@@ -961,6 +1004,31 @@ export type PaymentsStartOnboarding503 = typeof PaymentsStartOnboarding503.Type;
 export const PaymentsStartOnboarding503 = V1ErrorBody;
 export type PaymentsStartOnboarding504 = typeof PaymentsStartOnboarding504.Type;
 export const PaymentsStartOnboarding504 = V1ErrorBody;
+export type PaymentsCreateDashboardLinkRequestJson =
+  typeof PaymentsCreateDashboardLinkRequestJson.Type;
+export const PaymentsCreateDashboardLinkRequestJson = V1CreateDashboardLinkRequest;
+export type PaymentsCreateDashboardLink200 = typeof PaymentsCreateDashboardLink200.Type;
+export const PaymentsCreateDashboardLink200 = V1CreateDashboardLinkResponse;
+export type PaymentsCreateDashboardLink400 = typeof PaymentsCreateDashboardLink400.Type;
+export const PaymentsCreateDashboardLink400 = V1ErrorBody;
+export type PaymentsCreateDashboardLink401 = typeof PaymentsCreateDashboardLink401.Type;
+export const PaymentsCreateDashboardLink401 = V1ErrorBody;
+export type PaymentsCreateDashboardLink403 = typeof PaymentsCreateDashboardLink403.Type;
+export const PaymentsCreateDashboardLink403 = V1ErrorBody;
+export type PaymentsCreateDashboardLink404 = typeof PaymentsCreateDashboardLink404.Type;
+export const PaymentsCreateDashboardLink404 = V1ErrorBody;
+export type PaymentsCreateDashboardLink409 = typeof PaymentsCreateDashboardLink409.Type;
+export const PaymentsCreateDashboardLink409 = V1ErrorBody;
+export type PaymentsCreateDashboardLink429 = typeof PaymentsCreateDashboardLink429.Type;
+export const PaymentsCreateDashboardLink429 = V1ErrorBody;
+export type PaymentsCreateDashboardLink500 = typeof PaymentsCreateDashboardLink500.Type;
+export const PaymentsCreateDashboardLink500 = V1ErrorBody;
+export type PaymentsCreateDashboardLink501 = typeof PaymentsCreateDashboardLink501.Type;
+export const PaymentsCreateDashboardLink501 = V1ErrorBody;
+export type PaymentsCreateDashboardLink503 = typeof PaymentsCreateDashboardLink503.Type;
+export const PaymentsCreateDashboardLink503 = V1ErrorBody;
+export type PaymentsCreateDashboardLink504 = typeof PaymentsCreateDashboardLink504.Type;
+export const PaymentsCreateDashboardLink504 = V1ErrorBody;
 export type PaymentsCreateSetupIntentRequestJson = typeof PaymentsCreateSetupIntentRequestJson.Type;
 export const PaymentsCreateSetupIntentRequestJson = V1CreateSetupIntentRequest;
 export type PaymentsCreateSetupIntent200 = typeof PaymentsCreateSetupIntent200.Type;
@@ -1360,6 +1428,27 @@ export const TripsPreview504 = V1ErrorBody;
 
 class PaymentsGroup extends HttpApiGroup.make("payments")
   .add(
+    HttpApiEndpoint.post("createAccountSession", "/v1/payments/account-sessions", {
+      payload: PaymentsCreateAccountSessionRequestJson,
+      success: PaymentsCreateAccountSession200,
+      error: [
+        PaymentsCreateAccountSession400.pipe(HttpApiSchema.status(400)),
+        PaymentsCreateAccountSession401.pipe(HttpApiSchema.status(401)),
+        PaymentsCreateAccountSession403.pipe(HttpApiSchema.status(403)),
+        PaymentsCreateAccountSession404.pipe(HttpApiSchema.status(404)),
+        PaymentsCreateAccountSession409.pipe(HttpApiSchema.status(409)),
+        PaymentsCreateAccountSession429.pipe(HttpApiSchema.status(429)),
+        PaymentsCreateAccountSession500,
+        PaymentsCreateAccountSession501.pipe(HttpApiSchema.status(501)),
+        PaymentsCreateAccountSession503.pipe(HttpApiSchema.status(503)),
+        PaymentsCreateAccountSession504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "createAccountSession")
+      .annotate(
+        OpenApi.Summary,
+        "CreateAccountSession lets the driver's browser render Stripe's embedded\ncomponents for their account: the notification banner that keeps it in\ngood standing as Stripe's requirements change.",
+      ),
     HttpApiEndpoint.get("getBalance", "/v1/payments/balance", {
       success: PaymentsGetBalance200,
       error: [
@@ -1459,6 +1548,27 @@ class PaymentsGroup extends HttpApiGroup.make("payments")
       .annotate(
         OpenApi.Description,
         "The return addresses are the server's, never the caller's: a link that\nredirects wherever a request said is an open redirect with a trusted\ndomain in front of it.",
+      ),
+    HttpApiEndpoint.post("createDashboardLink", "/v1/payments/payout-account/dashboard-link", {
+      payload: PaymentsCreateDashboardLinkRequestJson,
+      success: PaymentsCreateDashboardLink200,
+      error: [
+        PaymentsCreateDashboardLink400.pipe(HttpApiSchema.status(400)),
+        PaymentsCreateDashboardLink401.pipe(HttpApiSchema.status(401)),
+        PaymentsCreateDashboardLink403.pipe(HttpApiSchema.status(403)),
+        PaymentsCreateDashboardLink404.pipe(HttpApiSchema.status(404)),
+        PaymentsCreateDashboardLink409.pipe(HttpApiSchema.status(409)),
+        PaymentsCreateDashboardLink429.pipe(HttpApiSchema.status(429)),
+        PaymentsCreateDashboardLink500,
+        PaymentsCreateDashboardLink501.pipe(HttpApiSchema.status(501)),
+        PaymentsCreateDashboardLink503.pipe(HttpApiSchema.status(503)),
+        PaymentsCreateDashboardLink504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "createDashboardLink")
+      .annotate(
+        OpenApi.Summary,
+        "CreateDashboardLink is a single-use link into the driver's Stripe\ndashboard, where they see their payouts and change their bank.",
       ),
     HttpApiEndpoint.post("createSetupIntent", "/v1/payments/setup-intents", {
       payload: PaymentsCreateSetupIntentRequestJson,

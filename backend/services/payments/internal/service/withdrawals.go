@@ -193,7 +193,11 @@ func (s *Service) PayoutSettled(ctx context.Context, processorPayoutID, status, 
 	if to == domain.WithdrawalFailed {
 		next.FailureReason = reason
 	}
-	return s.repo.UpdateWithdrawal(ctx, &next, withdrawal.Status)
+	if err := s.repo.UpdateWithdrawal(ctx, &next, withdrawal.Status); err != nil {
+		return err
+	}
+	s.tell(ctx, "", withdrawal.DriverID)
+	return nil
 }
 
 // Withdrawals is a page of a driver's withdrawals, newest first.

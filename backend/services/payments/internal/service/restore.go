@@ -105,7 +105,7 @@ func (s *Service) RefundFailed(ctx context.Context, processorRefundID, reason st
 		change.Txns = append(change.Txns, domain.RefundRestoreTxn(next, driverID))
 	}
 
-	if err := s.repo.Apply(ctx, change); err != nil {
+	if err := s.apply(ctx, change); err != nil {
 		if errors.Is(err, domain.ErrConflict) {
 			return nil
 		}

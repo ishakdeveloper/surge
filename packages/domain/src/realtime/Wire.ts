@@ -266,6 +266,18 @@ export type ClientMessage = typeof ClientMessage.Type;
  * "the network dropped", which are the same event to a socket and completely
  * different events to a person.
  */
+/**
+ * Something about the caller's money changed — a hold on their trip, a card
+ * saved, an earning, a withdrawal. It says only that, and which trip if one:
+ * the client reads again, because the REST read is the truth and this is the
+ * doorbell.
+ */
+export class PaymentsChange extends Schema.Class<PaymentsChange>("PaymentsChange")({
+  /** Empty when the change is not about one trip. */
+  tripId: Schema.String,
+  atMs: Schema.Number,
+}) {}
+
 export const ServerMessage = Schema.Union([
   Schema.TaggedStruct("ServerWelcome", {}).annotate({ identifier: "ServerWelcome" }),
   Schema.TaggedStruct("Offer", { offer: Offer }).annotate({ identifier: "OfferMessage" }),
@@ -278,6 +290,9 @@ export const ServerMessage = Schema.Union([
   }),
   Schema.TaggedStruct("ServerError", { error: Schema.String }).annotate({
     identifier: "ServerError",
+  }),
+  Schema.TaggedStruct("PaymentsChanged", { payments: PaymentsChange }).annotate({
+    identifier: "PaymentsChanged",
   }),
 ]).annotate({ identifier: "ServerMessage" });
 export type ServerMessage = typeof ServerMessage.Type;

@@ -19,17 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PaymentsService_CreateSetupIntent_FullMethodName = "/surge.payments.v1.PaymentsService/CreateSetupIntent"
-	PaymentsService_GetPaymentMethod_FullMethodName  = "/surge.payments.v1.PaymentsService/GetPaymentMethod"
-	PaymentsService_GetTripPayment_FullMethodName    = "/surge.payments.v1.PaymentsService/GetTripPayment"
-	PaymentsService_GetPayoutAccount_FullMethodName  = "/surge.payments.v1.PaymentsService/GetPayoutAccount"
-	PaymentsService_StartOnboarding_FullMethodName   = "/surge.payments.v1.PaymentsService/StartOnboarding"
-	PaymentsService_GetBalance_FullMethodName        = "/surge.payments.v1.PaymentsService/GetBalance"
-	PaymentsService_CreateWithdrawal_FullMethodName  = "/surge.payments.v1.PaymentsService/CreateWithdrawal"
-	PaymentsService_ListWithdrawals_FullMethodName   = "/surge.payments.v1.PaymentsService/ListWithdrawals"
-	PaymentsService_RefundTrip_FullMethodName        = "/surge.payments.v1.PaymentsService/RefundTrip"
-	PaymentsService_DeliverWebhook_FullMethodName    = "/surge.payments.v1.PaymentsService/DeliverWebhook"
-	PaymentsService_ListEarnings_FullMethodName      = "/surge.payments.v1.PaymentsService/ListEarnings"
+	PaymentsService_CreateSetupIntent_FullMethodName    = "/surge.payments.v1.PaymentsService/CreateSetupIntent"
+	PaymentsService_GetPaymentMethod_FullMethodName     = "/surge.payments.v1.PaymentsService/GetPaymentMethod"
+	PaymentsService_GetTripPayment_FullMethodName       = "/surge.payments.v1.PaymentsService/GetTripPayment"
+	PaymentsService_GetPayoutAccount_FullMethodName     = "/surge.payments.v1.PaymentsService/GetPayoutAccount"
+	PaymentsService_StartOnboarding_FullMethodName      = "/surge.payments.v1.PaymentsService/StartOnboarding"
+	PaymentsService_GetBalance_FullMethodName           = "/surge.payments.v1.PaymentsService/GetBalance"
+	PaymentsService_CreateWithdrawal_FullMethodName     = "/surge.payments.v1.PaymentsService/CreateWithdrawal"
+	PaymentsService_ListWithdrawals_FullMethodName      = "/surge.payments.v1.PaymentsService/ListWithdrawals"
+	PaymentsService_RefundTrip_FullMethodName           = "/surge.payments.v1.PaymentsService/RefundTrip"
+	PaymentsService_CreateAccountSession_FullMethodName = "/surge.payments.v1.PaymentsService/CreateAccountSession"
+	PaymentsService_CreateDashboardLink_FullMethodName  = "/surge.payments.v1.PaymentsService/CreateDashboardLink"
+	PaymentsService_DeliverWebhook_FullMethodName       = "/surge.payments.v1.PaymentsService/DeliverWebhook"
+	PaymentsService_ListEarnings_FullMethodName         = "/surge.payments.v1.PaymentsService/ListEarnings"
 )
 
 // PaymentsServiceClient is the client API for PaymentsService service.
@@ -82,6 +84,13 @@ type PaymentsServiceClient interface {
 	// RefundTrip gives money back to a rider, ops only, and takes the driver's
 	// share of it back in proportion. An amount of zero refunds everything left.
 	RefundTrip(ctx context.Context, in *RefundTripRequest, opts ...grpc.CallOption) (*RefundTripResponse, error)
+	// CreateAccountSession lets the driver's browser render Stripe's embedded
+	// components for their account: the notification banner that keeps it in
+	// good standing as Stripe's requirements change.
+	CreateAccountSession(ctx context.Context, in *CreateAccountSessionRequest, opts ...grpc.CallOption) (*CreateAccountSessionResponse, error)
+	// CreateDashboardLink is a single-use link into the driver's Stripe
+	// dashboard, where they see their payouts and change their bank.
+	CreateDashboardLink(ctx context.Context, in *CreateDashboardLinkRequest, opts ...grpc.CallOption) (*CreateDashboardLinkResponse, error)
 	// DeliverWebhook hands this service a processor webhook exactly as it
 	// arrived.
 	//
@@ -194,6 +203,26 @@ func (c *paymentsServiceClient) RefundTrip(ctx context.Context, in *RefundTripRe
 	return out, nil
 }
 
+func (c *paymentsServiceClient) CreateAccountSession(ctx context.Context, in *CreateAccountSessionRequest, opts ...grpc.CallOption) (*CreateAccountSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAccountSessionResponse)
+	err := c.cc.Invoke(ctx, PaymentsService_CreateAccountSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *paymentsServiceClient) CreateDashboardLink(ctx context.Context, in *CreateDashboardLinkRequest, opts ...grpc.CallOption) (*CreateDashboardLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDashboardLinkResponse)
+	err := c.cc.Invoke(ctx, PaymentsService_CreateDashboardLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *paymentsServiceClient) DeliverWebhook(ctx context.Context, in *DeliverWebhookRequest, opts ...grpc.CallOption) (*DeliverWebhookResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeliverWebhookResponse)
@@ -264,6 +293,13 @@ type PaymentsServiceServer interface {
 	// RefundTrip gives money back to a rider, ops only, and takes the driver's
 	// share of it back in proportion. An amount of zero refunds everything left.
 	RefundTrip(context.Context, *RefundTripRequest) (*RefundTripResponse, error)
+	// CreateAccountSession lets the driver's browser render Stripe's embedded
+	// components for their account: the notification banner that keeps it in
+	// good standing as Stripe's requirements change.
+	CreateAccountSession(context.Context, *CreateAccountSessionRequest) (*CreateAccountSessionResponse, error)
+	// CreateDashboardLink is a single-use link into the driver's Stripe
+	// dashboard, where they see their payouts and change their bank.
+	CreateDashboardLink(context.Context, *CreateDashboardLinkRequest) (*CreateDashboardLinkResponse, error)
 	// DeliverWebhook hands this service a processor webhook exactly as it
 	// arrived.
 	//
@@ -312,6 +348,12 @@ func (UnimplementedPaymentsServiceServer) ListWithdrawals(context.Context, *List
 }
 func (UnimplementedPaymentsServiceServer) RefundTrip(context.Context, *RefundTripRequest) (*RefundTripResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RefundTrip not implemented")
+}
+func (UnimplementedPaymentsServiceServer) CreateAccountSession(context.Context, *CreateAccountSessionRequest) (*CreateAccountSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAccountSession not implemented")
+}
+func (UnimplementedPaymentsServiceServer) CreateDashboardLink(context.Context, *CreateDashboardLinkRequest) (*CreateDashboardLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateDashboardLink not implemented")
 }
 func (UnimplementedPaymentsServiceServer) DeliverWebhook(context.Context, *DeliverWebhookRequest) (*DeliverWebhookResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverWebhook not implemented")
@@ -502,6 +544,42 @@ func _PaymentsService_RefundTrip_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PaymentsService_CreateAccountSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAccountSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServiceServer).CreateAccountSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentsService_CreateAccountSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServiceServer).CreateAccountSession(ctx, req.(*CreateAccountSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PaymentsService_CreateDashboardLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDashboardLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServiceServer).CreateDashboardLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentsService_CreateDashboardLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServiceServer).CreateDashboardLink(ctx, req.(*CreateDashboardLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PaymentsService_DeliverWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeliverWebhookRequest)
 	if err := dec(in); err != nil {
@@ -580,6 +658,14 @@ var PaymentsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RefundTrip",
 			Handler:    _PaymentsService_RefundTrip_Handler,
+		},
+		{
+			MethodName: "CreateAccountSession",
+			Handler:    _PaymentsService_CreateAccountSession_Handler,
+		},
+		{
+			MethodName: "CreateDashboardLink",
+			Handler:    _PaymentsService_CreateDashboardLink_Handler,
 		},
 		{
 			MethodName: "DeliverWebhook",

@@ -1111,6 +1111,168 @@ func (x *Refund) GetFailureReason() string {
 	return ""
 }
 
+type CreateAccountSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAccountSessionRequest) Reset() {
+	*x = CreateAccountSessionRequest{}
+	mi := &file_payments_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAccountSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAccountSessionRequest) ProtoMessage() {}
+
+func (x *CreateAccountSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payments_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAccountSessionRequest.ProtoReflect.Descriptor instead.
+func (*CreateAccountSessionRequest) Descriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{11}
+}
+
+type CreateAccountSessionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Handed to Stripe's Connect.js, and good for one session.
+	ClientSecret  string `protobuf:"bytes,1,opt,name=client_secret,json=clientSecret,proto3" json:"client_secret,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAccountSessionResponse) Reset() {
+	*x = CreateAccountSessionResponse{}
+	mi := &file_payments_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAccountSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAccountSessionResponse) ProtoMessage() {}
+
+func (x *CreateAccountSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payments_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAccountSessionResponse.ProtoReflect.Descriptor instead.
+func (*CreateAccountSessionResponse) Descriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CreateAccountSessionResponse) GetClientSecret() string {
+	if x != nil {
+		return x.ClientSecret
+	}
+	return ""
+}
+
+type CreateDashboardLinkRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDashboardLinkRequest) Reset() {
+	*x = CreateDashboardLinkRequest{}
+	mi := &file_payments_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDashboardLinkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDashboardLinkRequest) ProtoMessage() {}
+
+func (x *CreateDashboardLinkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payments_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDashboardLinkRequest.ProtoReflect.Descriptor instead.
+func (*CreateDashboardLinkRequest) Descriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{13}
+}
+
+type CreateDashboardLinkResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Single use: redirect to it at once.
+	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDashboardLinkResponse) Reset() {
+	*x = CreateDashboardLinkResponse{}
+	mi := &file_payments_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDashboardLinkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDashboardLinkResponse) ProtoMessage() {}
+
+func (x *CreateDashboardLinkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payments_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDashboardLinkResponse.ProtoReflect.Descriptor instead.
+func (*CreateDashboardLinkResponse) Descriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *CreateDashboardLinkResponse) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
 type DeliverWebhookRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Kind  WebhookKind            `protobuf:"varint,1,opt,name=kind,proto3,enum=surge.payments.v1.WebhookKind" json:"kind,omitempty"`
@@ -1125,7 +1287,7 @@ type DeliverWebhookRequest struct {
 
 func (x *DeliverWebhookRequest) Reset() {
 	*x = DeliverWebhookRequest{}
-	mi := &file_payments_proto_msgTypes[11]
+	mi := &file_payments_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1137,7 +1299,7 @@ func (x *DeliverWebhookRequest) String() string {
 func (*DeliverWebhookRequest) ProtoMessage() {}
 
 func (x *DeliverWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[11]
+	mi := &file_payments_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1150,7 +1312,7 @@ func (x *DeliverWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverWebhookRequest.ProtoReflect.Descriptor instead.
 func (*DeliverWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{11}
+	return file_payments_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeliverWebhookRequest) GetKind() WebhookKind {
@@ -1182,7 +1344,7 @@ type DeliverWebhookResponse struct {
 
 func (x *DeliverWebhookResponse) Reset() {
 	*x = DeliverWebhookResponse{}
-	mi := &file_payments_proto_msgTypes[12]
+	mi := &file_payments_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1194,7 +1356,7 @@ func (x *DeliverWebhookResponse) String() string {
 func (*DeliverWebhookResponse) ProtoMessage() {}
 
 func (x *DeliverWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[12]
+	mi := &file_payments_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1369,7 @@ func (x *DeliverWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverWebhookResponse.ProtoReflect.Descriptor instead.
 func (*DeliverWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{12}
+	return file_payments_proto_rawDescGZIP(), []int{16}
 }
 
 type CreateSetupIntentRequest struct {
@@ -1218,7 +1380,7 @@ type CreateSetupIntentRequest struct {
 
 func (x *CreateSetupIntentRequest) Reset() {
 	*x = CreateSetupIntentRequest{}
-	mi := &file_payments_proto_msgTypes[13]
+	mi := &file_payments_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1230,7 +1392,7 @@ func (x *CreateSetupIntentRequest) String() string {
 func (*CreateSetupIntentRequest) ProtoMessage() {}
 
 func (x *CreateSetupIntentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[13]
+	mi := &file_payments_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1243,7 +1405,7 @@ func (x *CreateSetupIntentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSetupIntentRequest.ProtoReflect.Descriptor instead.
 func (*CreateSetupIntentRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{13}
+	return file_payments_proto_rawDescGZIP(), []int{17}
 }
 
 type CreateSetupIntentResponse struct {
@@ -1256,7 +1418,7 @@ type CreateSetupIntentResponse struct {
 
 func (x *CreateSetupIntentResponse) Reset() {
 	*x = CreateSetupIntentResponse{}
-	mi := &file_payments_proto_msgTypes[14]
+	mi := &file_payments_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1268,7 +1430,7 @@ func (x *CreateSetupIntentResponse) String() string {
 func (*CreateSetupIntentResponse) ProtoMessage() {}
 
 func (x *CreateSetupIntentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[14]
+	mi := &file_payments_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1281,7 +1443,7 @@ func (x *CreateSetupIntentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSetupIntentResponse.ProtoReflect.Descriptor instead.
 func (*CreateSetupIntentResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{14}
+	return file_payments_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreateSetupIntentResponse) GetClientSecret() string {
@@ -1299,7 +1461,7 @@ type GetPaymentMethodRequest struct {
 
 func (x *GetPaymentMethodRequest) Reset() {
 	*x = GetPaymentMethodRequest{}
-	mi := &file_payments_proto_msgTypes[15]
+	mi := &file_payments_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1311,7 +1473,7 @@ func (x *GetPaymentMethodRequest) String() string {
 func (*GetPaymentMethodRequest) ProtoMessage() {}
 
 func (x *GetPaymentMethodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[15]
+	mi := &file_payments_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1324,7 +1486,7 @@ func (x *GetPaymentMethodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPaymentMethodRequest.ProtoReflect.Descriptor instead.
 func (*GetPaymentMethodRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{15}
+	return file_payments_proto_rawDescGZIP(), []int{19}
 }
 
 type GetPaymentMethodResponse struct {
@@ -1339,7 +1501,7 @@ type GetPaymentMethodResponse struct {
 
 func (x *GetPaymentMethodResponse) Reset() {
 	*x = GetPaymentMethodResponse{}
-	mi := &file_payments_proto_msgTypes[16]
+	mi := &file_payments_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1351,7 +1513,7 @@ func (x *GetPaymentMethodResponse) String() string {
 func (*GetPaymentMethodResponse) ProtoMessage() {}
 
 func (x *GetPaymentMethodResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[16]
+	mi := &file_payments_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1364,7 +1526,7 @@ func (x *GetPaymentMethodResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPaymentMethodResponse.ProtoReflect.Descriptor instead.
 func (*GetPaymentMethodResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{16}
+	return file_payments_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetPaymentMethodResponse) GetSaved() bool {
@@ -1393,7 +1555,7 @@ type Card struct {
 
 func (x *Card) Reset() {
 	*x = Card{}
-	mi := &file_payments_proto_msgTypes[17]
+	mi := &file_payments_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1405,7 +1567,7 @@ func (x *Card) String() string {
 func (*Card) ProtoMessage() {}
 
 func (x *Card) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[17]
+	mi := &file_payments_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1418,7 +1580,7 @@ func (x *Card) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Card.ProtoReflect.Descriptor instead.
 func (*Card) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{17}
+	return file_payments_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *Card) GetBrand() string {
@@ -1458,7 +1620,7 @@ type GetTripPaymentRequest struct {
 
 func (x *GetTripPaymentRequest) Reset() {
 	*x = GetTripPaymentRequest{}
-	mi := &file_payments_proto_msgTypes[18]
+	mi := &file_payments_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1470,7 +1632,7 @@ func (x *GetTripPaymentRequest) String() string {
 func (*GetTripPaymentRequest) ProtoMessage() {}
 
 func (x *GetTripPaymentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[18]
+	mi := &file_payments_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1483,7 +1645,7 @@ func (x *GetTripPaymentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTripPaymentRequest.ProtoReflect.Descriptor instead.
 func (*GetTripPaymentRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{18}
+	return file_payments_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetTripPaymentRequest) GetTripId() string {
@@ -1502,7 +1664,7 @@ type GetTripPaymentResponse struct {
 
 func (x *GetTripPaymentResponse) Reset() {
 	*x = GetTripPaymentResponse{}
-	mi := &file_payments_proto_msgTypes[19]
+	mi := &file_payments_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1514,7 +1676,7 @@ func (x *GetTripPaymentResponse) String() string {
 func (*GetTripPaymentResponse) ProtoMessage() {}
 
 func (x *GetTripPaymentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[19]
+	mi := &file_payments_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1527,7 +1689,7 @@ func (x *GetTripPaymentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTripPaymentResponse.ProtoReflect.Descriptor instead.
 func (*GetTripPaymentResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{19}
+	return file_payments_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetTripPaymentResponse) GetPayment() *Payment {
@@ -1560,7 +1722,7 @@ type Payment struct {
 
 func (x *Payment) Reset() {
 	*x = Payment{}
-	mi := &file_payments_proto_msgTypes[20]
+	mi := &file_payments_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1572,7 +1734,7 @@ func (x *Payment) String() string {
 func (*Payment) ProtoMessage() {}
 
 func (x *Payment) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[20]
+	mi := &file_payments_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1585,7 +1747,7 @@ func (x *Payment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Payment.ProtoReflect.Descriptor instead.
 func (*Payment) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{20}
+	return file_payments_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Payment) GetId() string {
@@ -1673,7 +1835,7 @@ type GetPayoutAccountRequest struct {
 
 func (x *GetPayoutAccountRequest) Reset() {
 	*x = GetPayoutAccountRequest{}
-	mi := &file_payments_proto_msgTypes[21]
+	mi := &file_payments_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1685,7 +1847,7 @@ func (x *GetPayoutAccountRequest) String() string {
 func (*GetPayoutAccountRequest) ProtoMessage() {}
 
 func (x *GetPayoutAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[21]
+	mi := &file_payments_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1698,7 +1860,7 @@ func (x *GetPayoutAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayoutAccountRequest.ProtoReflect.Descriptor instead.
 func (*GetPayoutAccountRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{21}
+	return file_payments_proto_rawDescGZIP(), []int{25}
 }
 
 type GetPayoutAccountResponse struct {
@@ -1710,7 +1872,7 @@ type GetPayoutAccountResponse struct {
 
 func (x *GetPayoutAccountResponse) Reset() {
 	*x = GetPayoutAccountResponse{}
-	mi := &file_payments_proto_msgTypes[22]
+	mi := &file_payments_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1722,7 +1884,7 @@ func (x *GetPayoutAccountResponse) String() string {
 func (*GetPayoutAccountResponse) ProtoMessage() {}
 
 func (x *GetPayoutAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[22]
+	mi := &file_payments_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1735,7 +1897,7 @@ func (x *GetPayoutAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPayoutAccountResponse.ProtoReflect.Descriptor instead.
 func (*GetPayoutAccountResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{22}
+	return file_payments_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetPayoutAccountResponse) GetAccount() *PayoutAccount {
@@ -1757,7 +1919,7 @@ type PayoutAccount struct {
 
 func (x *PayoutAccount) Reset() {
 	*x = PayoutAccount{}
-	mi := &file_payments_proto_msgTypes[23]
+	mi := &file_payments_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1769,7 +1931,7 @@ func (x *PayoutAccount) String() string {
 func (*PayoutAccount) ProtoMessage() {}
 
 func (x *PayoutAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[23]
+	mi := &file_payments_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1782,7 +1944,7 @@ func (x *PayoutAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PayoutAccount.ProtoReflect.Descriptor instead.
 func (*PayoutAccount) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{23}
+	return file_payments_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *PayoutAccount) GetStatus() PayoutAccountStatus {
@@ -1807,7 +1969,7 @@ type StartOnboardingRequest struct {
 
 func (x *StartOnboardingRequest) Reset() {
 	*x = StartOnboardingRequest{}
-	mi := &file_payments_proto_msgTypes[24]
+	mi := &file_payments_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1819,7 +1981,7 @@ func (x *StartOnboardingRequest) String() string {
 func (*StartOnboardingRequest) ProtoMessage() {}
 
 func (x *StartOnboardingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[24]
+	mi := &file_payments_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1832,7 +1994,7 @@ func (x *StartOnboardingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartOnboardingRequest.ProtoReflect.Descriptor instead.
 func (*StartOnboardingRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{24}
+	return file_payments_proto_rawDescGZIP(), []int{28}
 }
 
 type StartOnboardingResponse struct {
@@ -1847,7 +2009,7 @@ type StartOnboardingResponse struct {
 
 func (x *StartOnboardingResponse) Reset() {
 	*x = StartOnboardingResponse{}
-	mi := &file_payments_proto_msgTypes[25]
+	mi := &file_payments_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1859,7 +2021,7 @@ func (x *StartOnboardingResponse) String() string {
 func (*StartOnboardingResponse) ProtoMessage() {}
 
 func (x *StartOnboardingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[25]
+	mi := &file_payments_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1872,7 +2034,7 @@ func (x *StartOnboardingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartOnboardingResponse.ProtoReflect.Descriptor instead.
 func (*StartOnboardingResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{25}
+	return file_payments_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *StartOnboardingResponse) GetUrl() string {
@@ -1894,7 +2056,7 @@ type ListEarningsRequest struct {
 
 func (x *ListEarningsRequest) Reset() {
 	*x = ListEarningsRequest{}
-	mi := &file_payments_proto_msgTypes[26]
+	mi := &file_payments_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1906,7 +2068,7 @@ func (x *ListEarningsRequest) String() string {
 func (*ListEarningsRequest) ProtoMessage() {}
 
 func (x *ListEarningsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[26]
+	mi := &file_payments_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1919,7 +2081,7 @@ func (x *ListEarningsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEarningsRequest.ProtoReflect.Descriptor instead.
 func (*ListEarningsRequest) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{26}
+	return file_payments_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListEarningsRequest) GetPageSize() int32 {
@@ -1952,7 +2114,7 @@ type ListEarningsResponse struct {
 
 func (x *ListEarningsResponse) Reset() {
 	*x = ListEarningsResponse{}
-	mi := &file_payments_proto_msgTypes[27]
+	mi := &file_payments_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1964,7 +2126,7 @@ func (x *ListEarningsResponse) String() string {
 func (*ListEarningsResponse) ProtoMessage() {}
 
 func (x *ListEarningsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[27]
+	mi := &file_payments_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1977,7 +2139,7 @@ func (x *ListEarningsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEarningsResponse.ProtoReflect.Descriptor instead.
 func (*ListEarningsResponse) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{27}
+	return file_payments_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListEarningsResponse) GetEarnings() []*Earning {
@@ -2030,7 +2192,7 @@ type Earning struct {
 
 func (x *Earning) Reset() {
 	*x = Earning{}
-	mi := &file_payments_proto_msgTypes[28]
+	mi := &file_payments_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2042,7 +2204,7 @@ func (x *Earning) String() string {
 func (*Earning) ProtoMessage() {}
 
 func (x *Earning) ProtoReflect() protoreflect.Message {
-	mi := &file_payments_proto_msgTypes[28]
+	mi := &file_payments_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2055,7 +2217,7 @@ func (x *Earning) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Earning.ProtoReflect.Descriptor instead.
 func (*Earning) Descriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{28}
+	return file_payments_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *Earning) GetTripId() string {
@@ -2169,7 +2331,13 @@ const file_payments_proto_rawDesc = "" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x127\n" +
 	"\x06status\x18\t \x01(\x0e2\x1f.surge.payments.v1.RefundStatusR\x06status\x12%\n" +
 	"\x0efailure_reason\x18\n" +
-	" \x01(\tR\rfailureReason\"\x83\x01\n" +
+	" \x01(\tR\rfailureReason\"\x1d\n" +
+	"\x1bCreateAccountSessionRequest\"C\n" +
+	"\x1cCreateAccountSessionResponse\x12#\n" +
+	"\rclient_secret\x18\x01 \x01(\tR\fclientSecret\"\x1c\n" +
+	"\x1aCreateDashboardLinkRequest\"/\n" +
+	"\x1bCreateDashboardLinkResponse\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\"\x83\x01\n" +
 	"\x15DeliverWebhookRequest\x122\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1e.surge.payments.v1.WebhookKindR\x04kind\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x1c\n" +
@@ -2279,7 +2447,7 @@ const file_payments_proto_rawDesc = "" +
 	"\x1aEARNING_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15EARNING_STATUS_UNPAID\x10\x01\x12\x1e\n" +
 	"\x1aEARNING_STATUS_TRANSFERRED\x10\x02\x12\x1b\n" +
-	"\x17EARNING_STATUS_REVERSED\x10\x032\xa1\x16\n" +
+	"\x17EARNING_STATUS_REVERSED\x10\x032\x8c\x1b\n" +
 	"\x0fPaymentsService\x12\x9f\x02\n" +
 	"\x11CreateSetupIntent\x12+.surge.payments.v1.CreateSetupIntentRequest\x1a,.surge.payments.v1.CreateSetupIntentResponse\"\xae\x01\x92A\x85\x01\n" +
 	"\bpayments*\x11createSetupIntentJf\n" +
@@ -2329,7 +2497,17 @@ const file_payments_proto_rawDesc = "" +
 	"\bpayments*\x06refundJf\n" +
 	"\adefault\x12[\n" +
 	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
-	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02(:\x01*\"#/v1/payments/trips/{trip_id}/refund\x12e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02(:\x01*\"#/v1/payments/trips/{trip_id}/refund\x12\xae\x02\n" +
+	"\x14CreateAccountSession\x12..surge.payments.v1.CreateAccountSessionRequest\x1a/.surge.payments.v1.CreateAccountSessionResponse\"\xb4\x01\x92A\x88\x01\n" +
+	"\bpayments*\x14createAccountSessionJf\n" +
+	"\adefault\x12[\n" +
+	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/v1/payments/account-sessions\x12\xb7\x02\n" +
+	"\x13CreateDashboardLink\x12-.surge.payments.v1.CreateDashboardLinkRequest\x1a..surge.payments.v1.CreateDashboardLinkResponse\"\xc0\x01\x92A\x87\x01\n" +
+	"\bpayments*\x13createDashboardLinkJf\n" +
+	"\adefault\x12[\n" +
+	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02/:\x01*\"*/v1/payments/payout-account/dashboard-link\x12e\n" +
 	"\x0eDeliverWebhook\x12(.surge.payments.v1.DeliverWebhookRequest\x1a).surge.payments.v1.DeliverWebhookResponse\x12\x83\x02\n" +
 	"\fListEarnings\x12&.surge.payments.v1.ListEarningsRequest\x1a'.surge.payments.v1.ListEarningsResponse\"\xa1\x01\x92A\x80\x01\n" +
 	"\bpayments*\flistEarningsJf\n" +
@@ -2350,93 +2528,101 @@ func file_payments_proto_rawDescGZIP() []byte {
 }
 
 var file_payments_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_payments_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_payments_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_payments_proto_goTypes = []any{
-	(WithdrawalStatus)(0),             // 0: surge.payments.v1.WithdrawalStatus
-	(RefundStatus)(0),                 // 1: surge.payments.v1.RefundStatus
-	(RefundReversal)(0),               // 2: surge.payments.v1.RefundReversal
-	(WebhookKind)(0),                  // 3: surge.payments.v1.WebhookKind
-	(PaymentStatus)(0),                // 4: surge.payments.v1.PaymentStatus
-	(PayoutAccountStatus)(0),          // 5: surge.payments.v1.PayoutAccountStatus
-	(EarningStatus)(0),                // 6: surge.payments.v1.EarningStatus
-	(*GetBalanceRequest)(nil),         // 7: surge.payments.v1.GetBalanceRequest
-	(*GetBalanceResponse)(nil),        // 8: surge.payments.v1.GetBalanceResponse
-	(*Balance)(nil),                   // 9: surge.payments.v1.Balance
-	(*CreateWithdrawalRequest)(nil),   // 10: surge.payments.v1.CreateWithdrawalRequest
-	(*CreateWithdrawalResponse)(nil),  // 11: surge.payments.v1.CreateWithdrawalResponse
-	(*ListWithdrawalsRequest)(nil),    // 12: surge.payments.v1.ListWithdrawalsRequest
-	(*ListWithdrawalsResponse)(nil),   // 13: surge.payments.v1.ListWithdrawalsResponse
-	(*Withdrawal)(nil),                // 14: surge.payments.v1.Withdrawal
-	(*RefundTripRequest)(nil),         // 15: surge.payments.v1.RefundTripRequest
-	(*RefundTripResponse)(nil),        // 16: surge.payments.v1.RefundTripResponse
-	(*Refund)(nil),                    // 17: surge.payments.v1.Refund
-	(*DeliverWebhookRequest)(nil),     // 18: surge.payments.v1.DeliverWebhookRequest
-	(*DeliverWebhookResponse)(nil),    // 19: surge.payments.v1.DeliverWebhookResponse
-	(*CreateSetupIntentRequest)(nil),  // 20: surge.payments.v1.CreateSetupIntentRequest
-	(*CreateSetupIntentResponse)(nil), // 21: surge.payments.v1.CreateSetupIntentResponse
-	(*GetPaymentMethodRequest)(nil),   // 22: surge.payments.v1.GetPaymentMethodRequest
-	(*GetPaymentMethodResponse)(nil),  // 23: surge.payments.v1.GetPaymentMethodResponse
-	(*Card)(nil),                      // 24: surge.payments.v1.Card
-	(*GetTripPaymentRequest)(nil),     // 25: surge.payments.v1.GetTripPaymentRequest
-	(*GetTripPaymentResponse)(nil),    // 26: surge.payments.v1.GetTripPaymentResponse
-	(*Payment)(nil),                   // 27: surge.payments.v1.Payment
-	(*GetPayoutAccountRequest)(nil),   // 28: surge.payments.v1.GetPayoutAccountRequest
-	(*GetPayoutAccountResponse)(nil),  // 29: surge.payments.v1.GetPayoutAccountResponse
-	(*PayoutAccount)(nil),             // 30: surge.payments.v1.PayoutAccount
-	(*StartOnboardingRequest)(nil),    // 31: surge.payments.v1.StartOnboardingRequest
-	(*StartOnboardingResponse)(nil),   // 32: surge.payments.v1.StartOnboardingResponse
-	(*ListEarningsRequest)(nil),       // 33: surge.payments.v1.ListEarningsRequest
-	(*ListEarningsResponse)(nil),      // 34: surge.payments.v1.ListEarningsResponse
-	(*Earning)(nil),                   // 35: surge.payments.v1.Earning
-	(*timestamppb.Timestamp)(nil),     // 36: google.protobuf.Timestamp
+	(WithdrawalStatus)(0),                // 0: surge.payments.v1.WithdrawalStatus
+	(RefundStatus)(0),                    // 1: surge.payments.v1.RefundStatus
+	(RefundReversal)(0),                  // 2: surge.payments.v1.RefundReversal
+	(WebhookKind)(0),                     // 3: surge.payments.v1.WebhookKind
+	(PaymentStatus)(0),                   // 4: surge.payments.v1.PaymentStatus
+	(PayoutAccountStatus)(0),             // 5: surge.payments.v1.PayoutAccountStatus
+	(EarningStatus)(0),                   // 6: surge.payments.v1.EarningStatus
+	(*GetBalanceRequest)(nil),            // 7: surge.payments.v1.GetBalanceRequest
+	(*GetBalanceResponse)(nil),           // 8: surge.payments.v1.GetBalanceResponse
+	(*Balance)(nil),                      // 9: surge.payments.v1.Balance
+	(*CreateWithdrawalRequest)(nil),      // 10: surge.payments.v1.CreateWithdrawalRequest
+	(*CreateWithdrawalResponse)(nil),     // 11: surge.payments.v1.CreateWithdrawalResponse
+	(*ListWithdrawalsRequest)(nil),       // 12: surge.payments.v1.ListWithdrawalsRequest
+	(*ListWithdrawalsResponse)(nil),      // 13: surge.payments.v1.ListWithdrawalsResponse
+	(*Withdrawal)(nil),                   // 14: surge.payments.v1.Withdrawal
+	(*RefundTripRequest)(nil),            // 15: surge.payments.v1.RefundTripRequest
+	(*RefundTripResponse)(nil),           // 16: surge.payments.v1.RefundTripResponse
+	(*Refund)(nil),                       // 17: surge.payments.v1.Refund
+	(*CreateAccountSessionRequest)(nil),  // 18: surge.payments.v1.CreateAccountSessionRequest
+	(*CreateAccountSessionResponse)(nil), // 19: surge.payments.v1.CreateAccountSessionResponse
+	(*CreateDashboardLinkRequest)(nil),   // 20: surge.payments.v1.CreateDashboardLinkRequest
+	(*CreateDashboardLinkResponse)(nil),  // 21: surge.payments.v1.CreateDashboardLinkResponse
+	(*DeliverWebhookRequest)(nil),        // 22: surge.payments.v1.DeliverWebhookRequest
+	(*DeliverWebhookResponse)(nil),       // 23: surge.payments.v1.DeliverWebhookResponse
+	(*CreateSetupIntentRequest)(nil),     // 24: surge.payments.v1.CreateSetupIntentRequest
+	(*CreateSetupIntentResponse)(nil),    // 25: surge.payments.v1.CreateSetupIntentResponse
+	(*GetPaymentMethodRequest)(nil),      // 26: surge.payments.v1.GetPaymentMethodRequest
+	(*GetPaymentMethodResponse)(nil),     // 27: surge.payments.v1.GetPaymentMethodResponse
+	(*Card)(nil),                         // 28: surge.payments.v1.Card
+	(*GetTripPaymentRequest)(nil),        // 29: surge.payments.v1.GetTripPaymentRequest
+	(*GetTripPaymentResponse)(nil),       // 30: surge.payments.v1.GetTripPaymentResponse
+	(*Payment)(nil),                      // 31: surge.payments.v1.Payment
+	(*GetPayoutAccountRequest)(nil),      // 32: surge.payments.v1.GetPayoutAccountRequest
+	(*GetPayoutAccountResponse)(nil),     // 33: surge.payments.v1.GetPayoutAccountResponse
+	(*PayoutAccount)(nil),                // 34: surge.payments.v1.PayoutAccount
+	(*StartOnboardingRequest)(nil),       // 35: surge.payments.v1.StartOnboardingRequest
+	(*StartOnboardingResponse)(nil),      // 36: surge.payments.v1.StartOnboardingResponse
+	(*ListEarningsRequest)(nil),          // 37: surge.payments.v1.ListEarningsRequest
+	(*ListEarningsResponse)(nil),         // 38: surge.payments.v1.ListEarningsResponse
+	(*Earning)(nil),                      // 39: surge.payments.v1.Earning
+	(*timestamppb.Timestamp)(nil),        // 40: google.protobuf.Timestamp
 }
 var file_payments_proto_depIdxs = []int32{
 	9,  // 0: surge.payments.v1.GetBalanceResponse.balance:type_name -> surge.payments.v1.Balance
 	14, // 1: surge.payments.v1.CreateWithdrawalResponse.withdrawal:type_name -> surge.payments.v1.Withdrawal
 	14, // 2: surge.payments.v1.ListWithdrawalsResponse.withdrawals:type_name -> surge.payments.v1.Withdrawal
 	0,  // 3: surge.payments.v1.Withdrawal.status:type_name -> surge.payments.v1.WithdrawalStatus
-	36, // 4: surge.payments.v1.Withdrawal.created_at:type_name -> google.protobuf.Timestamp
-	36, // 5: surge.payments.v1.Withdrawal.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 4: surge.payments.v1.Withdrawal.created_at:type_name -> google.protobuf.Timestamp
+	40, // 5: surge.payments.v1.Withdrawal.updated_at:type_name -> google.protobuf.Timestamp
 	17, // 6: surge.payments.v1.RefundTripResponse.refund:type_name -> surge.payments.v1.Refund
-	27, // 7: surge.payments.v1.RefundTripResponse.payment:type_name -> surge.payments.v1.Payment
+	31, // 7: surge.payments.v1.RefundTripResponse.payment:type_name -> surge.payments.v1.Payment
 	2,  // 8: surge.payments.v1.Refund.reversal:type_name -> surge.payments.v1.RefundReversal
-	36, // 9: surge.payments.v1.Refund.created_at:type_name -> google.protobuf.Timestamp
+	40, // 9: surge.payments.v1.Refund.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 10: surge.payments.v1.Refund.status:type_name -> surge.payments.v1.RefundStatus
 	3,  // 11: surge.payments.v1.DeliverWebhookRequest.kind:type_name -> surge.payments.v1.WebhookKind
-	24, // 12: surge.payments.v1.GetPaymentMethodResponse.card:type_name -> surge.payments.v1.Card
-	27, // 13: surge.payments.v1.GetTripPaymentResponse.payment:type_name -> surge.payments.v1.Payment
+	28, // 12: surge.payments.v1.GetPaymentMethodResponse.card:type_name -> surge.payments.v1.Card
+	31, // 13: surge.payments.v1.GetTripPaymentResponse.payment:type_name -> surge.payments.v1.Payment
 	4,  // 14: surge.payments.v1.Payment.status:type_name -> surge.payments.v1.PaymentStatus
-	36, // 15: surge.payments.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
-	36, // 16: surge.payments.v1.Payment.updated_at:type_name -> google.protobuf.Timestamp
-	30, // 17: surge.payments.v1.GetPayoutAccountResponse.account:type_name -> surge.payments.v1.PayoutAccount
+	40, // 15: surge.payments.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
+	40, // 16: surge.payments.v1.Payment.updated_at:type_name -> google.protobuf.Timestamp
+	34, // 17: surge.payments.v1.GetPayoutAccountResponse.account:type_name -> surge.payments.v1.PayoutAccount
 	5,  // 18: surge.payments.v1.PayoutAccount.status:type_name -> surge.payments.v1.PayoutAccountStatus
-	35, // 19: surge.payments.v1.ListEarningsResponse.earnings:type_name -> surge.payments.v1.Earning
+	39, // 19: surge.payments.v1.ListEarningsResponse.earnings:type_name -> surge.payments.v1.Earning
 	6,  // 20: surge.payments.v1.Earning.status:type_name -> surge.payments.v1.EarningStatus
-	36, // 21: surge.payments.v1.Earning.created_at:type_name -> google.protobuf.Timestamp
-	20, // 22: surge.payments.v1.PaymentsService.CreateSetupIntent:input_type -> surge.payments.v1.CreateSetupIntentRequest
-	22, // 23: surge.payments.v1.PaymentsService.GetPaymentMethod:input_type -> surge.payments.v1.GetPaymentMethodRequest
-	25, // 24: surge.payments.v1.PaymentsService.GetTripPayment:input_type -> surge.payments.v1.GetTripPaymentRequest
-	28, // 25: surge.payments.v1.PaymentsService.GetPayoutAccount:input_type -> surge.payments.v1.GetPayoutAccountRequest
-	31, // 26: surge.payments.v1.PaymentsService.StartOnboarding:input_type -> surge.payments.v1.StartOnboardingRequest
+	40, // 21: surge.payments.v1.Earning.created_at:type_name -> google.protobuf.Timestamp
+	24, // 22: surge.payments.v1.PaymentsService.CreateSetupIntent:input_type -> surge.payments.v1.CreateSetupIntentRequest
+	26, // 23: surge.payments.v1.PaymentsService.GetPaymentMethod:input_type -> surge.payments.v1.GetPaymentMethodRequest
+	29, // 24: surge.payments.v1.PaymentsService.GetTripPayment:input_type -> surge.payments.v1.GetTripPaymentRequest
+	32, // 25: surge.payments.v1.PaymentsService.GetPayoutAccount:input_type -> surge.payments.v1.GetPayoutAccountRequest
+	35, // 26: surge.payments.v1.PaymentsService.StartOnboarding:input_type -> surge.payments.v1.StartOnboardingRequest
 	7,  // 27: surge.payments.v1.PaymentsService.GetBalance:input_type -> surge.payments.v1.GetBalanceRequest
 	10, // 28: surge.payments.v1.PaymentsService.CreateWithdrawal:input_type -> surge.payments.v1.CreateWithdrawalRequest
 	12, // 29: surge.payments.v1.PaymentsService.ListWithdrawals:input_type -> surge.payments.v1.ListWithdrawalsRequest
 	15, // 30: surge.payments.v1.PaymentsService.RefundTrip:input_type -> surge.payments.v1.RefundTripRequest
-	18, // 31: surge.payments.v1.PaymentsService.DeliverWebhook:input_type -> surge.payments.v1.DeliverWebhookRequest
-	33, // 32: surge.payments.v1.PaymentsService.ListEarnings:input_type -> surge.payments.v1.ListEarningsRequest
-	21, // 33: surge.payments.v1.PaymentsService.CreateSetupIntent:output_type -> surge.payments.v1.CreateSetupIntentResponse
-	23, // 34: surge.payments.v1.PaymentsService.GetPaymentMethod:output_type -> surge.payments.v1.GetPaymentMethodResponse
-	26, // 35: surge.payments.v1.PaymentsService.GetTripPayment:output_type -> surge.payments.v1.GetTripPaymentResponse
-	29, // 36: surge.payments.v1.PaymentsService.GetPayoutAccount:output_type -> surge.payments.v1.GetPayoutAccountResponse
-	32, // 37: surge.payments.v1.PaymentsService.StartOnboarding:output_type -> surge.payments.v1.StartOnboardingResponse
-	8,  // 38: surge.payments.v1.PaymentsService.GetBalance:output_type -> surge.payments.v1.GetBalanceResponse
-	11, // 39: surge.payments.v1.PaymentsService.CreateWithdrawal:output_type -> surge.payments.v1.CreateWithdrawalResponse
-	13, // 40: surge.payments.v1.PaymentsService.ListWithdrawals:output_type -> surge.payments.v1.ListWithdrawalsResponse
-	16, // 41: surge.payments.v1.PaymentsService.RefundTrip:output_type -> surge.payments.v1.RefundTripResponse
-	19, // 42: surge.payments.v1.PaymentsService.DeliverWebhook:output_type -> surge.payments.v1.DeliverWebhookResponse
-	34, // 43: surge.payments.v1.PaymentsService.ListEarnings:output_type -> surge.payments.v1.ListEarningsResponse
-	33, // [33:44] is the sub-list for method output_type
-	22, // [22:33] is the sub-list for method input_type
+	18, // 31: surge.payments.v1.PaymentsService.CreateAccountSession:input_type -> surge.payments.v1.CreateAccountSessionRequest
+	20, // 32: surge.payments.v1.PaymentsService.CreateDashboardLink:input_type -> surge.payments.v1.CreateDashboardLinkRequest
+	22, // 33: surge.payments.v1.PaymentsService.DeliverWebhook:input_type -> surge.payments.v1.DeliverWebhookRequest
+	37, // 34: surge.payments.v1.PaymentsService.ListEarnings:input_type -> surge.payments.v1.ListEarningsRequest
+	25, // 35: surge.payments.v1.PaymentsService.CreateSetupIntent:output_type -> surge.payments.v1.CreateSetupIntentResponse
+	27, // 36: surge.payments.v1.PaymentsService.GetPaymentMethod:output_type -> surge.payments.v1.GetPaymentMethodResponse
+	30, // 37: surge.payments.v1.PaymentsService.GetTripPayment:output_type -> surge.payments.v1.GetTripPaymentResponse
+	33, // 38: surge.payments.v1.PaymentsService.GetPayoutAccount:output_type -> surge.payments.v1.GetPayoutAccountResponse
+	36, // 39: surge.payments.v1.PaymentsService.StartOnboarding:output_type -> surge.payments.v1.StartOnboardingResponse
+	8,  // 40: surge.payments.v1.PaymentsService.GetBalance:output_type -> surge.payments.v1.GetBalanceResponse
+	11, // 41: surge.payments.v1.PaymentsService.CreateWithdrawal:output_type -> surge.payments.v1.CreateWithdrawalResponse
+	13, // 42: surge.payments.v1.PaymentsService.ListWithdrawals:output_type -> surge.payments.v1.ListWithdrawalsResponse
+	16, // 43: surge.payments.v1.PaymentsService.RefundTrip:output_type -> surge.payments.v1.RefundTripResponse
+	19, // 44: surge.payments.v1.PaymentsService.CreateAccountSession:output_type -> surge.payments.v1.CreateAccountSessionResponse
+	21, // 45: surge.payments.v1.PaymentsService.CreateDashboardLink:output_type -> surge.payments.v1.CreateDashboardLinkResponse
+	23, // 46: surge.payments.v1.PaymentsService.DeliverWebhook:output_type -> surge.payments.v1.DeliverWebhookResponse
+	38, // 47: surge.payments.v1.PaymentsService.ListEarnings:output_type -> surge.payments.v1.ListEarningsResponse
+	35, // [35:48] is the sub-list for method output_type
+	22, // [22:35] is the sub-list for method input_type
 	22, // [22:22] is the sub-list for extension type_name
 	22, // [22:22] is the sub-list for extension extendee
 	0,  // [0:22] is the sub-list for field type_name
@@ -2453,7 +2639,7 @@ func file_payments_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payments_proto_rawDesc), len(file_payments_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   29,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
