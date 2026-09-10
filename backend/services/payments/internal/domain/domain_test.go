@@ -42,6 +42,8 @@ func TestTransitions(t *testing.T) {
 		{domain.StatusAuthorized, domain.StatusReleased},
 		{domain.StatusCaptured, domain.StatusRefunded},
 		{domain.StatusReleased, domain.StatusAuthorizing},
+		// A refund that never reached the card.
+		{domain.StatusRefunded, domain.StatusCaptured},
 	}
 	for _, move := range legal {
 		if !domain.CanTransition(move[0], move[1]) {
@@ -55,7 +57,7 @@ func TestTransitions(t *testing.T) {
 		{domain.StatusRequiresAction, domain.StatusCaptured}, // capture before the rider authenticated
 		{domain.StatusCaptured, domain.StatusReleased},       // "release" money already taken
 		{domain.StatusAuthorized, domain.StatusFailed},       // forget a hold that exists
-		{domain.StatusRefunded, domain.StatusCaptured},
+		{domain.StatusRefunded, domain.StatusReleased},       // release money already given back
 	}
 	for _, move := range illegal {
 		if domain.CanTransition(move[0], move[1]) {

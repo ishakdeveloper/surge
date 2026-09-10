@@ -3,13 +3,15 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ishakdeveloper/surge/services/payments/internal/domain"
 	"github.com/jackc/pgx/v5"
 )
 
 const refundColumns = `id, trip_id, payment_id, amount_cents, driver_cents, currency, reason, reversal,
-	processor_refund_id, processor_reversal_id, idempotency_key, created_at`
+	processor_refund_id, processor_reversal_id, idempotency_key, created_at,
+	status, failure_reason, processor_restore_transfer_id`
 
 // writeRefund inserts a refund and adds it to the payment and the earning in
 // place. Each update carries its own bound, so a refund that would pass what
@@ -17,11 +19,12 @@ const refundColumns = `id, trip_id, payment_id, amount_cents, driver_cents, curr
 func writeRefund(ctx context.Context, tx pgx.Tx, refund *domain.Refund) error {
 	tag, err := tx.Exec(ctx, `
 		insert into refund (`+refundColumns+`)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		on conflict (trip_id, idempotency_key) do nothing`,
 		refund.ID, refund.TripID, refund.PaymentID, refund.AmountCents, refund.DriverCents,
 		refund.Currency, refund.Reason, string(refund.Reversal),
-		refund.ProcessorRefundID, refund.ProcessorReversalID, refund.IdempotencyKey, refund.CreatedAt)
+		refund.ProcessorRefundID, refund.ProcessorReversalID, refund.IdempotencyKey, refund.CreatedAt,
+		string(refund.Status), refund.FailureReason, refund.ProcessorRestoreTransferID)
 	if err != nil {
 		return err
 	}
@@ -62,21 +65,60 @@ func writeRefund(ctx context.Context, tx pgx.Tx, refund *domain.Refund) error {
 	return nil
 }
 
-func (r *Postgres) RefundByKey(ctx context.Context, tripID, key string) (*domain.Refund, error) {
+func (r *Postgres) refundWhere(ctx context.Context, where string, args ...any) (*domain.Refund, error) {
 	var (
-		refund   domain.Refund
-		reversal string
+		refund           domain.Refund
+		reversal, status string
 	)
-	err := r.pool.QueryRow(ctx,
-		`select `+refundColumns+` from refund where trip_id = $1 and idempotency_key = $2`, tripID, key,
-	).Scan(&refund.ID, &refund.TripID, &refund.PaymentID, &refund.AmountCents, &refund.DriverCents,
+	err := r.pool.QueryRow(ctx, `select `+refundColumns+` from refund where `+where, args...).Scan(
+		&refund.ID, &refund.TripID, &refund.PaymentID, &refund.AmountCents, &refund.DriverCents,
 		&refund.Currency, &refund.Reason, &reversal,
-		&refund.ProcessorRefundID, &refund.ProcessorReversalID, &refund.IdempotencyKey, &refund.CreatedAt)
+		&refund.ProcessorRefundID, &refund.ProcessorReversalID, &refund.IdempotencyKey, &refund.CreatedAt,
+		&status, &refund.FailureReason, &refund.ProcessorRestoreTransferID)
 	if err != nil {
 		return nil, fmt.Errorf("repository: refund: %w", notFound(err))
 	}
-	refund.Reversal = domain.ReversalKind(reversal)
+	refund.Reversal, refund.Status = domain.ReversalKind(reversal), domain.RefundStatus(status)
 	return &refund, nil
+}
+
+func (r *Postgres) RefundByKey(ctx context.Context, tripID, key string) (*domain.Refund, error) {
+	return r.refundWhere(ctx, `trip_id = $1 and idempotency_key = $2`, tripID, key)
+}
+
+func (r *Postgres) RefundByProcessorID(ctx context.Context, processorRefundID string) (*domain.Refund, error) {
+	return r.refundWhere(ctx, `processor_refund_id = $1 and processor_refund_id <> ''`, processorRefundID)
+}
+
+// writeFailedRefund marks a refund failed and gives its amount back to the
+// payment. The first update only matches a refund not already failed, so a
+// failure delivered twice changes the payment once.
+func writeFailedRefund(ctx context.Context, tx pgx.Tx, refund *domain.Refund) error {
+	tag, err := tx.Exec(ctx, `
+		update refund set status = 'failed', failure_reason = $2, processor_restore_transfer_id = $3
+		where id = $1 and status <> 'failed'`,
+		refund.ID, refund.FailureReason, refund.ProcessorRestoreTransferID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return missingOrMoved(ctx, tx, `select exists (select 1 from refund where id = $1)`, refund.ID)
+	}
+
+	tag, err = tx.Exec(ctx, `
+		update payment set
+		  refunded_cents = refunded_cents - $2,
+		  status = case when status = 'refunded' then 'captured' else status end,
+		  updated_at = $3
+		where id = $1 and refunded_cents >= $2`,
+		refund.PaymentID, refund.AmountCents, time.Now())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrConflict
+	}
+	return nil
 }
 
 const withdrawalColumns = `id, driver_id, amount_cents, currency, status, processor_payout_id,

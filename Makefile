@@ -194,7 +194,7 @@ dev-payments: build ## Run the payments service (metrics on :9107)
 # events, which need their own flags.
 stripe-listen: ## Forward Stripe webhooks to the local gateway
 	@set -a; . ./.env; set +a; stripe listen --api-key "$$STRIPE_SECRET_KEY" \
-		--events setup_intent.succeeded,payment_intent.amount_capturable_updated,payment_intent.payment_failed,payment_intent.succeeded,payment_intent.canceled,payout.paid,payout.failed,payout.canceled,charge.dispute.created,charge.dispute.closed \
+		--events setup_intent.succeeded,payment_intent.amount_capturable_updated,payment_intent.payment_failed,payment_intent.succeeded,payment_intent.canceled,payout.paid,payout.failed,payout.canceled,charge.dispute.created,charge.dispute.closed,refund.failed \
 		--forward-to localhost:8100/webhooks/stripe \
 		--forward-connect-to localhost:8100/webhooks/stripe \
 		--thin-events 'v2.core.account[configuration.recipient].capability_status_updated,v2.core.account[requirements].updated' \

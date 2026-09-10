@@ -143,6 +143,15 @@ func (w *Webhooks) apply(ctx context.Context, event stripego.Event) error {
 			return nil
 		}
 
+	case stripego.EventTypeRefundFailed:
+		// A refund that could not reach the rider: the money is back with
+		// the platform, and what the refund took is put back.
+		var refund stripego.Refund
+		if err := json.Unmarshal(event.Data.Raw, &refund); err != nil {
+			return fmt.Errorf("stripe: decode %s: %w", event.Type, err)
+		}
+		return w.payments.RefundFailed(ctx, refund.ID, string(refund.FailureReason))
+
 	case stripego.EventTypePayoutPaid, stripego.EventTypePayoutFailed, stripego.EventTypePayoutCanceled:
 		// A driver's withdrawal reaching their bank, or not. These are
 		// Connect events, from the driver's account rather than the

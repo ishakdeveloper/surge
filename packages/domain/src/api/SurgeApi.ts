@@ -203,6 +203,19 @@ export const V1RefundTripResponse = Schema.Struct({
       "default": "REFUND_REVERSAL_UNSPECIFIED",
     }),
     "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "status": Schema.Literals([
+      "REFUND_STATUS_UNSPECIFIED",
+      "REFUND_STATUS_SUCCEEDED",
+      "REFUND_STATUS_FAILED",
+    ]).annotate({
+      "description":
+        "RefundStatus is whether a refund reached the rider.\n\n - REFUND_STATUS_FAILED: It could not be delivered. The money is back with the platform, the\npayment is refundable again, and the rider must be repaid another way.",
+      "default": "REFUND_STATUS_UNSPECIFIED",
+    }),
+    "failureReason": Schema.String.annotate({
+      "description":
+        "Why a failed refund failed, in the processor's words: a closed card, a\nrefusing bank.",
+    }),
   }),
   "payment": Schema.Struct({
     "id": PaymentId,

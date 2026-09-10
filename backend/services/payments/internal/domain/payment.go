@@ -44,11 +44,13 @@ var transitions = map[Status][]Status{
 	// remains is to take it or let it go.
 	StatusAuthorized: {StatusCaptured, StatusReleased},
 	StatusCaptured:   {StatusRefunded},
+	// Back to captured when the refund that emptied it could not reach the
+	// rider's card: the money is the platform's again, and refundable again.
+	StatusRefunded: {StatusCaptured},
 	// A released or failed hold is finished, but its trip may be requested
 	// again. That is a fresh attempt at a hold, not a revival of the old one.
 	StatusReleased: {StatusAuthorizing},
 	StatusFailed:   {StatusAuthorizing},
-	StatusRefunded: {},
 }
 
 // Failure reasons, a closed set: they are metric labels, and the rider is told

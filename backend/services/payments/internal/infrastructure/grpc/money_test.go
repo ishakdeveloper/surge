@@ -15,6 +15,11 @@ func TestEveryWithdrawalAndReversalIsMapped(t *testing.T) {
 			t.Errorf("withdrawal status %s is not mapped", status)
 		}
 	}
+	for _, status := range []domain.RefundStatus{domain.RefundSucceeded, domain.RefundFailed} {
+		if refundStatuses[status] == paymentspb.RefundStatus_REFUND_STATUS_UNSPECIFIED {
+			t.Errorf("refund status %s is not mapped", status)
+		}
+	}
 	for _, reversal := range []domain.ReversalKind{
 		domain.ReversalNone, domain.ReversalDeducted, domain.ReversalReversed, domain.ReversalFailed,
 	} {

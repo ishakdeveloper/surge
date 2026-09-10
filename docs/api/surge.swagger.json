@@ -1355,6 +1355,13 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "status": {
+          "$ref": "#/definitions/v1RefundStatus"
+        },
+        "failureReason": {
+          "type": "string",
+          "description": "Why a failed refund failed, in the processor's words: a closed card, a\nrefusing bank."
         }
       }
     },
@@ -1369,6 +1376,16 @@
       ],
       "default": "REFUND_REVERSAL_UNSPECIFIED",
       "description": "RefundReversal is how a refund took the driver's share back.\n\n - REFUND_REVERSAL_NONE: Nothing was earned on the trip.\n - REFUND_REVERSAL_DEDUCTED: Not yet paid out: the driver is owed less.\n - REFUND_REVERSAL_REVERSED: Taken back from the driver's balance.\n - REFUND_REVERSAL_FAILED: The driver's balance could not cover it; the platform carries it."
+    },
+    "v1RefundStatus": {
+      "type": "string",
+      "enum": [
+        "REFUND_STATUS_UNSPECIFIED",
+        "REFUND_STATUS_SUCCEEDED",
+        "REFUND_STATUS_FAILED"
+      ],
+      "default": "REFUND_STATUS_UNSPECIFIED",
+      "description": "RefundStatus is whether a refund reached the rider.\n\n - REFUND_STATUS_FAILED: It could not be delivered. The money is back with the platform, the\npayment is refundable again, and the rider must be repaid another way."
     },
     "v1RefundTripResponse": {
       "type": "object",

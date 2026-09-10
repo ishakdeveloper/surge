@@ -79,6 +79,58 @@ func (WithdrawalStatus) EnumDescriptor() ([]byte, []int) {
 	return file_payments_proto_rawDescGZIP(), []int{0}
 }
 
+// RefundStatus is whether a refund reached the rider.
+type RefundStatus int32
+
+const (
+	RefundStatus_REFUND_STATUS_UNSPECIFIED RefundStatus = 0
+	RefundStatus_REFUND_STATUS_SUCCEEDED   RefundStatus = 1
+	// It could not be delivered. The money is back with the platform, the
+	// payment is refundable again, and the rider must be repaid another way.
+	RefundStatus_REFUND_STATUS_FAILED RefundStatus = 2
+)
+
+// Enum value maps for RefundStatus.
+var (
+	RefundStatus_name = map[int32]string{
+		0: "REFUND_STATUS_UNSPECIFIED",
+		1: "REFUND_STATUS_SUCCEEDED",
+		2: "REFUND_STATUS_FAILED",
+	}
+	RefundStatus_value = map[string]int32{
+		"REFUND_STATUS_UNSPECIFIED": 0,
+		"REFUND_STATUS_SUCCEEDED":   1,
+		"REFUND_STATUS_FAILED":      2,
+	}
+)
+
+func (x RefundStatus) Enum() *RefundStatus {
+	p := new(RefundStatus)
+	*p = x
+	return p
+}
+
+func (x RefundStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RefundStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_payments_proto_enumTypes[1].Descriptor()
+}
+
+func (RefundStatus) Type() protoreflect.EnumType {
+	return &file_payments_proto_enumTypes[1]
+}
+
+func (x RefundStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RefundStatus.Descriptor instead.
+func (RefundStatus) EnumDescriptor() ([]byte, []int) {
+	return file_payments_proto_rawDescGZIP(), []int{1}
+}
+
 // RefundReversal is how a refund took the driver's share back.
 type RefundReversal int32
 
@@ -123,11 +175,11 @@ func (x RefundReversal) String() string {
 }
 
 func (RefundReversal) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[1].Descriptor()
+	return file_payments_proto_enumTypes[2].Descriptor()
 }
 
 func (RefundReversal) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[1]
+	return &file_payments_proto_enumTypes[2]
 }
 
 func (x RefundReversal) Number() protoreflect.EnumNumber {
@@ -136,7 +188,7 @@ func (x RefundReversal) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RefundReversal.Descriptor instead.
 func (RefundReversal) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{1}
+	return file_payments_proto_rawDescGZIP(), []int{2}
 }
 
 type WebhookKind int32
@@ -175,11 +227,11 @@ func (x WebhookKind) String() string {
 }
 
 func (WebhookKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[2].Descriptor()
+	return file_payments_proto_enumTypes[3].Descriptor()
 }
 
 func (WebhookKind) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[2]
+	return &file_payments_proto_enumTypes[3]
 }
 
 func (x WebhookKind) Number() protoreflect.EnumNumber {
@@ -188,7 +240,7 @@ func (x WebhookKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WebhookKind.Descriptor instead.
 func (WebhookKind) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{2}
+	return file_payments_proto_rawDescGZIP(), []int{3}
 }
 
 // PaymentStatus is the payment state machine, as a client sees it.
@@ -240,11 +292,11 @@ func (x PaymentStatus) String() string {
 }
 
 func (PaymentStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[3].Descriptor()
+	return file_payments_proto_enumTypes[4].Descriptor()
 }
 
 func (PaymentStatus) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[3]
+	return &file_payments_proto_enumTypes[4]
 }
 
 func (x PaymentStatus) Number() protoreflect.EnumNumber {
@@ -253,7 +305,7 @@ func (x PaymentStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PaymentStatus.Descriptor instead.
 func (PaymentStatus) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{3}
+	return file_payments_proto_rawDescGZIP(), []int{4}
 }
 
 type PayoutAccountStatus int32
@@ -295,11 +347,11 @@ func (x PayoutAccountStatus) String() string {
 }
 
 func (PayoutAccountStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[4].Descriptor()
+	return file_payments_proto_enumTypes[5].Descriptor()
 }
 
 func (PayoutAccountStatus) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[4]
+	return &file_payments_proto_enumTypes[5]
 }
 
 func (x PayoutAccountStatus) Number() protoreflect.EnumNumber {
@@ -308,7 +360,7 @@ func (x PayoutAccountStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PayoutAccountStatus.Descriptor instead.
 func (PayoutAccountStatus) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{4}
+	return file_payments_proto_rawDescGZIP(), []int{5}
 }
 
 type EarningStatus int32
@@ -349,11 +401,11 @@ func (x EarningStatus) String() string {
 }
 
 func (EarningStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_payments_proto_enumTypes[5].Descriptor()
+	return file_payments_proto_enumTypes[6].Descriptor()
 }
 
 func (EarningStatus) Type() protoreflect.EnumType {
-	return &file_payments_proto_enumTypes[5]
+	return &file_payments_proto_enumTypes[6]
 }
 
 func (x EarningStatus) Number() protoreflect.EnumNumber {
@@ -362,7 +414,7 @@ func (x EarningStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EarningStatus.Descriptor instead.
 func (EarningStatus) EnumDescriptor() ([]byte, []int) {
-	return file_payments_proto_rawDescGZIP(), []int{5}
+	return file_payments_proto_rawDescGZIP(), []int{6}
 }
 
 type GetBalanceRequest struct {
@@ -946,11 +998,15 @@ type Refund struct {
 	TripId      string                 `protobuf:"bytes,2,opt,name=trip_id,json=tripId,proto3" json:"trip_id,omitempty"`
 	AmountCents int64                  `protobuf:"varint,3,opt,name=amount_cents,json=amountCents,proto3" json:"amount_cents,omitempty"`
 	// The driver's part of it: their share of the fare, in proportion.
-	DriverCents   int64                  `protobuf:"varint,4,opt,name=driver_cents,json=driverCents,proto3" json:"driver_cents,omitempty"`
-	Currency      string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
-	Reason        string                 `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
-	Reversal      RefundReversal         `protobuf:"varint,7,opt,name=reversal,proto3,enum=surge.payments.v1.RefundReversal" json:"reversal,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	DriverCents int64                  `protobuf:"varint,4,opt,name=driver_cents,json=driverCents,proto3" json:"driver_cents,omitempty"`
+	Currency    string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
+	Reason      string                 `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
+	Reversal    RefundReversal         `protobuf:"varint,7,opt,name=reversal,proto3,enum=surge.payments.v1.RefundReversal" json:"reversal,omitempty"`
+	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Status      RefundStatus           `protobuf:"varint,9,opt,name=status,proto3,enum=surge.payments.v1.RefundStatus" json:"status,omitempty"`
+	// Why a failed refund failed, in the processor's words: a closed card, a
+	// refusing bank.
+	FailureReason string `protobuf:"bytes,10,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1039,6 +1095,20 @@ func (x *Refund) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *Refund) GetStatus() RefundStatus {
+	if x != nil {
+		return x.Status
+	}
+	return RefundStatus_REFUND_STATUS_UNSPECIFIED
+}
+
+func (x *Refund) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
+	}
+	return ""
 }
 
 type DeliverWebhookRequest struct {
@@ -2085,7 +2155,7 @@ const file_payments_proto_rawDesc = "" +
 	"\x0fidempotency_key\x18\x04 \x01(\tR\x0eidempotencyKey\"}\n" +
 	"\x12RefundTripResponse\x121\n" +
 	"\x06refund\x18\x01 \x01(\v2\x19.surge.payments.v1.RefundR\x06refund\x124\n" +
-	"\apayment\x18\x02 \x01(\v2\x1a.surge.payments.v1.PaymentR\apayment\"\xdf\x02\n" +
+	"\apayment\x18\x02 \x01(\v2\x1a.surge.payments.v1.PaymentR\apayment\"\xbf\x03\n" +
 	"\x06Refund\x12\x1f\n" +
 	"\x02id\x18\x01 \x01(\tB\x0f\x92A\f\xa2\x02\trefund-idR\x02id\x12&\n" +
 	"\atrip_id\x18\x02 \x01(\tB\r\x92A\n" +
@@ -2096,7 +2166,10 @@ const file_payments_proto_rawDesc = "" +
 	"\x06reason\x18\x06 \x01(\tR\x06reason\x12=\n" +
 	"\breversal\x18\a \x01(\x0e2!.surge.payments.v1.RefundReversalR\breversal\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x83\x01\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x127\n" +
+	"\x06status\x18\t \x01(\x0e2\x1f.surge.payments.v1.RefundStatusR\x06status\x12%\n" +
+	"\x0efailure_reason\x18\n" +
+	" \x01(\tR\rfailureReason\"\x83\x01\n" +
 	"\x15DeliverWebhookRequest\x122\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1e.surge.payments.v1.WebhookKindR\x04kind\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x1c\n" +
@@ -2173,7 +2246,11 @@ const file_payments_proto_rawDesc = "" +
 	"\x1bWITHDRAWAL_STATUS_REQUESTED\x10\x01\x12 \n" +
 	"\x1cWITHDRAWAL_STATUS_IN_TRANSIT\x10\x02\x12\x1a\n" +
 	"\x16WITHDRAWAL_STATUS_PAID\x10\x03\x12\x1c\n" +
-	"\x18WITHDRAWAL_STATUS_FAILED\x10\x04*\xa3\x01\n" +
+	"\x18WITHDRAWAL_STATUS_FAILED\x10\x04*d\n" +
+	"\fRefundStatus\x12\x1d\n" +
+	"\x19REFUND_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17REFUND_STATUS_SUCCEEDED\x10\x01\x12\x18\n" +
+	"\x14REFUND_STATUS_FAILED\x10\x02*\xa3\x01\n" +
 	"\x0eRefundReversal\x12\x1f\n" +
 	"\x1bREFUND_REVERSAL_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14REFUND_REVERSAL_NONE\x10\x01\x12\x1c\n" +
@@ -2272,95 +2349,97 @@ func file_payments_proto_rawDescGZIP() []byte {
 	return file_payments_proto_rawDescData
 }
 
-var file_payments_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_payments_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
 var file_payments_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_payments_proto_goTypes = []any{
 	(WithdrawalStatus)(0),             // 0: surge.payments.v1.WithdrawalStatus
-	(RefundReversal)(0),               // 1: surge.payments.v1.RefundReversal
-	(WebhookKind)(0),                  // 2: surge.payments.v1.WebhookKind
-	(PaymentStatus)(0),                // 3: surge.payments.v1.PaymentStatus
-	(PayoutAccountStatus)(0),          // 4: surge.payments.v1.PayoutAccountStatus
-	(EarningStatus)(0),                // 5: surge.payments.v1.EarningStatus
-	(*GetBalanceRequest)(nil),         // 6: surge.payments.v1.GetBalanceRequest
-	(*GetBalanceResponse)(nil),        // 7: surge.payments.v1.GetBalanceResponse
-	(*Balance)(nil),                   // 8: surge.payments.v1.Balance
-	(*CreateWithdrawalRequest)(nil),   // 9: surge.payments.v1.CreateWithdrawalRequest
-	(*CreateWithdrawalResponse)(nil),  // 10: surge.payments.v1.CreateWithdrawalResponse
-	(*ListWithdrawalsRequest)(nil),    // 11: surge.payments.v1.ListWithdrawalsRequest
-	(*ListWithdrawalsResponse)(nil),   // 12: surge.payments.v1.ListWithdrawalsResponse
-	(*Withdrawal)(nil),                // 13: surge.payments.v1.Withdrawal
-	(*RefundTripRequest)(nil),         // 14: surge.payments.v1.RefundTripRequest
-	(*RefundTripResponse)(nil),        // 15: surge.payments.v1.RefundTripResponse
-	(*Refund)(nil),                    // 16: surge.payments.v1.Refund
-	(*DeliverWebhookRequest)(nil),     // 17: surge.payments.v1.DeliverWebhookRequest
-	(*DeliverWebhookResponse)(nil),    // 18: surge.payments.v1.DeliverWebhookResponse
-	(*CreateSetupIntentRequest)(nil),  // 19: surge.payments.v1.CreateSetupIntentRequest
-	(*CreateSetupIntentResponse)(nil), // 20: surge.payments.v1.CreateSetupIntentResponse
-	(*GetPaymentMethodRequest)(nil),   // 21: surge.payments.v1.GetPaymentMethodRequest
-	(*GetPaymentMethodResponse)(nil),  // 22: surge.payments.v1.GetPaymentMethodResponse
-	(*Card)(nil),                      // 23: surge.payments.v1.Card
-	(*GetTripPaymentRequest)(nil),     // 24: surge.payments.v1.GetTripPaymentRequest
-	(*GetTripPaymentResponse)(nil),    // 25: surge.payments.v1.GetTripPaymentResponse
-	(*Payment)(nil),                   // 26: surge.payments.v1.Payment
-	(*GetPayoutAccountRequest)(nil),   // 27: surge.payments.v1.GetPayoutAccountRequest
-	(*GetPayoutAccountResponse)(nil),  // 28: surge.payments.v1.GetPayoutAccountResponse
-	(*PayoutAccount)(nil),             // 29: surge.payments.v1.PayoutAccount
-	(*StartOnboardingRequest)(nil),    // 30: surge.payments.v1.StartOnboardingRequest
-	(*StartOnboardingResponse)(nil),   // 31: surge.payments.v1.StartOnboardingResponse
-	(*ListEarningsRequest)(nil),       // 32: surge.payments.v1.ListEarningsRequest
-	(*ListEarningsResponse)(nil),      // 33: surge.payments.v1.ListEarningsResponse
-	(*Earning)(nil),                   // 34: surge.payments.v1.Earning
-	(*timestamppb.Timestamp)(nil),     // 35: google.protobuf.Timestamp
+	(RefundStatus)(0),                 // 1: surge.payments.v1.RefundStatus
+	(RefundReversal)(0),               // 2: surge.payments.v1.RefundReversal
+	(WebhookKind)(0),                  // 3: surge.payments.v1.WebhookKind
+	(PaymentStatus)(0),                // 4: surge.payments.v1.PaymentStatus
+	(PayoutAccountStatus)(0),          // 5: surge.payments.v1.PayoutAccountStatus
+	(EarningStatus)(0),                // 6: surge.payments.v1.EarningStatus
+	(*GetBalanceRequest)(nil),         // 7: surge.payments.v1.GetBalanceRequest
+	(*GetBalanceResponse)(nil),        // 8: surge.payments.v1.GetBalanceResponse
+	(*Balance)(nil),                   // 9: surge.payments.v1.Balance
+	(*CreateWithdrawalRequest)(nil),   // 10: surge.payments.v1.CreateWithdrawalRequest
+	(*CreateWithdrawalResponse)(nil),  // 11: surge.payments.v1.CreateWithdrawalResponse
+	(*ListWithdrawalsRequest)(nil),    // 12: surge.payments.v1.ListWithdrawalsRequest
+	(*ListWithdrawalsResponse)(nil),   // 13: surge.payments.v1.ListWithdrawalsResponse
+	(*Withdrawal)(nil),                // 14: surge.payments.v1.Withdrawal
+	(*RefundTripRequest)(nil),         // 15: surge.payments.v1.RefundTripRequest
+	(*RefundTripResponse)(nil),        // 16: surge.payments.v1.RefundTripResponse
+	(*Refund)(nil),                    // 17: surge.payments.v1.Refund
+	(*DeliverWebhookRequest)(nil),     // 18: surge.payments.v1.DeliverWebhookRequest
+	(*DeliverWebhookResponse)(nil),    // 19: surge.payments.v1.DeliverWebhookResponse
+	(*CreateSetupIntentRequest)(nil),  // 20: surge.payments.v1.CreateSetupIntentRequest
+	(*CreateSetupIntentResponse)(nil), // 21: surge.payments.v1.CreateSetupIntentResponse
+	(*GetPaymentMethodRequest)(nil),   // 22: surge.payments.v1.GetPaymentMethodRequest
+	(*GetPaymentMethodResponse)(nil),  // 23: surge.payments.v1.GetPaymentMethodResponse
+	(*Card)(nil),                      // 24: surge.payments.v1.Card
+	(*GetTripPaymentRequest)(nil),     // 25: surge.payments.v1.GetTripPaymentRequest
+	(*GetTripPaymentResponse)(nil),    // 26: surge.payments.v1.GetTripPaymentResponse
+	(*Payment)(nil),                   // 27: surge.payments.v1.Payment
+	(*GetPayoutAccountRequest)(nil),   // 28: surge.payments.v1.GetPayoutAccountRequest
+	(*GetPayoutAccountResponse)(nil),  // 29: surge.payments.v1.GetPayoutAccountResponse
+	(*PayoutAccount)(nil),             // 30: surge.payments.v1.PayoutAccount
+	(*StartOnboardingRequest)(nil),    // 31: surge.payments.v1.StartOnboardingRequest
+	(*StartOnboardingResponse)(nil),   // 32: surge.payments.v1.StartOnboardingResponse
+	(*ListEarningsRequest)(nil),       // 33: surge.payments.v1.ListEarningsRequest
+	(*ListEarningsResponse)(nil),      // 34: surge.payments.v1.ListEarningsResponse
+	(*Earning)(nil),                   // 35: surge.payments.v1.Earning
+	(*timestamppb.Timestamp)(nil),     // 36: google.protobuf.Timestamp
 }
 var file_payments_proto_depIdxs = []int32{
-	8,  // 0: surge.payments.v1.GetBalanceResponse.balance:type_name -> surge.payments.v1.Balance
-	13, // 1: surge.payments.v1.CreateWithdrawalResponse.withdrawal:type_name -> surge.payments.v1.Withdrawal
-	13, // 2: surge.payments.v1.ListWithdrawalsResponse.withdrawals:type_name -> surge.payments.v1.Withdrawal
+	9,  // 0: surge.payments.v1.GetBalanceResponse.balance:type_name -> surge.payments.v1.Balance
+	14, // 1: surge.payments.v1.CreateWithdrawalResponse.withdrawal:type_name -> surge.payments.v1.Withdrawal
+	14, // 2: surge.payments.v1.ListWithdrawalsResponse.withdrawals:type_name -> surge.payments.v1.Withdrawal
 	0,  // 3: surge.payments.v1.Withdrawal.status:type_name -> surge.payments.v1.WithdrawalStatus
-	35, // 4: surge.payments.v1.Withdrawal.created_at:type_name -> google.protobuf.Timestamp
-	35, // 5: surge.payments.v1.Withdrawal.updated_at:type_name -> google.protobuf.Timestamp
-	16, // 6: surge.payments.v1.RefundTripResponse.refund:type_name -> surge.payments.v1.Refund
-	26, // 7: surge.payments.v1.RefundTripResponse.payment:type_name -> surge.payments.v1.Payment
-	1,  // 8: surge.payments.v1.Refund.reversal:type_name -> surge.payments.v1.RefundReversal
-	35, // 9: surge.payments.v1.Refund.created_at:type_name -> google.protobuf.Timestamp
-	2,  // 10: surge.payments.v1.DeliverWebhookRequest.kind:type_name -> surge.payments.v1.WebhookKind
-	23, // 11: surge.payments.v1.GetPaymentMethodResponse.card:type_name -> surge.payments.v1.Card
-	26, // 12: surge.payments.v1.GetTripPaymentResponse.payment:type_name -> surge.payments.v1.Payment
-	3,  // 13: surge.payments.v1.Payment.status:type_name -> surge.payments.v1.PaymentStatus
-	35, // 14: surge.payments.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
-	35, // 15: surge.payments.v1.Payment.updated_at:type_name -> google.protobuf.Timestamp
-	29, // 16: surge.payments.v1.GetPayoutAccountResponse.account:type_name -> surge.payments.v1.PayoutAccount
-	4,  // 17: surge.payments.v1.PayoutAccount.status:type_name -> surge.payments.v1.PayoutAccountStatus
-	34, // 18: surge.payments.v1.ListEarningsResponse.earnings:type_name -> surge.payments.v1.Earning
-	5,  // 19: surge.payments.v1.Earning.status:type_name -> surge.payments.v1.EarningStatus
-	35, // 20: surge.payments.v1.Earning.created_at:type_name -> google.protobuf.Timestamp
-	19, // 21: surge.payments.v1.PaymentsService.CreateSetupIntent:input_type -> surge.payments.v1.CreateSetupIntentRequest
-	21, // 22: surge.payments.v1.PaymentsService.GetPaymentMethod:input_type -> surge.payments.v1.GetPaymentMethodRequest
-	24, // 23: surge.payments.v1.PaymentsService.GetTripPayment:input_type -> surge.payments.v1.GetTripPaymentRequest
-	27, // 24: surge.payments.v1.PaymentsService.GetPayoutAccount:input_type -> surge.payments.v1.GetPayoutAccountRequest
-	30, // 25: surge.payments.v1.PaymentsService.StartOnboarding:input_type -> surge.payments.v1.StartOnboardingRequest
-	6,  // 26: surge.payments.v1.PaymentsService.GetBalance:input_type -> surge.payments.v1.GetBalanceRequest
-	9,  // 27: surge.payments.v1.PaymentsService.CreateWithdrawal:input_type -> surge.payments.v1.CreateWithdrawalRequest
-	11, // 28: surge.payments.v1.PaymentsService.ListWithdrawals:input_type -> surge.payments.v1.ListWithdrawalsRequest
-	14, // 29: surge.payments.v1.PaymentsService.RefundTrip:input_type -> surge.payments.v1.RefundTripRequest
-	17, // 30: surge.payments.v1.PaymentsService.DeliverWebhook:input_type -> surge.payments.v1.DeliverWebhookRequest
-	32, // 31: surge.payments.v1.PaymentsService.ListEarnings:input_type -> surge.payments.v1.ListEarningsRequest
-	20, // 32: surge.payments.v1.PaymentsService.CreateSetupIntent:output_type -> surge.payments.v1.CreateSetupIntentResponse
-	22, // 33: surge.payments.v1.PaymentsService.GetPaymentMethod:output_type -> surge.payments.v1.GetPaymentMethodResponse
-	25, // 34: surge.payments.v1.PaymentsService.GetTripPayment:output_type -> surge.payments.v1.GetTripPaymentResponse
-	28, // 35: surge.payments.v1.PaymentsService.GetPayoutAccount:output_type -> surge.payments.v1.GetPayoutAccountResponse
-	31, // 36: surge.payments.v1.PaymentsService.StartOnboarding:output_type -> surge.payments.v1.StartOnboardingResponse
-	7,  // 37: surge.payments.v1.PaymentsService.GetBalance:output_type -> surge.payments.v1.GetBalanceResponse
-	10, // 38: surge.payments.v1.PaymentsService.CreateWithdrawal:output_type -> surge.payments.v1.CreateWithdrawalResponse
-	12, // 39: surge.payments.v1.PaymentsService.ListWithdrawals:output_type -> surge.payments.v1.ListWithdrawalsResponse
-	15, // 40: surge.payments.v1.PaymentsService.RefundTrip:output_type -> surge.payments.v1.RefundTripResponse
-	18, // 41: surge.payments.v1.PaymentsService.DeliverWebhook:output_type -> surge.payments.v1.DeliverWebhookResponse
-	33, // 42: surge.payments.v1.PaymentsService.ListEarnings:output_type -> surge.payments.v1.ListEarningsResponse
-	32, // [32:43] is the sub-list for method output_type
-	21, // [21:32] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	36, // 4: surge.payments.v1.Withdrawal.created_at:type_name -> google.protobuf.Timestamp
+	36, // 5: surge.payments.v1.Withdrawal.updated_at:type_name -> google.protobuf.Timestamp
+	17, // 6: surge.payments.v1.RefundTripResponse.refund:type_name -> surge.payments.v1.Refund
+	27, // 7: surge.payments.v1.RefundTripResponse.payment:type_name -> surge.payments.v1.Payment
+	2,  // 8: surge.payments.v1.Refund.reversal:type_name -> surge.payments.v1.RefundReversal
+	36, // 9: surge.payments.v1.Refund.created_at:type_name -> google.protobuf.Timestamp
+	1,  // 10: surge.payments.v1.Refund.status:type_name -> surge.payments.v1.RefundStatus
+	3,  // 11: surge.payments.v1.DeliverWebhookRequest.kind:type_name -> surge.payments.v1.WebhookKind
+	24, // 12: surge.payments.v1.GetPaymentMethodResponse.card:type_name -> surge.payments.v1.Card
+	27, // 13: surge.payments.v1.GetTripPaymentResponse.payment:type_name -> surge.payments.v1.Payment
+	4,  // 14: surge.payments.v1.Payment.status:type_name -> surge.payments.v1.PaymentStatus
+	36, // 15: surge.payments.v1.Payment.created_at:type_name -> google.protobuf.Timestamp
+	36, // 16: surge.payments.v1.Payment.updated_at:type_name -> google.protobuf.Timestamp
+	30, // 17: surge.payments.v1.GetPayoutAccountResponse.account:type_name -> surge.payments.v1.PayoutAccount
+	5,  // 18: surge.payments.v1.PayoutAccount.status:type_name -> surge.payments.v1.PayoutAccountStatus
+	35, // 19: surge.payments.v1.ListEarningsResponse.earnings:type_name -> surge.payments.v1.Earning
+	6,  // 20: surge.payments.v1.Earning.status:type_name -> surge.payments.v1.EarningStatus
+	36, // 21: surge.payments.v1.Earning.created_at:type_name -> google.protobuf.Timestamp
+	20, // 22: surge.payments.v1.PaymentsService.CreateSetupIntent:input_type -> surge.payments.v1.CreateSetupIntentRequest
+	22, // 23: surge.payments.v1.PaymentsService.GetPaymentMethod:input_type -> surge.payments.v1.GetPaymentMethodRequest
+	25, // 24: surge.payments.v1.PaymentsService.GetTripPayment:input_type -> surge.payments.v1.GetTripPaymentRequest
+	28, // 25: surge.payments.v1.PaymentsService.GetPayoutAccount:input_type -> surge.payments.v1.GetPayoutAccountRequest
+	31, // 26: surge.payments.v1.PaymentsService.StartOnboarding:input_type -> surge.payments.v1.StartOnboardingRequest
+	7,  // 27: surge.payments.v1.PaymentsService.GetBalance:input_type -> surge.payments.v1.GetBalanceRequest
+	10, // 28: surge.payments.v1.PaymentsService.CreateWithdrawal:input_type -> surge.payments.v1.CreateWithdrawalRequest
+	12, // 29: surge.payments.v1.PaymentsService.ListWithdrawals:input_type -> surge.payments.v1.ListWithdrawalsRequest
+	15, // 30: surge.payments.v1.PaymentsService.RefundTrip:input_type -> surge.payments.v1.RefundTripRequest
+	18, // 31: surge.payments.v1.PaymentsService.DeliverWebhook:input_type -> surge.payments.v1.DeliverWebhookRequest
+	33, // 32: surge.payments.v1.PaymentsService.ListEarnings:input_type -> surge.payments.v1.ListEarningsRequest
+	21, // 33: surge.payments.v1.PaymentsService.CreateSetupIntent:output_type -> surge.payments.v1.CreateSetupIntentResponse
+	23, // 34: surge.payments.v1.PaymentsService.GetPaymentMethod:output_type -> surge.payments.v1.GetPaymentMethodResponse
+	26, // 35: surge.payments.v1.PaymentsService.GetTripPayment:output_type -> surge.payments.v1.GetTripPaymentResponse
+	29, // 36: surge.payments.v1.PaymentsService.GetPayoutAccount:output_type -> surge.payments.v1.GetPayoutAccountResponse
+	32, // 37: surge.payments.v1.PaymentsService.StartOnboarding:output_type -> surge.payments.v1.StartOnboardingResponse
+	8,  // 38: surge.payments.v1.PaymentsService.GetBalance:output_type -> surge.payments.v1.GetBalanceResponse
+	11, // 39: surge.payments.v1.PaymentsService.CreateWithdrawal:output_type -> surge.payments.v1.CreateWithdrawalResponse
+	13, // 40: surge.payments.v1.PaymentsService.ListWithdrawals:output_type -> surge.payments.v1.ListWithdrawalsResponse
+	16, // 41: surge.payments.v1.PaymentsService.RefundTrip:output_type -> surge.payments.v1.RefundTripResponse
+	19, // 42: surge.payments.v1.PaymentsService.DeliverWebhook:output_type -> surge.payments.v1.DeliverWebhookResponse
+	34, // 43: surge.payments.v1.PaymentsService.ListEarnings:output_type -> surge.payments.v1.ListEarningsResponse
+	33, // [33:44] is the sub-list for method output_type
+	22, // [22:33] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_payments_proto_init() }
@@ -2373,7 +2452,7 @@ func file_payments_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payments_proto_rawDesc), len(file_payments_proto_rawDesc)),
-			NumEnums:      6,
+			NumEnums:      7,
 			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,

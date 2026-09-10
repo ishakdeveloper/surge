@@ -274,6 +274,11 @@ func (r *InMemory) Apply(_ context.Context, change domain.Change) error {
 			return err
 		}
 	}
+	if failed := change.FailedRefund; failed != nil {
+		if err := r.checkFailedRefund(failed); err != nil {
+			return err
+		}
+	}
 
 	for _, txn := range change.Txns {
 		for _, entry := range txn.Entries {
@@ -298,6 +303,9 @@ func (r *InMemory) Apply(_ context.Context, change domain.Change) error {
 	}
 	if dispute := change.Dispute; dispute != nil {
 		r.disputes[dispute.ID] = *dispute
+	}
+	if failed := change.FailedRefund; failed != nil {
+		r.applyFailedRefund(failed)
 	}
 	for _, txn := range change.Txns {
 		for _, entry := range txn.Entries {

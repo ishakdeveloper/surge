@@ -141,37 +141,18 @@ func (s *Service) DisputeClosed(ctx context.Context, processorDisputeID string, 
 		Txns: []domain.Txn{domain.DisputeWonTxn(next, driverID)},
 	}
 
-	switch dispute.Reversal {
-	case domain.ReversalDeducted:
-		// Never paid out: owed again, and paid when their account can take it.
-		restored := restore(*earning, dispute.DriverCents, domain.EarningUnpaid, s)
-		change.Earning, change.EarningFrom = &restored, earning.Status
-
-	case domain.ReversalReversed:
-		// Paid out and taken back: sent to them again.
-		account, err := s.repo.PayoutAccount(ctx, earning.DriverID)
-		if err != nil {
-			return err
-		}
-		payment, err := s.repo.PaymentForTrip(ctx, dispute.TripID)
-		if err != nil {
-			return err
-		}
-		next.ProcessorRestoreTransferID, err = s.processor.Transfer(ctx, TransferRequest{
-			DestinationAccountID: account.ProcessorAccountID, AmountCents: dispute.DriverCents,
-			Currency: dispute.Currency, SourceChargeID: payment.ProcessorChargeID, TripID: dispute.TripID,
-			IdempotencyKey: "dispute:" + dispute.ProcessorDisputeID + ":restore",
-		})
-		if err != nil {
-			return fmt.Errorf("service: restore driver share for dispute %s: %w", dispute.ProcessorDisputeID, err)
-		}
-		restored := restore(*earning, dispute.DriverCents, domain.EarningTransferred, s)
-		change.Earning, change.EarningFrom = &restored, earning.Status
+	// Owed again if it was never paid out, sent again if it was; and if the
+	// driver kept it all along because the reversal failed, the won
+	// transaction alone clears what they owed.
+	back, err := s.giveBack(ctx, dispute.TripID, dispute.Reversal, dispute.DriverCents, dispute.Currency,
+		"dispute:"+dispute.ProcessorDisputeID+":restore")
+	if err != nil {
+		return err
+	}
+	change.Earning, change.EarningFrom = back.earning, back.from
+	if back.transferID != "" {
+		next.ProcessorRestoreTransferID = back.transferID
 		change.Txns = append(change.Txns, domain.DisputeRestoreTxn(next, driverID))
-
-	default:
-		// Nothing was taken, or the driver kept it all along because the
-		// reversal failed: the won transaction alone clears what they owed.
 	}
 
 	if err := s.repo.Apply(ctx, change); err != nil {
@@ -180,7 +161,7 @@ func (s *Service) DisputeClosed(ctx context.Context, processorDisputeID string, 
 		}
 		return err
 	}
-	if dispute.Reversal == domain.ReversalDeducted {
+	if back.owed {
 		return s.payDriver(ctx, dispute.TripID)
 	}
 	return nil

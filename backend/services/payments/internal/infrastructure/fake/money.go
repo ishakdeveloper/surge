@@ -30,7 +30,23 @@ func (p *Processor) Refund(_ context.Context, request service.RefundRequest) (st
 	placed.refunded += request.AmountCents
 	id := p.id("re")
 	p.answers[request.IdempotencyKey] = id
+	p.refunds[id] = refunded{hold: request.ProcessorPaymentID, amount: request.AmountCents}
 	return id, nil
+}
+
+// FailRefund is a refund the card would not take: a closed account, a bank
+// that refused it. As at Stripe, the amount goes back to the charge and can be
+// refunded again. The processor then reports it by webhook, which is the
+// test's to deliver.
+func (p *Processor) FailRefund(refundID string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if record, ok := p.refunds[refundID]; ok {
+		if placed := p.holds[record.hold]; placed != nil {
+			placed.refunded -= record.amount
+		}
+		delete(p.refunds, refundID)
+	}
 }
 
 func (p *Processor) ReverseTransfer(_ context.Context, request service.ReversalRequest) (string, error) {

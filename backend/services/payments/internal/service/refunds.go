@@ -69,7 +69,7 @@ func (s *Service) Refund(ctx context.Context, tripID string, amountCents int64, 
 	refund := &domain.Refund{
 		ID: s.newID(), TripID: tripID, PaymentID: payment.ID,
 		AmountCents: amountCents, Currency: payment.Currency, Reason: reason,
-		Reversal: domain.ReversalNone, IdempotencyKey: key, CreatedAt: s.now(),
+		Reversal: domain.ReversalNone, Status: domain.RefundSucceeded, IdempotencyKey: key, CreatedAt: s.now(),
 	}
 	processorKey := domain.RefundKey(tripID, key)
 

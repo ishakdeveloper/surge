@@ -152,13 +152,20 @@ func toWithdrawal(withdrawal *domain.Withdrawal) *paymentspb.Withdrawal {
 
 func toRefund(refund *domain.Refund) *paymentspb.Refund {
 	return &paymentspb.Refund{
-		Id:          refund.ID,
-		TripId:      refund.TripID,
-		AmountCents: refund.AmountCents,
-		DriverCents: refund.DriverCents,
-		Currency:    refund.Currency,
-		Reason:      refund.Reason,
-		Reversal:    refundReversals[refund.Reversal],
-		CreatedAt:   timestamppb.New(refund.CreatedAt),
+		Id:            refund.ID,
+		TripId:        refund.TripID,
+		AmountCents:   refund.AmountCents,
+		DriverCents:   refund.DriverCents,
+		Currency:      refund.Currency,
+		Reason:        refund.Reason,
+		Reversal:      refundReversals[refund.Reversal],
+		Status:        refundStatuses[refund.Status],
+		FailureReason: refund.FailureReason,
+		CreatedAt:     timestamppb.New(refund.CreatedAt),
 	}
+}
+
+var refundStatuses = map[domain.RefundStatus]paymentspb.RefundStatus{
+	domain.RefundSucceeded: paymentspb.RefundStatus_REFUND_STATUS_SUCCEEDED,
+	domain.RefundFailed:    paymentspb.RefundStatus_REFUND_STATUS_FAILED,
 }

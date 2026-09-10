@@ -145,6 +145,11 @@ type Change struct {
 	// total and give back more than was taken.
 	Refund *Refund
 
+	// FailedRefund marks a refund failed and takes its amount back off the
+	// payment's refunded total — a payment refunded in full is captured again.
+	// ErrConflict if the refund had already failed.
+	FailedRefund *Refund
+
 	// Dispute is inserted when DisputeFrom is empty — a second one for the
 	// same processor dispute is ErrConflict — and otherwise written with a
 	// compare-and-set on DisputeFrom.
@@ -187,6 +192,7 @@ type Repository interface {
 
 	// RefundByKey finds the refund an idempotency key already made.
 	RefundByKey(ctx context.Context, tripID, key string) (*Refund, error)
+	RefundByProcessorID(ctx context.Context, processorRefundID string) (*Refund, error)
 	DisputeByProcessorID(ctx context.Context, processorDisputeID string) (*Dispute, error)
 
 	// StalePayments are payments in a status since before a time, oldest

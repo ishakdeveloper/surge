@@ -315,6 +315,11 @@ func (r *Postgres) Apply(ctx context.Context, change domain.Change) error {
 				return err
 			}
 		}
+		if change.FailedRefund != nil {
+			if err := writeFailedRefund(ctx, tx, change.FailedRefund); err != nil {
+				return err
+			}
+		}
 		for _, txn := range change.Txns {
 			if err := writeTxn(ctx, tx, txn); err != nil {
 				return err

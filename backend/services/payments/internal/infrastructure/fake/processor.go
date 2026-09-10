@@ -66,12 +66,21 @@ type Processor struct {
 	// settlement to wait for.
 	balances  map[string]int64
 	transfers map[string]transfer
+	// refunds remembers which hold each refund came out of, so a refund that
+	// fails can give its amount back to the charge, as Stripe's do.
+	refunds map[string]refunded
+}
+
+type refunded struct {
+	hold   string
+	amount int64
 }
 
 func New() *Processor {
 	return &Processor{
 		answers: map[string]any{}, holds: map[string]*hold{},
 		balances: map[string]int64{}, transfers: map[string]transfer{},
+		refunds: map[string]refunded{},
 	}
 }
 

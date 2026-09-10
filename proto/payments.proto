@@ -300,6 +300,19 @@ message Refund {
   string reason = 6;
   RefundReversal reversal = 7;
   google.protobuf.Timestamp created_at = 8;
+  RefundStatus status = 9;
+  // Why a failed refund failed, in the processor's words: a closed card, a
+  // refusing bank.
+  string failure_reason = 10;
+}
+
+// RefundStatus is whether a refund reached the rider.
+enum RefundStatus {
+  REFUND_STATUS_UNSPECIFIED = 0;
+  REFUND_STATUS_SUCCEEDED = 1;
+  // It could not be delivered. The money is back with the platform, the
+  // payment is refundable again, and the rider must be repaid another way.
+  REFUND_STATUS_FAILED = 2;
 }
 
 // RefundReversal is how a refund took the driver's share back.

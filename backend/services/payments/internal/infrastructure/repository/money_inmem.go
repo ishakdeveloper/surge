@@ -54,6 +54,39 @@ func (r *InMemory) applyRefund(refund *domain.Refund) {
 	}
 }
 
+func (r *InMemory) checkFailedRefund(failed *domain.Refund) error {
+	stored, ok := r.refunds[failed.ID]
+	if !ok {
+		return domain.ErrNotFound
+	}
+	if stored.Status == domain.RefundFailed || r.payments[stored.PaymentID].RefundedCents < stored.AmountCents {
+		return domain.ErrConflict
+	}
+	return nil
+}
+
+func (r *InMemory) applyFailedRefund(failed *domain.Refund) {
+	r.refunds[failed.ID] = *failed
+
+	payment := r.payments[failed.PaymentID]
+	payment.RefundedCents -= failed.AmountCents
+	if payment.Status == domain.StatusRefunded {
+		payment.Status = domain.StatusCaptured
+	}
+	r.payments[failed.PaymentID] = payment
+}
+
+func (r *InMemory) RefundByProcessorID(_ context.Context, processorRefundID string) (*domain.Refund, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, refund := range r.refunds {
+		if processorRefundID != "" && refund.ProcessorRefundID == processorRefundID {
+			return &refund, nil
+		}
+	}
+	return nil, domain.ErrNotFound
+}
+
 func (r *InMemory) RefundByKey(_ context.Context, tripID, key string) (*domain.Refund, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -22,8 +22,24 @@ const (
 	ReversalFailed ReversalKind = "failed"
 )
 
+// RefundStatus is whether a refund reached the rider.
+type RefundStatus string
+
+const (
+	RefundSucceeded RefundStatus = "succeeded"
+	// RefundFailed is a refund the processor could not deliver. The money is
+	// back with the platform, and what the refund took has been put back.
+	RefundFailed RefundStatus = "failed"
+)
+
 // Refund is money given back to a rider for a captured trip.
 type Refund struct {
+	Status        RefundStatus
+	FailureReason string
+	// ProcessorRestoreTransferID is the transfer that gave a reversed driver
+	// share back when the refund failed.
+	ProcessorRestoreTransferID string
+
 	ID        string
 	TripID    string
 	PaymentID string
@@ -93,6 +109,30 @@ func ReversalTxn(refund Refund, driverID string) Txn {
 		Entries: []Entry{
 			{Account: DriverAccount(driverID), AmountCents: -refund.DriverCents},
 			{Account: AccountClearing, AmountCents: refund.DriverCents},
+		},
+	}
+}
+
+// RefundFailedTxn is exactly the opposite of RefundTxn: the money is back with
+// the processor, the commission is the platform's again, and the driver's
+// share is theirs again.
+func RefundFailedTxn(refund Refund, driverID string) Txn {
+	txn := RefundTxn(refund, driverID)
+	txn.ID, txn.Kind = "refund-failed:"+refund.ID, TxnRefund
+	for i := range txn.Entries {
+		txn.Entries[i].AmountCents = -txn.Entries[i].AmountCents
+	}
+	return txn
+}
+
+// RefundRestoreTxn records a reversed share going back to the driver after
+// the refund it was reversed for failed.
+func RefundRestoreTxn(refund Refund, driverID string) Txn {
+	return Txn{
+		ID: "refund-restore:" + refund.ID, Kind: TxnTransfer, TripID: refund.TripID, Currency: refund.Currency,
+		Entries: []Entry{
+			{Account: DriverAccount(driverID), AmountCents: refund.DriverCents},
+			{Account: AccountClearing, AmountCents: -refund.DriverCents},
 		},
 	}
 }
