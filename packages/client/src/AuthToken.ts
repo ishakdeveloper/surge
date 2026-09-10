@@ -175,21 +175,20 @@ const decodeClaims = Effect.fnUntraced(function*(token: string) {
 });
 
 /**
- * An HttpClient that carries the token on every request.
+ * A transform that puts the bearer token on every request.
  *
- * Applied once here so no call site ever hand-sets an Authorization header, and
- * so a token that expires mid-session is refreshed underneath the caller rather
- * than surfacing as a 401 they have to think about.
+ * Takes the resolved service rather than requiring it, so it composes with
+ * `HttpApiClient`'s synchronous `transformClient` hook. Applied once, centrally,
+ * so no call site ever hand-sets an Authorization header and a token expiring
+ * mid-session is refreshed underneath the caller.
  */
-export const withAuth = Effect.fnUntraced(function*(client: HttpClient.HttpClient) {
-  const auth = yield* AuthToken;
-
-  return HttpClient.mapRequestEffect(client, (request) =>
-    auth.get.pipe(
-      Effect.map((token) => HttpClientRequest.bearerToken(request, token)),
-      // An unauthenticated caller still gets to make the request; the Go
-      // service answers 401 and the UI decides what that means. Failing here
-      // would turn every anonymous read into a client-side error.
-      Effect.orElseSucceed(() => request),
-    ));
-});
+export const bearer =
+  (auth: AuthTokenService) => (client: HttpClient.HttpClient): HttpClient.HttpClient =>
+    HttpClient.mapRequestEffect(client, (request) =>
+      auth.get.pipe(
+        Effect.map((token) => HttpClientRequest.bearerToken(request, token)),
+        // An unauthenticated caller still gets to make the request; the Go
+        // service answers 401 and the UI decides what that means. Failing here
+        // would turn every anonymous read into a client-side error.
+        Effect.orElseSucceed(() => request),
+      ));

@@ -65,6 +65,17 @@ service TripService {
     option (google.api.http) = {
       post: "/v1/trips/{trip_id}:cancel"
       body: "*"
+      // A second route for the same method, because `:verb` is Google's
+      // convention and not everyone's router. Effect's, for one, parses
+      // `/v1/trips/:tripId:cancel` as a parameter literally named
+      // "tripId:cancel" — a colon means something to it in that position.
+      //
+      // additional_bindings exists for exactly this: one implementation, two
+      // paths, no second handler to keep in step.
+      additional_bindings: {
+        post: "/v1/trips/{trip_id}/cancel"
+        body: "*"
+      }
     };
   }
 

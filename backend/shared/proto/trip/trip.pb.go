@@ -873,14 +873,14 @@ const file_trip_proto_rawDesc = "" +
 	"\x17TRIP_STATUS_IN_PROGRESS\x10\x05\x12\x19\n" +
 	"\x15TRIP_STATUS_COMPLETED\x10\x06\x12\x19\n" +
 	"\x15TRIP_STATUS_CANCELLED\x10\a\x12\x19\n" +
-	"\x15TRIP_STATUS_UNMATCHED\x10\b2\xae\x04\n" +
+	"\x15TRIP_STATUS_UNMATCHED\x10\b2\xd0\x04\n" +
 	"\vTripService\x12r\n" +
 	"\vPreviewTrip\x12!.surge.trip.v1.PreviewTripRequest\x1a\".surge.trip.v1.PreviewTripResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/trips:preview\x12g\n" +
 	"\n" +
 	"CreateTrip\x12 .surge.trip.v1.CreateTripRequest\x1a!.surge.trip.v1.CreateTripResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/trips\x12e\n" +
-	"\aGetTrip\x12\x1d.surge.trip.v1.GetTripRequest\x1a\x1e.surge.trip.v1.GetTripResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/trips/{trip_id}\x12x\n" +
+	"\aGetTrip\x12\x1d.surge.trip.v1.GetTripRequest\x1a\x1e.surge.trip.v1.GetTripResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/trips/{trip_id}\x12\x99\x01\n" +
 	"\n" +
-	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponse\"%\x82\xd3\xe4\x93\x02\x1f:\x01*\"\x1a/v1/trips/{trip_id}:cancel\x12a\n" +
+	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponse\"F\x82\xd3\xe4\x93\x02@:\x01*Z\x1f:\x01*\"\x1a/v1/trips/{trip_id}/cancel\"\x1a/v1/trips/{trip_id}:cancel\x12a\n" +
 	"\tListTrips\x12\x1f.surge.trip.v1.ListTripsRequest\x1a .surge.trip.v1.ListTripsResponse\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/tripsB8Z6github.com/ishakdeveloper/surge/shared/proto/trip;tripb\x06proto3"
 
 var (
