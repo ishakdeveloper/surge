@@ -20,4 +20,7 @@ result-*
 .DS_Store
 
 # Go
-services/bin/
+backend/bin/
+
+# Cluster secrets are created imperatively, never committed.
+deploy/k8s/11-secrets.yaml

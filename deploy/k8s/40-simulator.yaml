@@ -1,0 +1,64 @@
+# simulator
+    #
+    # Not a product service — the load generator. One replica, because two
+    # would produce two drivers with the same id and their sequence numbers
+    # would interleave.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  namespace: surge
+  labels: { app: simulator }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: simulator }
+  template:
+    metadata:
+      labels: { app: simulator }
+    spec:
+      containers:
+        - name: simulator
+          image: surge/simulator:dev
+          # Never pulls: these images are built locally by Tilt or by `make
+          # images`, and a cluster that tried to fetch them from a registry
+          # would fail on every rollout.
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: surge-config }
+            - secretRef: { name: surge-secrets }
+          ports:
+            - name: control
+              containerPort: 8101
+            - name: metrics
+              containerPort: 9101
+          # Liveness only. A readiness probe on these would take a pod out of
+          # rotation when Kafka is briefly unavailable, which turns one broker
+          # hiccup into an outage — the service is fine, its dependency is not.
+          livenessProbe:
+            httpGet: { path: /health, port: 9101 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 1Gi }
+      # Long enough for the matcher to checkpoint its in-flight offers on the
+      # way out. A shorter grace period turns every rollout into the ungraceful
+      # path, where recovery rests entirely on offer deadlines.
+      terminationGracePeriodSeconds: 45
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: simulator
+  namespace: surge
+spec:
+  selector: { app: simulator }
+  ports:
+    - name: control
+      port: 8101
+      targetPort: control
+    - name: metrics
+      port: 9101
+      targetPort: metrics

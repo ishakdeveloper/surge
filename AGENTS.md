@@ -11,15 +11,32 @@ browser trades its session cookie for a short-lived EdDSA token at
 `/api/auth/jwks`. No product endpoint touches Node or its session table.
 
 ```
-apps/auth        better-auth, and only better-auth
-apps/web         TanStack Start — console, rider, driver
-packages/domain  the contract both languages compile against
-packages/client  platform-free Effect services over the Go API
-packages/database  the connection and better-auth's schema
-services/        Go: cmd/*, internal/*, pkg/*
-deploy/          compose, prometheus, grafana
-docs/benchmarks/ what was measured, and what broke
+apps/auth            better-auth, and only better-auth
+apps/web             TanStack Start — console, rider, driver
+packages/domain      the contract both languages compile against
+packages/client      platform-free Effect services over the Go API
+packages/database    the connection and better-auth's schema
+proto/               the gRPC contracts
+backend/             the Go module
+  services/          one directory per microservice
+  shared/            the only thing services may import
+  tools/             the migrator and the scaffolder — not services
+  migrations/        SQL the Go services own
+deploy/              docker, compose, k8s, prometheus, grafana
+docs/benchmarks/     what was measured, and what broke
 ```
+
+A service is a directory you could lift into its own repository: `cmd/` is the
+entrypoint, `internal/` is private to it — Go enforces that, so nothing can
+reach into another service's state even by accident — and within it the layering
+is `domain` (rules, no transport), `service` (logic), `infrastructure` (Kafka,
+gRPC, Postgres, HTTP).
+
+`backend/tools` and `backend/migrations` deliberately sit beside `services/`
+rather than inside it. A migrator is a job and a scaffolder is a script; neither
+is a thing that scales on anything.
+
+    make scaffold NAME=pricing
 
 Dependencies point one way, from `apps/` into `packages/`.
 
@@ -120,8 +137,8 @@ git subtree pull --prefix=repos/effect-form https://github.com/lucas-barake/effe
 
 ## Go
 
-One module, `services/go.mod`, module path `github.com/ishakdeveloper/surge`. It
-lives under `services/` rather than at the root so `pnpm -r` and `tsc -b` never
+One module, `backend/go.mod`, module path `github.com/ishakdeveloper/surge`. It
+lives under `backend/` rather than at the root so `pnpm -r` and `tsc -b` never
 see Go files.
 
 - `pkg/` is the only cross-service importable surface. `internal/<service>/` is
@@ -181,10 +198,10 @@ Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101,
 The repo rule is 80% coverage, and the tests that matter here are the ones that
 cross a boundary no compiler checks:
 
-- `services/pkg/authz` signs a user up against a **running auth service** and
+- `backend/shared/authz` signs a user up against a **running auth service** and
   verifies the token. It is the only thing that can catch the claim names,
   algorithm, issuer, audience and role clamp disagreeing across languages.
-- `services/pkg/geo` decodes a **committed Valhalla fixture** rather than a
+- `backend/shared/geo` decodes a **committed Valhalla fixture** rather than a
   hand-made polyline, because precision-6 shape decoded at precision 5 is a
   well-formed route that is wrong by a factor of ten.
 - `packages/client/test/platform-free.test.ts` enforces that nothing shared

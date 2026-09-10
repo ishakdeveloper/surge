@@ -1,0 +1,177 @@
+# Infrastructure, single-replica and ephemeral.
+#
+# This is a development cluster, so storage is emptyDir: a restart loses the
+# data, which for a position stream and a load-test database is the honest
+# trade. A real deployment uses managed Postgres and a Redpanda operator, and
+# neither belongs in a file that also runs a simulator.
+---
+apiVersion: v1
+kind: Service
+metadata: { name: postgres, namespace: surge }
+spec:
+  selector: { app: postgres }
+  ports: [{ name: postgres, port: 5432, targetPort: 5432 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: surge
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata: { labels: { app: postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          env:
+            - { name: POSTGRES_DB, value: surge }
+            - { name: POSTGRES_USER, value: surge }
+            - { name: POSTGRES_PASSWORD, value: surge }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports: [{ name: postgres, containerPort: 5432 }]
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "surge", "-d", "surge"] }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes: [{ name: data, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: redis, namespace: surge }
+spec:
+  selector: { app: redis }
+  ports: [{ name: redis, port: 6379, targetPort: 6379 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: surge
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: redis } }
+  template:
+    metadata: { labels: { app: redis } }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["--save", "", "--appendonly", "no"]
+          ports: [{ name: redis, containerPort: 6379 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: redpanda, namespace: surge }
+spec:
+  selector: { app: redpanda }
+  ports:
+    - { name: kafka, port: 9092, targetPort: 9092 }
+    - { name: admin, port: 9644, targetPort: 9644 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redpanda
+  namespace: surge
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: redpanda } }
+  template:
+    metadata: { labels: { app: redpanda } }
+    spec:
+      containers:
+        - name: redpanda
+          image: redpandadata/redpanda:latest
+          args:
+            - redpanda
+            - start
+            # dev-container mode disables the production memory and fsync
+            # assumptions that otherwise refuse to start on a laptop.
+            - --mode=dev-container
+            - --smp=1
+            - --memory=1G
+            - --reserve-memory=0M
+            - --default-log-level=warn
+            - --kafka-addr=internal://0.0.0.0:9092
+            - --advertise-kafka-addr=internal://redpanda:9092
+          ports:
+            - { name: kafka, containerPort: 9092 }
+            - { name: admin, containerPort: 9644 }
+          volumeMounts: [{ name: data, mountPath: /var/lib/redpanda/data }]
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { memory: 2Gi }
+      volumes: [{ name: data, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: valhalla, namespace: surge }
+spec:
+  selector: { app: valhalla }
+  ports: [{ name: http, port: 8002, targetPort: 8002 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valhalla
+  namespace: surge
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: valhalla } }
+  template:
+    metadata: { labels: { app: valhalla } }
+    spec:
+      containers:
+        - name: valhalla
+          image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+          env:
+            - { name: tile_urls, value: "https://download.geofabrik.de/europe/netherlands/noord-holland-latest.osm.pbf" }
+            # Defaults to True, which would skip the build entirely and serve
+            # nothing on a fresh volume.
+            - { name: use_tiles_ignore_pbf, value: "False" }
+            - { name: build_admins, value: "True" }
+            - { name: server_threads, value: "4" }
+          ports: [{ name: http, containerPort: 8002 }]
+          volumeMounts: [{ name: tiles, mountPath: /custom_files }]
+          # The first boot downloads a 189MB extract and builds tiles, so the
+          # probe has to tolerate a long silence before it means anything.
+          startupProbe:
+            httpGet: { path: /status, port: 8002 }
+            periodSeconds: 20
+            failureThreshold: 90
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { memory: 3Gi }
+      volumes: [{ name: tiles, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: jaeger, namespace: surge }
+spec:
+  selector: { app: jaeger }
+  ports:
+    - { name: ui, port: 16686, targetPort: 16686 }
+    - { name: otlp-http, port: 4318, targetPort: 4318 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: surge
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: jaeger } }
+  template:
+    metadata: { labels: { app: jaeger } }
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:latest
+          env: [{ name: COLLECTOR_OTLP_ENABLED, value: "true" }]
+          ports:
+            - { name: ui, containerPort: 16686 }
+            - { name: otlp-http, containerPort: 4318 }

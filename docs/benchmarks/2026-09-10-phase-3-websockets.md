@@ -109,7 +109,7 @@ make up && make migrate
 make dev-auth & make dev-ingest & make dev-matcher & make dev-trip & make dev-gateway &
 
 SIM_TRANSPORT=ws SIM_DRIVERS=5000 SIM_REQUESTS_PER_SECOND=10 \
-  OTEL_TRACES_SAMPLER_ARG=0.01 services/bin/simd
+  OTEL_TRACES_SAMPLER_ARG=0.01 backend/bin/simd
 
 curl -sX POST localhost:8101/sim/config -H 'content-type: application/json' -d '{"drivers":10000}'
 curl -s localhost:9104/metrics | grep surge_gateway_

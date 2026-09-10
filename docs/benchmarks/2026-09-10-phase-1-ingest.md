@@ -111,7 +111,7 @@ Indexing itself costs **3.96 µs per ping** (12.70 s over 3,205,509 pings), and
 
 ```bash
 docker compose -f deploy/compose/docker-compose.yml up -d
-cd services && go build -o bin/simd ./cmd/simd && go build -o bin/ingest ./cmd/ingest
+cd backend && go build -o bin/simd ./cmd/simd && go build -o bin/ingest ./cmd/ingest
 set -a; source ../.env; set +a
 
 INGEST_GROUP="ingest-bench-$(date +%s)" ./bin/ingest &   # a fresh group per run

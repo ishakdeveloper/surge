@@ -1,0 +1,55 @@
+# The auth service: better-auth, and only better-auth.
+#
+# The one Node process in the system, and deliberately not in any request path.
+# The browser trades its session cookie for a short-lived JWT here, and every Go
+# service verifies that signature locally against /api/auth/jwks — so this can
+# be slow, or briefly down, without a ride in progress noticing.
+apiVersion: v1
+kind: Service
+metadata: { name: auth, namespace: surge }
+spec:
+  selector: { app: auth }
+  ports: [{ name: http, port: 3200, targetPort: 3200 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: surge
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: auth } }
+  template:
+    metadata: { labels: { app: auth } }
+    spec:
+      containers:
+        - name: auth
+          image: surge/auth:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: surge-config }
+            - secretRef: { name: surge-secrets }
+          env:
+            - { name: PORT, value: "3200" }
+            - { name: AUTH_BASE_URL, value: "http://auth:3200" }
+            - { name: WEB_URL, value: "http://localhost:5173" }
+          ports: [{ name: http, containerPort: 3200 }]
+          livenessProbe:
+            httpGet: { path: /health, port: 3200 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          # /ready checks Postgres, so it belongs on readiness rather than
+          # liveness: a database outage should take this out of rotation, not
+          # restart a process that is working perfectly and would recover.
+          readinessProbe:
+            httpGet: { path: /ready, port: 3200 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            # The default is one second, which this fails during a cold start:
+            # /ready queries Postgres, and a just-scheduled Node process on a
+            # busy node answers in a few hundred milliseconds on a good day.
+            # Marking it unready for that is a probe measuring its own impatience.
+            timeoutSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }

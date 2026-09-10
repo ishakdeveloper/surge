@@ -1,0 +1,59 @@
+# ingest
+    #
+    # Scales on ping rate. Stateless between restarts: the position index
+    # rebuilds from the stream within one ping interval, which is why it
+    # consumes from the end of the log rather than replaying.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+  namespace: surge
+  labels: { app: ingest }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: ingest }
+  template:
+    metadata:
+      labels: { app: ingest }
+    spec:
+      containers:
+        - name: ingest
+          image: surge/ingest:dev
+          # Never pulls: these images are built locally by Tilt or by `make
+          # images`, and a cluster that tried to fetch them from a registry
+          # would fail on every rollout.
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: surge-config }
+            - secretRef: { name: surge-secrets }
+          ports:
+            - name: metrics
+              containerPort: 9102
+          # Liveness only. A readiness probe on these would take a pod out of
+          # rotation when Kafka is briefly unavailable, which turns one broker
+          # hiccup into an outage — the service is fine, its dependency is not.
+          livenessProbe:
+            httpGet: { path: /health, port: 9102 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 1Gi }
+      # Long enough for the matcher to checkpoint its in-flight offers on the
+      # way out. A shorter grace period turns every rollout into the ungraceful
+      # path, where recovery rests entirely on offer deadlines.
+      terminationGracePeriodSeconds: 45
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingest
+  namespace: surge
+spec:
+  selector: { app: ingest }
+  ports:
+    - name: metrics
+      port: 9102
+      targetPort: metrics

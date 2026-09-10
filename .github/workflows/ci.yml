@@ -45,17 +45,17 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: services/go.mod
-          cache-dependency-path: services/go.sum
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
 
       # gofmt rather than a linter: the standard formatter is the whole
       # convention, and a diff here is a one-command fix.
       - name: gofmt
-        working-directory: services
+        working-directory: backend
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
 
       - name: vet
-        working-directory: services
+        working-directory: backend
         run: go vet ./...
 
       # The tests that need Redpanda, Valhalla or the auth service skip when
@@ -63,5 +63,5 @@ jobs:
       # geo, config, the position index, and the polyline decoder against a
       # committed Valhalla fixture.
       - name: test
-        working-directory: services
+        working-directory: backend
         run: go test ./...

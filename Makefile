@@ -5,14 +5,65 @@
 # 8 GB Docker VM is left to the things that actually need it.
 
 COMPOSE := docker compose -f deploy/compose/docker-compose.yml
-GO      := cd services && go
-BIN     := services/bin
+GO      := cd backend && go
+BIN     := backend/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help proto up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto images k8s-up k8s-down k8s-status tilt scaffold up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+
+# --- kubernetes -------------------------------------------------------------
+#
+# Not the development loop. `make dev-*` runs the services on the host against
+# the compose stack, which is a one-second compile instead of an image build.
+# This exists because "it runs as five processes on my laptop" is a different
+# claim from "it deploys", and the gap between them is where a surprising number
+# of problems live.
+#
+# Every target pins an explicit local context. The kubectl context on this
+# machine has been a production GKE cluster before now.
+KCTX ?= orbstack
+
+images: ## Build every container image
+	@for s in gateway ingest matcher trip simulator migrate; do \
+		echo "  building $$s"; \
+		docker build -q -f deploy/docker/$$s.Dockerfile -t surge/$$s:dev . > /dev/null; \
+	done
+	@echo "  building auth"
+	@docker build -q -f apps/auth/Dockerfile -t surge/auth:dev . > /dev/null
+
+k8s-up: images ## Deploy the whole system to a local cluster
+	@kubectl --context $(KCTX) config current-context | grep -qE '^(orbstack|docker-desktop|rancher-desktop|minikube|kind-)' \
+		|| { echo "refusing: $(KCTX) is not a local cluster"; exit 1; }
+	kubectl --context $(KCTX) apply -f deploy/k8s/00-namespace.yaml
+	@kubectl --context $(KCTX) -n surge get secret surge-secrets >/dev/null 2>&1 || \
+		kubectl --context $(KCTX) -n surge create secret generic surge-secrets \
+			--from-literal=AUTH_SECRET="$$(openssl rand -base64 32)" \
+			--from-literal=SIM_TOKEN_SECRET="$$(openssl rand -base64 32)" \
+			--from-literal=SIM_ENABLED=true
+	kubectl --context $(KCTX) apply -f deploy/k8s/
+	@echo
+	@echo "  kubectl --context $(KCTX) -n surge get pods -w"
+	@echo "  valhalla builds tiles on first boot; the rest waits for it rather than crashlooping"
+
+k8s-down: ## Remove the deployment, keep the cluster
+	kubectl --context $(KCTX) delete namespace surge --ignore-not-found
+
+k8s-status: ## Pods, and the shard assignment across matcher pods
+	@kubectl --context $(KCTX) -n surge get pods
+	@echo
+	@for p in $$(kubectl --context $(KCTX) -n surge get pods -l app=matcher -o name 2>/dev/null); do \
+		kubectl --context $(KCTX) -n surge exec $$p -- wget -qO- http://localhost:9103/metrics 2>/dev/null \
+		| awk -v pod="$${p#pod/}" '/^surge_matcher_partitions_owned /{printf "  %-28s partitions=%s\n", pod, $$2}'; \
+	done
+
+tilt: ## Kubernetes with live rebuilds
+	tilt up
+
+scaffold: ## Create a new service: make scaffold NAME=pricing
+	cd backend && go run ./tools/create-service -name $(or $(NAME),$(error set NAME))
 
 up: ## Start infrastructure (redpanda, postgres, redis, valhalla, prometheus, grafana)
 	@docker context show 2>/dev/null | grep -q orbstack || \
@@ -47,10 +98,10 @@ proto: ## Regenerate gRPC code from proto/
 	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=proto \
-		--go_out=services/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
-		--go-grpc_out=services/shared/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/shared/proto \
+		--go_out=backend/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
+		--go-grpc_out=backend/shared/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		proto/*.proto
-	cd services && gofmt -w shared/proto
+	cd backend && gofmt -w shared/proto
 
 build: ## Build every Go binary
 	$(GO) build -o bin/simd ./simulator/cmd
@@ -61,14 +112,14 @@ build: ## Build every Go binary
 	$(GO) build -o bin/gateway ./gateway/cmd
 
 test: ## Run both test suites
-	$(GO) vet ./... && cd services && go test ./...
+	$(GO) vet ./... && cd backend && go test ./...
 	TEST_DB_URL=postgresql://surge:surge@localhost:55433/surge pnpm test
 
 check: ## Typecheck, lint and format-check the TypeScript
 	pnpm check && pnpm lint && pnpm format:check
 
 fmt: ## Format everything
-	cd services && gofmt -w .
+	cd backend && gofmt -w .
 	pnpm format
 
 dev-auth: ## Run the auth service (the only Node in any request path)

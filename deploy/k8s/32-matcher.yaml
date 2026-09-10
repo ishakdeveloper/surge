@@ -1,0 +1,59 @@
+# matcher
+    #
+    # Scales on geography. Kafka's consumer group decides which pods own
+    # which cells, so replicas here directly change the shard assignment —
+    # and changing it is a rebalance, which is the interesting path.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matcher
+  namespace: surge
+  labels: { app: matcher }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: matcher }
+  template:
+    metadata:
+      labels: { app: matcher }
+    spec:
+      containers:
+        - name: matcher
+          image: surge/matcher:dev
+          # Never pulls: these images are built locally by Tilt or by `make
+          # images`, and a cluster that tried to fetch them from a registry
+          # would fail on every rollout.
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: surge-config }
+            - secretRef: { name: surge-secrets }
+          ports:
+            - name: metrics
+              containerPort: 9103
+          # Liveness only. A readiness probe on these would take a pod out of
+          # rotation when Kafka is briefly unavailable, which turns one broker
+          # hiccup into an outage — the service is fine, its dependency is not.
+          livenessProbe:
+            httpGet: { path: /health, port: 9103 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 1Gi }
+      # Long enough for the matcher to checkpoint its in-flight offers on the
+      # way out. A shorter grace period turns every rollout into the ungraceful
+      # path, where recovery rests entirely on offer deadlines.
+      terminationGracePeriodSeconds: 45
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matcher
+  namespace: surge
+spec:
+  selector: { app: matcher }
+  ports:
+    - name: metrics
+      port: 9103
+      targetPort: metrics

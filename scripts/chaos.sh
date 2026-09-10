@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 set -a; . ./.env; set +a
 
 SCENARIO="${1:-scale}"
-BIN=services/bin
+BIN=backend/bin
 
 metric() { curl -s "http://localhost:$1/metrics" | awk -v m="$2" '$1==m{print $2}'; }
 matched()    { metric 9103 surge_matcher_matched_total; }

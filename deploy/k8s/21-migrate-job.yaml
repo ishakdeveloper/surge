@@ -1,0 +1,24 @@
+# Migrations as an explicit step, never at service boot.
+#
+# Two instances starting together would both migrate. Every migration is
+# idempotent and there is no ledger, so re-running this Job is safe and is how
+# a cluster converges on the committed schema.
+#
+#   kubectl -n surge delete job migrate --ignore-not-found
+#   kubectl -n surge apply -f deploy/k8s/21-migrate-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: surge
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: surge/migrate:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: surge-config }
