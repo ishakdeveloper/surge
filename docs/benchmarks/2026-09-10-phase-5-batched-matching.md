@@ -207,13 +207,39 @@ demand per shard than one laptop's fleet produces, or a longer window, which
 costs latency again. At this scale greedy is the right default, and the batch
 path stays for the day the numbers change.
 
-The two strategies ran as separate invocations: the memory guard killed the
+The table above ran as two invocations: the memory guard killed the
 paired run halfway through its second half, so `STRATEGIES=batched` now runs
 one alone, with the same settings. Getting here also took one more harness fix.
 A second attempt reused the consumer group `matcher-bench` from an earlier
 invocation, so its greedy run resumed hours back and replayed every request
 since — 806 matches and 3,544 unmatched in a window that had seen about 850
 real requests. Each invocation now gets a fresh group.
+
+### Run again, in one piece
+
+Launched detached — so nothing that can be killed for memory owns it — and with
+the dashboards stopped for its length, the paired run finished, same settings:
+
+|                            |  greedy | batched |
+| -------------------------- | ------: | ------: |
+| **double dispatches**      |   **0** |   **0** |
+| redelivered matches        |       0 |       0 |
+| riders unmatched / s       |    1.51 |    1.53 |
+| road pickup, mean          | 261.2 s | 244.1 s |
+| road pickup, p50           | 249.6 s | 196.7 s |
+| road pickup, p95           | 616.1 s | 575.2 s |
+| straight-line pickup, mean |   644 m |   768 m |
+| match latency p50          |  1.65 s |  4.12 s |
+| match latency p99          |  4.97 s |  7.77 s |
+| contested solves           |       – |       0 |
+
+This time batching's mean pickup is the shorter one. Across the two runs of the
+same settings, greedy's mean went from 229 s to 261 s and batching's from 254 s
+to 244 s: the run-to-run swing is as large as the gap between the strategies, so
+neither direction means anything. And this run solved no contested window at
+all. What does not move between runs is the cost — batching offers about two
+and a half seconds later and matches the same riders. The conclusion stands on
+two runs rather than one.
 
 ## The first attempt, and why it does not count
 

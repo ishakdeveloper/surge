@@ -9,6 +9,9 @@
 #
 #   make bench-matching DRIVERS=300 RPS=20 MINUTES=4
 #
+# Long enough that it should not run inside anything that can be killed for
+# memory: start it detached (nohup ... &) and watch its output.
+#
 # A run is only reported as valid if the matcher kept up and kept its
 # partitions: an earlier attempt compared a batched run against a greedy run
 # whose matcher had lost its partitions and saw demand for 100 of 240 seconds.
@@ -36,6 +39,17 @@ set -a; . ../.env; set +a
 # hours earlier, and replay every request since — thousands of phantom trips
 # offered to a fleet that was meant to be measured.
 export MATCHER_GROUP=matcher-bench-$(date +%s)
+
+# Memory. What the benchmark does not read is stopped for its length and started
+# again on the way out, however it exits: the dashboards — Grafana, Jaeger,
+# Redpanda Console — are a third of a gigabyte on a laptop where the memory
+# guard once killed a run halfway through. Prometheus stays; the results are
+# read from it. BENCH_KEEP_DASHBOARDS=1 leaves them running.
+compose="docker compose -f $ROOT/deploy/compose/docker-compose.yml --profile observability"
+if [ -z "${BENCH_KEEP_DASHBOARDS:-}" ]; then
+  $compose stop grafana jaeger redpanda-console >/dev/null 2>&1 || true
+  trap '$compose start grafana jaeger redpanda-console >/dev/null 2>&1 || true' EXIT
+fi
 
 stop() {
   pkill -f "\./bin/$1" 2>/dev/null || true
