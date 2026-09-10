@@ -1,0 +1,15 @@
+{
+  "_tag": "Offer",
+  "offer": {
+    "_tag": "Offer",
+    "tripId": "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+    "driverId": "drv-000123",
+    "riderId": "rider-000456",
+    "pickupLat": 52.3702,
+    "pickupLng": 4.8952,
+    "replyCell": "871f1d492ffffff",
+    "expiresAtMs": 1757512345000,
+    "dispatchedAtMs": 1757512330000,
+    "requestedAtMs": 1757512329412
+  }
+}

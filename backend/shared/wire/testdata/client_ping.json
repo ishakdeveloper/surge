@@ -1,0 +1,13 @@
+{
+  "_tag": "ClientPing",
+  "ping": {
+    "epoch": 1757512300000,
+    "seq": 42,
+    "lat": 52.3702,
+    "lng": 4.8952,
+    "heading": 137.5,
+    "speedMps": 8.3,
+    "status": "idle",
+    "sentAtMs": 1757512329412
+  }
+}

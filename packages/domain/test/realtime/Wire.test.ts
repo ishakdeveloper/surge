@@ -1,0 +1,180 @@
+import {
+  CellId,
+  ClientMessageFromJson,
+  DriverPing,
+  OfferReply,
+  ServerMessageFromJson,
+} from "@surge/domain/realtime/Wire";
+import { DriverId, TripId } from "@surge/domain/trip/Trip";
+import { Effect, Schema } from "effect";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { describe, expect, it } from "vitest";
+
+/**
+ * The TypeScript half of the WebSocket contract.
+ *
+ * `backend/shared/wire/wire_test.go` is the other half, and both read the same
+ * files — that is the entire point. The REST surface is generated from
+ * `proto/trip.proto` and drift is caught against the generated OpenAPI; this
+ * transport is hand-written on both sides, which is the arrangement that
+ * produced the drift in the starter this project borrows from, where the
+ * TypeScript contracts declare trip events the Go does not have and the Go
+ * declares a payment command set the TypeScript does not.
+ *
+ * Rename a field on either side and exactly one of these two suites fails.
+ */
+const testdata = path.join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "backend",
+  "shared",
+  "wire",
+  "testdata",
+);
+
+const fixture = (name: string): string => fs.readFileSync(path.join(testdata, name), "utf8");
+
+const decodeServer = Schema.decodeUnknownEffect(ServerMessageFromJson);
+const encodeClient = Schema.encodeEffect(ClientMessageFromJson);
+
+describe("server messages", () => {
+  it("decodes the welcome frame", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_welcome.json")));
+    expect(message._tag).toBe("ServerWelcome");
+  });
+
+  it("decodes an offer, ignoring the tag the payload repeats", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_offer.json")));
+
+    if (message._tag !== "Offer") {
+      throw new Error(`expected an offer, got ${message._tag}`);
+    }
+
+    expect(message.offer.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
+    expect(message.offer.driverId).toBe("drv-000123");
+    expect(message.offer.riderId).toBe("rider-000456");
+    expect(message.offer.pickupLat).toBeCloseTo(52.3702, 4);
+    expect(message.offer.pickupLng).toBeCloseTo(4.8952, 4);
+    expect(message.offer.replyCell).toBe("871f1d492ffffff");
+    expect(message.offer.expiresAtMs).toBe(1757512345000);
+    expect(message.offer.dispatchedAtMs).toBe(1757512330000);
+    expect(message.offer.requestedAtMs).toBe(1757512329412);
+  });
+
+  it("decodes an error frame", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_error.json")));
+
+    if (message._tag !== "ServerError") {
+      throw new Error(`expected an error, got ${message._tag}`);
+    }
+    expect(message.error).toBe("token expired");
+  });
+
+  it("rejects a frame whose tag it does not know", async () => {
+    const result = await Effect.runPromise(
+      Effect.result(decodeServer(`{"_tag":"SurgeUpdated","multiplier":1.4}`)),
+    );
+    expect(result._tag).toBe("Failure");
+  });
+
+  /**
+   * 64-bit fields are plain JSON numbers on this transport, unlike the REST
+   * surface where proto3 quotes them. Getting that backwards is a decode error
+   * on every single offer, so it is pinned rather than assumed.
+   */
+  it("reads 64-bit fields as numbers, not strings", () => {
+    expect(JSON.parse(fixture("server_offer.json")).offer.expiresAtMs).toBeTypeOf("number");
+  });
+});
+
+describe("client messages", () => {
+  it("encodes a heartbeat the gateway recognises", async () => {
+    const encoded = await Effect.runPromise(encodeClient({ _tag: "ClientHeartbeat" }));
+    expect(JSON.parse(encoded)).toEqual(JSON.parse(fixture("client_heartbeat.json")));
+  });
+
+  it("encodes a ping the gateway recognises", async () => {
+    const encoded = await Effect.runPromise(encodeClient({
+      _tag: "ClientPing",
+      ping: new DriverPing({
+        epoch: 1757512300000,
+        seq: 42,
+        lat: 52.3702,
+        lng: 4.8952,
+        heading: 137.5,
+        speedMps: 8.3,
+        status: "idle",
+        sentAtMs: 1757512329412,
+      }),
+    }));
+
+    expect(JSON.parse(encoded)).toEqual(JSON.parse(fixture("client_ping.json")));
+  });
+
+  /**
+   * The absence is the assertion. The gateway overwrites the driver id from the
+   * verified token, because a client that could name its own could report
+   * positions for somebody else and be dispatched their rides — so the schema
+   * has no field for one, and this is what would notice somebody adding it.
+   */
+  it("cannot name a driver id", () => {
+    expect(Object.keys(DriverPing.fields)).not.toContain("driverId");
+  });
+
+  it("encodes an offer reply carrying the cell it was given", async () => {
+    const encoded = await Effect.runPromise(encodeClient({
+      _tag: "ClientOfferReply",
+      reply: new OfferReply({
+        tripId: TripId.make("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80"),
+        accepted: true,
+      }),
+      replyCell: CellId.make("871f1d492ffffff"),
+    }));
+
+    expect(JSON.parse(encoded)).toEqual(JSON.parse(fixture("client_offer_reply.json")));
+  });
+
+  it("rejects a position that is not on the planet", async () => {
+    const result = await Effect.runPromise(
+      Effect.result(
+        Schema.decodeUnknownEffect(DriverPing)({
+          epoch: 1,
+          seq: 1,
+          lat: 152.37,
+          lng: 4.8952,
+          heading: 0,
+          speedMps: 0,
+          status: "idle",
+          sentAtMs: 0,
+        }),
+      ),
+    );
+    expect(result._tag).toBe("Failure");
+  });
+});
+
+/**
+ * Not drift, but the reason `replyCell` is branded at all. An offer's reply
+ * must be routed to the shard that made the reservation rather than to the
+ * driver's current cell, and the brand is what makes handing back the wrong
+ * string a compile error instead of a dispatch that silently goes nowhere.
+ */
+it("threads an offer's reply cell back into the reply", async () => {
+  const message = await Effect.runPromise(decodeServer(fixture("server_offer.json")));
+  if (message._tag !== "Offer") throw new Error("expected an offer");
+
+  const encoded = await Effect.runPromise(encodeClient({
+    _tag: "ClientOfferReply",
+    reply: new OfferReply({ tripId: message.offer.tripId, accepted: true }),
+    replyCell: message.offer.replyCell,
+  }));
+
+  expect(JSON.parse(encoded).replyCell).toBe(
+    JSON.parse(fixture("server_offer.json")).offer.replyCell,
+  );
+  expect(DriverId.make("drv-000123")).toBe(message.offer.driverId);
+});

@@ -9,7 +9,7 @@ GO      := cd backend && go
 BIN     := backend/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -69,6 +69,9 @@ tilt: ## Kubernetes with live rebuilds
 
 scaffold: ## Create a new service: make scaffold NAME=pricing
 	cd backend && go run ./tools/create-service -name $(or $(NAME),$(error set NAME))
+
+wire-fixtures: ## Regenerate the WebSocket protocol fixtures both suites assert against
+	cd backend && go run ./tools/wire-fixtures
 
 up: ## Start infrastructure (redpanda, postgres, redis, valhalla, prometheus, grafana)
 	@docker context show 2>/dev/null | grep -q orbstack || \
