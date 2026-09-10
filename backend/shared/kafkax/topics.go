@@ -47,8 +47,19 @@ const (
 	// writing 10k records a second.
 	TopicGeoState = "geo.state"
 
-	// TopicTripEvents is the trip lifecycle, keyed by trip id.
+	// TopicTripEvents is what the matcher decided about a trip, keyed by trip
+	// id. The trip service's input.
 	TopicTripEvents = "trip.events"
+
+	// TopicTripLifecycle is what the trip service decided, keyed by trip id:
+	// requested, completed, cancelled, unmatched. Its output, written through
+	// an outbox, so a committed change is never a fact nobody hears.
+	TopicTripLifecycle = "trip.lifecycle"
+
+	// TopicPaymentEvents is what became of a trip's hold, keyed by trip id:
+	// authorized, action required, failed, captured. The trip service waits on
+	// it before dispatching.
+	TopicPaymentEvents = "payment.events"
 
 	// TopicWSPush is server-to-client delivery, keyed by user id.
 	TopicWSPush = "ws.push"
@@ -92,6 +103,11 @@ func specs() []topicSpec {
 			"segment.ms":                stringPtr("60000"),
 		}},
 		{TopicTripEvents, 16, nil},
+		// Money is decided from this stream, so it keeps the broker's default
+		// retention rather than the hours the positional topics get: a payments
+		// consumer down for a day must still find every trip it owes a capture.
+		{TopicTripLifecycle, 16, nil},
+		{TopicPaymentEvents, 16, nil},
 		{TopicWSPush, 16, map[string]*string{"retention.ms": stringPtr("600000")}},
 		{TopicFleetFrames, GeoPartitions, map[string]*string{"retention.ms": stringPtr("60000")}},
 	}

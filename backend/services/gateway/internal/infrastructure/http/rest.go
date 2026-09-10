@@ -77,12 +77,16 @@ var httpStatus = map[codes.Code]int{
 	codes.NotFound:           http.StatusNotFound,
 	codes.AlreadyExists:      http.StatusConflict,
 	codes.FailedPrecondition: http.StatusConflict,
-	codes.PermissionDenied:   http.StatusForbidden,
-	codes.Unauthenticated:    http.StatusUnauthorized,
-	codes.DeadlineExceeded:   http.StatusGatewayTimeout,
-	codes.Unavailable:        http.StatusServiceUnavailable,
-	codes.ResourceExhausted:  http.StatusTooManyRequests,
-	codes.Unimplemented:      http.StatusNotImplemented,
+	// A write that lost a race to another one. 409 like a precondition, but
+	// its own code, because the right response differs: a precondition means
+	// "this cannot happen now", aborted means "ask again against fresh state".
+	codes.Aborted:           http.StatusConflict,
+	codes.PermissionDenied:  http.StatusForbidden,
+	codes.Unauthenticated:   http.StatusUnauthorized,
+	codes.DeadlineExceeded:  http.StatusGatewayTimeout,
+	codes.Unavailable:       http.StatusServiceUnavailable,
+	codes.ResourceExhausted: http.StatusTooManyRequests,
+	codes.Unimplemented:     http.StatusNotImplemented,
 }
 
 func writeError(_ context.Context, _ *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, _ *http.Request, err error) {
@@ -130,6 +134,8 @@ func codeName(code codes.Code) string {
 		return "already_exists"
 	case codes.FailedPrecondition:
 		return "failed_precondition"
+	case codes.Aborted:
+		return "aborted"
 	case codes.PermissionDenied:
 		return "permission_denied"
 	case codes.Unauthenticated:

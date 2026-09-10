@@ -204,6 +204,10 @@ func (h *Handler) CancelTrip(ctx context.Context, request *trippb.CancelTripRequ
 		return nil, status.Error(codes.NotFound, "unknown trip")
 	case errors.Is(err, domain.ErrInvalidTransition):
 		return nil, status.Errorf(codes.FailedPrecondition, "this trip can no longer be cancelled: %v", err)
+	case errors.Is(err, domain.ErrConflict):
+		// Aborted is gRPC's "retry at a higher level": the trip kept changing
+		// under this request, and asking again against fresh state is correct.
+		return nil, status.Error(codes.Aborted, "this trip changed while cancelling it, please try again")
 	case err != nil:
 		return nil, status.Errorf(codes.Internal, "could not cancel trip: %v", err)
 	}
@@ -259,6 +263,8 @@ func (h *Handler) driverAction(
 		// not in a state it can move from — "start" before "arrive", or twice
 		// "complete" from a retry after the first one landed.
 		return nil, status.Errorf(codes.FailedPrecondition, "this trip cannot do that now: %v", err)
+	case errors.Is(err, domain.ErrConflict):
+		return nil, status.Error(codes.Aborted, "this trip changed while updating it, please try again")
 	case err != nil:
 		return nil, status.Errorf(codes.Internal, "could not update trip: %v", err)
 	}

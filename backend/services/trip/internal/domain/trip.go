@@ -63,6 +63,17 @@ var ErrInvalidTransition = errors.New("trip: invalid transition")
 // ErrNotFound is a trip that does not exist.
 var ErrNotFound = errors.New("trip: not found")
 
+// ErrConflict is a write that lost a race: the trip changed between being read
+// and being stored. The caller re-reads and decides again, which usually means
+// the move it wanted is now refused — a rider's cancel that loses to a driver's
+// accept is a cancel of an accepted trip, not an accept that silently vanished.
+var ErrConflict = errors.New("trip: changed concurrently")
+
+// MarketCurrency is what Amsterdam prices are in. One market, one currency, but
+// a price without a currency is a number rather than an amount, so every trip
+// carries it.
+const MarketCurrency = "eur"
+
 // CanTransition reports whether a move is legal.
 func CanTransition(from, to Status) bool {
 	for _, allowed := range transitions[from] {
@@ -88,12 +99,16 @@ type Trip struct {
 	Seconds   int64
 
 	TotalCents      int64
+	Currency        string
 	SurgeMultiplier float64
 	PackageSlug     string
 
 	// IdempotencyKey is what makes a retried booking return the original trip
 	// rather than creating a second one.
 	IdempotencyKey string
+
+	// CancelReason is why a cancelled trip was cancelled, and empty otherwise.
+	CancelReason string
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -153,17 +168,68 @@ type ListFilter struct {
 }
 
 type Repository interface {
-	Create(ctx context.Context, trip *Trip) error
+	// Create stores a new trip and the facts it makes, together. A booking
+	// whose idempotency key already exists stores neither: its facts were
+	// stored when it was.
+	Create(ctx context.Context, trip *Trip, facts ...Fact) error
 	Get(ctx context.Context, id string) (*Trip, error)
 	List(ctx context.Context, filter ListFilter) (Page, error)
 	// FindByIdempotencyKey returns the trip a key already created, or
 	// ErrNotFound. This is what makes CreateTrip safe to retry.
 	FindByIdempotencyKey(ctx context.Context, riderID, key string) (*Trip, error)
-	Update(ctx context.Context, trip *Trip) error
+	// Update stores a move out of `from`, and its facts, together — or returns
+	// ErrConflict if the trip is no longer in `from` when the write lands.
+	Update(ctx context.Context, trip *Trip, from Status, facts ...Fact) error
 }
 
-// Publisher emits trip facts. Also an interface, so the service does not know
-// there is a broker.
-type Publisher interface {
-	Published(ctx context.Context, trip *Trip) error
+// FactKind is a change other services act on.
+type FactKind string
+
+const (
+	FactRequested FactKind = "requested"
+	FactCompleted FactKind = "completed"
+	FactCancelled FactKind = "cancelled"
+	FactUnmatched FactKind = "unmatched"
+)
+
+// Fact is a change worth telling the rest of the system about, with the trip
+// as it stood once the change was made.
+//
+// Most transitions are not facts. Accepted, arrived and in-progress matter to
+// the people on the trip, who hear about them as pushes; a fact is the handful
+// of moves another service does something about — payments places a hold on a
+// request, captures on completion, and lets go on a cancel.
+type Fact struct {
+	Kind FactKind
+	Trip Trip
+}
+
+// FactsOf returns the facts made by moving a trip from `from` to the status it
+// is in now. An empty `from` means the trip was just created.
+//
+// Decided here rather than by whoever stores the trip, because which moves are
+// news is a rule about trips, and the Postgres and in-memory repositories must
+// not be able to disagree about it.
+func FactsOf(trip *Trip, from Status) []Fact {
+	if from == trip.Status {
+		// A redelivered event asking for the state the trip is already in
+		// changes nothing, and a second "completed" would be a second capture
+		// request for one ride.
+		return nil
+	}
+
+	var kind FactKind
+	switch {
+	case from == "", from == StatusUnmatched && trip.Status == StatusRequested:
+		kind = FactRequested
+	case trip.Status == StatusCompleted:
+		kind = FactCompleted
+	case trip.Status == StatusCancelled:
+		kind = FactCancelled
+	case trip.Status == StatusUnmatched:
+		kind = FactUnmatched
+	default:
+		return nil
+	}
+	return []Fact{{Kind: kind, Trip: *trip}}
 }

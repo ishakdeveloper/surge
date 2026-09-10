@@ -204,12 +204,15 @@ func (s *Service) Create(ctx context.Context, riderID, fareID, idempotencyKey st
 		TotalCents:      fare.TotalCents,
 		SurgeMultiplier: fare.SurgeMultiplier,
 		PackageSlug:     fare.PackageSlug,
+		Currency:        domain.MarketCurrency,
 		IdempotencyKey:  idempotencyKey,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
 
-	if err := s.trips.Create(ctx, trip); err != nil {
+	// The trip and the fact that it was requested are stored together, so
+	// every booking a rider is told exists is one payments hears about.
+	if err := s.trips.Create(ctx, trip, domain.FactsOf(trip, "")...); err != nil {
 		return nil, fmt.Errorf("service: create trip: %w", err)
 	}
 
@@ -260,14 +263,28 @@ func (s *Service) List(ctx context.Context, filter domain.ListFilter) (domain.Pa
 	return s.trips.List(ctx, filter)
 }
 
-// Cancel ends a trip early.
+// Cancel ends a trip early. The reason is kept: "payment_failed" is one the
+// rider has to be shown, not guessed at.
 func (s *Service) Cancel(ctx context.Context, id, reason string) (*domain.Trip, error) {
-	return s.transition(ctx, id, domain.StatusCancelled, nil)
+	return s.transition(ctx, id, domain.StatusCancelled, func(trip *domain.Trip) {
+		// A repeated cancel keeps the first reason. The trip ended once.
+		if trip.Status != domain.StatusCancelled {
+			trip.CancelReason = reason
+		}
+	})
 }
 
 // Matched records that the matcher found a driver.
 func (s *Service) Matched(ctx context.Context, tripID, driverID string) (*domain.Trip, error) {
-	return s.transition(ctx, tripID, domain.StatusAccepted, func(trip *domain.Trip) {
+	return s.transitionIf(ctx, tripID, domain.StatusAccepted, func(trip *domain.Trip) error {
+		// A second match naming a different driver is refused rather than
+		// applied. The first driver is already on their way, and money follows
+		// the driver id: overwriting it would pay whoever was matched last.
+		if trip.DriverID != "" && trip.DriverID != driverID {
+			return fmt.Errorf("%w: already assigned to another driver", domain.ErrInvalidTransition)
+		}
+		return nil
+	}, func(trip *domain.Trip) {
 		trip.DriverID = driverID
 	})
 }
@@ -312,34 +329,54 @@ func (s *Service) transition(ctx context.Context, id string, to domain.Status, m
 	return s.transitionIf(ctx, id, to, nil, mutate)
 }
 
-// transitionIf is every state change: read, check, move, store, tell people.
+// conflictAttempts bounds how often a transition that lost a race is re-run
+// against the state the winner left. Two is enough for the race that actually
+// happens — a rider and a driver acting at once — and a bound means a trip
+// hammered by a bug fails loudly instead of spinning.
+const conflictAttempts = 3
+
+// transitionIf is every state change: read, check, move, store with its facts,
+// tell people.
 //
 // One path, so there is no transition that forgets to notify — which is the bug
-// a separate Cancel method with its own copy of these five steps had waiting.
+// a separate Cancel method with its own copy of these five steps had waiting —
+// and none that forgets the fact payments charges on.
 func (s *Service) transitionIf(
 	ctx context.Context, id string, to domain.Status,
 	guard func(*domain.Trip) error, mutate func(*domain.Trip),
 ) (*domain.Trip, error) {
-	trip, err := s.trips.Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	if guard != nil {
-		if err := guard(trip); err != nil {
+	for attempt := 1; ; attempt++ {
+		trip, err := s.trips.Get(ctx, id)
+		if err != nil {
 			return nil, err
 		}
-	}
-	if mutate != nil {
-		mutate(trip)
-	}
-	if err := trip.Transition(to, s.now()); err != nil {
-		return nil, err
-	}
-	if err := s.trips.Update(ctx, trip); err != nil {
-		return nil, err
-	}
 
-	s.notifier.TripChanged(ctx, trip)
-	return trip, nil
+		if guard != nil {
+			if err := guard(trip); err != nil {
+				return nil, err
+			}
+		}
+		if mutate != nil {
+			mutate(trip)
+		}
+
+		from := trip.Status
+		if err := trip.Transition(to, s.now()); err != nil {
+			return nil, err
+		}
+
+		err = s.trips.Update(ctx, trip, from, domain.FactsOf(trip, from)...)
+		if errors.Is(err, domain.ErrConflict) && attempt < conflictAttempts {
+			// Somebody else moved the trip between the read and the write.
+			// Decide again against what they left: usually this move is now
+			// refused, which is the right outcome and not an error to hide.
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		s.notifier.TripChanged(ctx, trip)
+		return trip, nil
+	}
 }

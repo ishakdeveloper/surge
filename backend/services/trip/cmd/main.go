@@ -28,6 +28,7 @@ import (
 	"github.com/ishakdeveloper/surge/shared/config"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	"github.com/ishakdeveloper/surge/shared/obs"
+	"github.com/ishakdeveloper/surge/shared/outbox"
 	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
 	"github.com/ishakdeveloper/surge/shared/retry"
 	"github.com/ishakdeveloper/surge/shared/routing"
@@ -95,7 +96,7 @@ func run() error {
 	// a broker, and it is the same seam the tests use. A repository behind an
 	// interface is only worth having if something other than Postgres actually
 	// implements it.
-	repo, closeRepo, err := openRepository(ctx)
+	repo, pool, closeRepo, err := openRepository(ctx)
 	if err != nil {
 		return err
 	}
@@ -106,6 +107,16 @@ func run() error {
 		return err
 	}
 	defer producer.Close()
+
+	// The relay is what turns committed facts into `trip.lifecycle` records.
+	// Only with Postgres: the in-memory repository has no outbox to relay, and
+	// nothing that consumes the topic runs without a database either.
+	var relay *outbox.Relay
+	if pool != nil {
+		relay = outbox.NewRelay(pool, repository.OutboxTable, producer, outbox.Options{
+			Hooks: outbox.PrometheusHooks(registry, "trip"),
+		})
+	}
 
 	fares := repository.NewFareCache()
 
@@ -154,9 +165,12 @@ func run() error {
 		return fmt.Errorf("trip: listen %s: %w", grpcAddr, err)
 	}
 
-	errs := make(chan error, 3)
+	errs := make(chan error, 4)
 	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
 	go func() { errs <- consumer.Run(ctx) }()
+	if relay != nil {
+		go func() { errs <- relay.Run(ctx) }()
+	}
 	go func() {
 		slog.Info("grpc listening", "addr", grpcAddr)
 		errs <- server.Serve(listener)
@@ -193,24 +207,27 @@ func run() error {
 	}
 }
 
-func openRepository(ctx context.Context) (domain.Repository, func(), error) {
+// openRepository returns the pool alongside the repository, nil when there is
+// none, because the outbox relay needs the database the repository writes to.
+func openRepository(ctx context.Context) (domain.Repository, *pgxpool.Pool, func(), error) {
 	url := config.StringOr("DATABASE_URL", "")
 	if url == "" {
-		slog.Warn("DATABASE_URL is not set; trips are held in memory and lost on restart")
-		return repository.NewInMemory(), func() {}, nil
+		slog.Warn("DATABASE_URL is not set; trips are held in memory, lost on restart, " +
+			"and their lifecycle facts are never published")
+		return repository.NewInMemory(), nil, func() {}, nil
 	}
 
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
-		return nil, nil, fmt.Errorf("trip: connect: %w", err)
+		return nil, nil, nil, fmt.Errorf("trip: connect: %w", err)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		return nil, nil, fmt.Errorf("trip: ping: %w", err)
+		return nil, nil, nil, fmt.Errorf("trip: ping: %w", err)
 	}
 
 	slog.Info("trips are durable", "database", "postgres")
-	return repository.NewPostgres(pool), pool.Close, nil
+	return repository.NewPostgres(pool), pool, pool.Close, nil
 }
 
 type metrics struct {

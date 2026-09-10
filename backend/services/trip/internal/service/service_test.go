@@ -295,7 +295,7 @@ func TestCancel(t *testing.T) {
 			t.Fatalf("advancing to %s: %v", next, err)
 		}
 	}
-	if err := rig.trips.Update(ctx, finished); err != nil {
+	if err := rig.trips.Update(ctx, finished, domain.StatusAccepted); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 

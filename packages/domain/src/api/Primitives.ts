@@ -51,6 +51,7 @@ export const ErrorCode = Schema.Literals([
   "not_found",
   "already_exists",
   "failed_precondition",
+  "aborted",
   "permission_denied",
   "unauthenticated",
   "deadline_exceeded",

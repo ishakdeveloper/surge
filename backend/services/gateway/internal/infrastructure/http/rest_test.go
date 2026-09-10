@@ -134,3 +134,42 @@ func TestEveryStatusTheGatewayEmitsIsDeclaredToClients(t *testing.T) {
 		}
 	}
 }
+
+// The same line for the code a client branches on. packages/domain declares
+// ErrorCode as a closed set, so a name codeName returns and the set lacks turns
+// a perfectly good error into a decode failure — `aborted` would have, had it
+// been added here alone. Read from the source rather than restated.
+func TestEveryCodeTheGatewayNamesIsDeclaredToClients(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "..", "..", "..", "packages", "domain", "src", "api", "Primitives.ts")
+	source, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read Primitives.ts: %v", err)
+	}
+
+	match := regexp.MustCompile(`(?s)export const ErrorCode = Schema\.Literals\(\[(.*?)\]\)`).FindSubmatch(source)
+	if match == nil {
+		t.Fatal("ErrorCode not found in packages/domain/src/api/Primitives.ts")
+	}
+	declared := map[string]bool{}
+	for _, literal := range regexp.MustCompile(`"([a-z_]+)"`).FindAllSubmatch(match[1], -1) {
+		declared[string(literal[1])] = true
+	}
+
+	// Every gRPC code, not only the mapped ones: an unmapped code still gets a
+	// name, and that name reaches the client too.
+	emitted := map[string]bool{}
+	for code := codes.OK; code <= codes.Unauthenticated; code++ {
+		emitted[codeName(code)] = true
+	}
+
+	for name := range emitted {
+		if !declared[name] {
+			t.Errorf("the gateway can name an error %q, but ErrorCode does not declare it", name)
+		}
+	}
+	for name := range declared {
+		if !emitted[name] {
+			t.Errorf("ErrorCode declares %q, but the gateway never names an error that", name)
+		}
+	}
+}

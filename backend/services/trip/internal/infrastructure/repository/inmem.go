@@ -23,21 +23,39 @@ type InMemory struct {
 	// keys maps rider+idempotency key to a trip id, mirroring the unique index
 	// the Postgres schema carries.
 	keys map[string]string
+	// facts is what the Postgres outbox would have published, in order. Held
+	// rather than sent: without a database there is no outbox, and nothing
+	// downstream of trip.lifecycle runs without one either.
+	facts []domain.Fact
 }
 
 func NewInMemory() *InMemory {
 	return &InMemory{trips: make(map[string]domain.Trip), keys: make(map[string]string)}
 }
 
-func (r *InMemory) Create(_ context.Context, trip *domain.Trip) error {
+func (r *InMemory) Create(_ context.Context, trip *domain.Trip, facts ...domain.Fact) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.trips[trip.ID] = *trip
+	key := trip.RiderID + "\x00" + trip.IdempotencyKey
 	if trip.IdempotencyKey != "" {
-		r.keys[trip.RiderID+"\x00"+trip.IdempotencyKey] = trip.ID
+		// ON CONFLICT DO NOTHING, as Postgres does it: the first booking with a
+		// key stands, and a racing second one stores neither itself nor facts.
+		if _, taken := r.keys[key]; taken {
+			return nil
+		}
+		r.keys[key] = trip.ID
 	}
+	r.trips[trip.ID] = *trip
+	r.facts = append(r.facts, facts...)
 	return nil
+}
+
+// Facts returns every fact stored, in the order they were stored.
+func (r *InMemory) Facts() []domain.Fact {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]domain.Fact(nil), r.facts...)
 }
 
 func (r *InMemory) Get(_ context.Context, id string) (*domain.Trip, error) {
@@ -66,14 +84,21 @@ func (r *InMemory) FindByIdempotencyKey(_ context.Context, riderID, key string) 
 	return &trip, nil
 }
 
-func (r *InMemory) Update(_ context.Context, trip *domain.Trip) error {
+func (r *InMemory) Update(_ context.Context, trip *domain.Trip, from domain.Status, facts ...domain.Fact) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.trips[trip.ID]; !ok {
+	stored, ok := r.trips[trip.ID]
+	if !ok {
 		return domain.ErrNotFound
 	}
+	// The same compare-and-set the Postgres UPDATE makes, so the service's
+	// conflict handling is exercised by tests that never touch a database.
+	if stored.Status != from {
+		return domain.ErrConflict
+	}
 	r.trips[trip.ID] = *trip
+	r.facts = append(r.facts, facts...)
 	return nil
 }
 
