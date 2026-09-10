@@ -12,9 +12,9 @@ import (
 )
 
 func ping(id string, seq uint64, point geo.Point) wire.DriverPing {
-	return wire.DriverPing{
-		DriverID: id, Seq: seq, Lat: point.Lat, Lng: point.Lng, Status: wire.StatusIdle,
-	}
+	// One session, so these tests exercise the ordering rule rather than the
+	// session rule.
+	return pingIn(1, id, seq, point)
 }
 
 // The property that stops a driver being resurrected in a cell they have left.
@@ -219,5 +219,100 @@ func TestTranslateWithinShardIsOneMove(t *testing.T) {
 func TestTranslateDropsStale(t *testing.T) {
 	if events := ingest.Translate(ingest.Observation{Stale: true}, time.Now()); events != nil {
 		t.Errorf("a stale observation should translate to nothing, got %+v", events)
+	}
+}
+
+// A sequence number is only meaningful inside its session.
+//
+// This is a real bug the load rig caught, not a hypothetical. Restarting the
+// simulator with ingest still running froze the entire fleet: every driver's
+// counter went back to 1, every subsequent ping was rejected as a reordering,
+// and 2,000 drivers sat at their last known position permanently because the
+// counter could never catch up. The real-world version is a driver reinstalling
+// the app.
+func TestClientRestartIsNotAReordering(t *testing.T) {
+	index := ingest.NewIndex()
+	here := geo.Point{Lat: 52.3791, Lng: 4.9003}
+	there := geo.Point{Lat: 52.3600, Lng: 4.8852}
+
+	const firstSession, secondSession = 100, 200
+
+	// A long-running session gets well ahead.
+	for seq := uint64(1); seq <= 400; seq++ {
+		if _, err := index.Observe(pingIn(firstSession, "drv-1", seq, here)); err != nil {
+			t.Fatalf("observe: %v", err)
+		}
+	}
+
+	// The client restarts: new session, counter back to one, and the driver has
+	// moved in the meantime.
+	observation, err := index.Observe(pingIn(secondSession, "drv-1", 1, there))
+	if err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+
+	if observation.Stale {
+		t.Fatal("a restarted client was rejected as stale; that driver is now frozen forever")
+	}
+	if !observation.ShardChanged {
+		t.Error("the new session's position was not applied")
+	}
+
+	found, _ := index.Near(there, 0)
+	if len(found) != 1 {
+		t.Errorf("the driver is not at their new position, got %d entries", len(found))
+	}
+}
+
+// The other direction: packets from a session that has already ended must not
+// resurrect an old position.
+func TestStragglersFromAnEndedSessionAreDropped(t *testing.T) {
+	index := ingest.NewIndex()
+	here := geo.Point{Lat: 52.3791, Lng: 4.9003}
+	there := geo.Point{Lat: 52.3600, Lng: 4.8852}
+
+	if _, err := index.Observe(pingIn(100, "drv-1", 5, here)); err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+	if _, err := index.Observe(pingIn(200, "drv-1", 1, there)); err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+
+	// A late packet from the first session, with a much higher sequence.
+	observation, err := index.Observe(pingIn(100, "drv-1", 999, here))
+	if err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+	if !observation.Stale {
+		t.Fatal("a straggler from an ended session overwrote the current one")
+	}
+	if observation.Duplicate {
+		t.Error("an old-epoch straggler is not a duplicate")
+	}
+}
+
+// Within one session the ordering rule is unchanged, and redelivery is still
+// recognised as redelivery rather than as a reordering.
+func TestDuplicateWithinASessionIsReportedAsDuplicate(t *testing.T) {
+	index := ingest.NewIndex()
+	here := geo.Point{Lat: 52.3791, Lng: 4.9003}
+
+	if _, err := index.Observe(pingIn(100, "drv-1", 5, here)); err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+
+	observation, err := index.Observe(pingIn(100, "drv-1", 5, here))
+	if err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+	if !observation.Stale || !observation.Duplicate {
+		t.Errorf("a redelivered ping should be stale and a duplicate, got %+v", observation)
+	}
+}
+
+func pingIn(epoch uint64, id string, seq uint64, point geo.Point) wire.DriverPing {
+	return wire.DriverPing{
+		DriverID: id, Epoch: epoch, Seq: seq,
+		Lat: point.Lat, Lng: point.Lng, Status: wire.StatusIdle,
 	}
 }

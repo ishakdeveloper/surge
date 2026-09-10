@@ -64,6 +64,7 @@ type driverState struct {
 	indexCell geo.Cell
 	shardCell string
 	status    wire.DriverStatus
+	epoch     uint64
 	seq       uint64
 	// reservedFor is the trip holding this driver, or "" when free. A single
 	// string is the whole mutual exclusion mechanism, and it is safe because
@@ -212,7 +213,9 @@ func (s *Shard) driverEntered(event wire.GeoEvent, now time.Time) (Outcome, erro
 		return Outcome{}, err
 	}
 
-	if existing, ok := s.drivers[payload.DriverID]; ok && payload.Seq <= existing.seq {
+	// Superseded only within the same session; see wire.DriverPing on why a
+	// sequence number without an epoch freezes a restarted client forever.
+	if existing, ok := s.drivers[payload.DriverID]; ok && superseded(existing, payload.Epoch, payload.Seq) {
 		// An entry older than what we hold. Happens because the two halves of a
 		// handover travel on different partitions and can arrive reversed.
 		return Outcome{}, nil
@@ -226,6 +229,7 @@ func (s *Shard) driverEntered(event wire.GeoEvent, now time.Time) (Outcome, erro
 		indexCell: indexCell,
 		shardCell: event.Cell,
 		status:    payload.Status,
+		epoch:     payload.Epoch,
 		seq:       payload.Seq,
 	}
 
@@ -248,10 +252,14 @@ func (s *Shard) driverLeft(event wire.GeoEvent, now time.Time) (Outcome, error) 
 	if !ok {
 		return Outcome{}, nil
 	}
-	if payload.Seq < driver.seq {
+	if payload.Epoch == driver.epoch && payload.Seq < driver.seq {
 		// A leave older than the position we hold: the driver came back before
 		// this message arrived. Dropping it is what stops the reversed pair
 		// from deleting a driver who is present.
+		return Outcome{}, nil
+	}
+	if payload.Epoch < driver.epoch {
+		// A straggler from a session that has already ended.
 		return Outcome{}, nil
 	}
 
@@ -281,7 +289,7 @@ func (s *Shard) driverMoved(event wire.GeoEvent) (Outcome, error) {
 		// invented: the entry event carries the full state and will arrive.
 		return Outcome{}, nil
 	}
-	if payload.Seq <= driver.seq {
+	if superseded(driver, payload.Epoch, payload.Seq) {
 		return Outcome{}, nil
 	}
 
@@ -297,10 +305,22 @@ func (s *Shard) driverMoved(event wire.GeoEvent) (Outcome, error) {
 	}
 
 	driver.point = geo.Point{Lat: payload.Lat, Lng: payload.Lng}
+	driver.epoch = payload.Epoch
 	driver.seq = payload.Seq
 	driver.status = payload.Status
 
 	return Outcome{}, nil
+}
+
+// superseded reports whether an update is older than what is already held.
+//
+// Ordering only holds inside an epoch. A newer epoch always wins — it is a new
+// client session, and its counter starts again — and an older one never does.
+func superseded(driver *driverState, epoch, seq uint64) bool {
+	if epoch != driver.epoch {
+		return epoch < driver.epoch
+	}
+	return seq <= driver.seq
 }
 
 func (s *Shard) matchRequested(event wire.GeoEvent, now time.Time) (Outcome, error) {

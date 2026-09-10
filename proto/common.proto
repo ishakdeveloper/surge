@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package surge.common.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/pkg/proto/common;common";
+
+// Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the
+// rest of this codebase — one spelling everywhere is worth more than any
+// argument about which.
+message Coordinate {
+  double lat = 1;
+  double lng = 2;
+}
+
+// Route is a driveable path with its cost.
+message Route {
+  // Polyline encoded at precision 6, as Valhalla emits it. Not a repeated
+  // Coordinate: a city route is hundreds of points, and the encoded form is
+  // roughly a tenth the size on a connection a phone is paying for.
+  string polyline6 = 1;
+  double meters = 2;
+  int64 seconds = 3;
+}

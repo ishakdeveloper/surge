@@ -1,6 +1,13 @@
 # Local infrastructure. The Go services and the simulator run on the HOST, not
 # in here — that keeps the reload loop at a compile rather than an image build,
-# and leaves this 8GB Docker VM to the things that actually need it.
+# and leaves the VM to the things that actually need it.
+#
+# Runs on OrbStack. Worth knowing why: Docker Desktop wedged under this
+# workload, and a wedged Docker Desktop keeps its host port bindings, so
+# localhost:55433 kept accepting connections and never answering them while a
+# perfectly healthy Postgres sat behind a different runtime. If the ports below
+# are open but nothing responds, check `docker context ls` and whether a stale
+# com.docker.backend still holds them.
 #
 # Budget, roughly: redpanda 1G, valhalla 1-2G, postgres 512M, the rest small.
 

@@ -9,12 +9,14 @@ GO      := cd services && go
 BIN     := services/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 up: ## Start infrastructure (redpanda, postgres, redis, valhalla, prometheus, grafana)
+	@docker context show 2>/dev/null | grep -q orbstack || \
+		echo "  note: not on the orbstack context; docker desktop wedged under this workload"
 	$(COMPOSE) up -d
 	@echo
 	@echo "  redpanda console  http://localhost:8080"
@@ -31,13 +33,31 @@ down: ## Stop infrastructure, keep the volumes
 logs: ## Follow infrastructure logs
 	$(COMPOSE) logs -f
 
-migrate: ## Apply database migrations
+# Two migrators, one convention: idempotent, ledger-free, never run at boot.
+# packages/database owns better-auth's tables, services/migrations owns the
+# trip tables, and neither writes to the other's.
+migrate: build ## Apply database migrations (both languages)
 	pnpm --filter @surge/database migrate
+	@set -a; . ./.env; set +a; $(BIN)/migrate
+
+# Codegen. The plugins are go-installed rather than vendored, matching how the
+# Go toolchain expects protoc plugins to be found.
+proto: ## Regenerate gRPC code from proto/
+	@command -v protoc >/dev/null || { echo "protoc not installed"; exit 1; }
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=proto \
+		--go_out=services/pkg/proto --go_opt=module=github.com/ishakdeveloper/surge/pkg/proto \
+		--go-grpc_out=services/pkg/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/pkg/proto \
+		proto/*.proto
+	cd services && gofmt -w pkg/proto
 
 build: ## Build every Go binary
 	$(GO) build -o bin/simd ./cmd/simd
 	$(GO) build -o bin/ingest ./cmd/ingest
 	$(GO) build -o bin/matcher ./cmd/matcher
+	$(GO) build -o bin/trip ./cmd/trip
+	$(GO) build -o bin/migrate ./cmd/migrate
 
 test: ## Run both test suites
 	$(GO) vet ./... && cd services && go test ./...
@@ -60,6 +80,9 @@ dev-ingest: build ## Run location ingest
 dev-matcher: build ## Run a matcher instance (run several; they share the partitions)
 	@set -a; . ./.env; set +a; \
 	MATCHER_METRICS_ADDR=$${MATCHER_METRICS_ADDR:-:9103} $(BIN)/matcher
+
+dev-trip: build ## Run the trip service (gRPC on :8110)
+	@set -a; . ./.env; set +a; $(BIN)/trip
 
 dev-sim: build ## Run the driver simulator
 	@set -a; . ./.env; set +a; \

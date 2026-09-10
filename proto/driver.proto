@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package surge.driver.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/pkg/proto/driver;driver";
+
+import "common.proto";
+
+// DriverService owns driver profiles and vehicles — the slow-moving facts.
+//
+// Deliberately NOT where driver location lives. Positions arrive ten thousand
+// times a second and are answered from the matcher's in-memory index; putting
+// them behind an RPC would be a synchronous call per ping, which is the thing
+// this whole architecture exists to avoid.
+service DriverService {
+  rpc GetDriver(GetDriverRequest) returns (GetDriverResponse);
+  rpc RegisterDriver(RegisterDriverRequest) returns (RegisterDriverResponse);
+  // SetAvailability takes a driver on or off duty. Low frequency, and a rider
+  // must not be offered a driver who has gone home.
+  rpc SetAvailability(SetAvailabilityRequest) returns (SetAvailabilityResponse);
+}
+
+message GetDriverRequest {
+  string driver_id = 1;
+}
+
+message GetDriverResponse {
+  Driver driver = 1;
+}
+
+message RegisterDriverRequest {
+  string user_id = 1;
+  Vehicle vehicle = 2;
+}
+
+message RegisterDriverResponse {
+  Driver driver = 1;
+}
+
+message SetAvailabilityRequest {
+  string driver_id = 1;
+  bool available = 2;
+}
+
+message SetAvailabilityResponse {
+  Driver driver = 1;
+}
+
+message Driver {
+  string id = 1;
+  string user_id = 2;
+  string display_name = 3;
+  Vehicle vehicle = 4;
+  bool available = 5;
+  double rating = 6;
+  // Last known position, for display only. Authoritative location lives in the
+  // matcher's index; this is whatever was last checkpointed.
+  surge.common.v1.Coordinate last_seen = 7;
+}
+
+message Vehicle {
+  string plate = 1;
+  string model = 2;
+  string color = 3;
+  string package_slug = 4;
+  int32 seats = 5;
+}

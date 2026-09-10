@@ -337,11 +337,31 @@ func (r *Runner) emit(ctx context.Context, outcome Outcome) {
 	}
 
 	for _, match := range outcome.Matched {
+		// Keyed by trip id on its own topic, so the trip service consumes the
+		// handful of outcomes it cares about rather than ten thousand position
+		// updates a second looking for them.
+		r.produce(ctx, kafkax.TopicTripEvents, match.TripID, wire.TripEvent{
+			Tag:    wire.TagTripMatched,
+			TripID: match.TripID,
+			AtMs:   time.Now().UnixMilli(),
+			Matched: &wire.TripMatchedPayload{
+				DriverID:  match.DriverID,
+				LatencyMs: match.Latency.Milliseconds(),
+			},
+		})
+
 		if r.hooks.OnMatched != nil {
 			r.hooks.OnMatched(match)
 		}
 	}
-	for range outcome.Abandoned {
+	for _, tripID := range outcome.Abandoned {
+		r.produce(ctx, kafkax.TopicTripEvents, tripID, wire.TripEvent{
+			Tag:       wire.TagTripUnmatched,
+			TripID:    tripID,
+			AtMs:      time.Now().UnixMilli(),
+			Unmatched: &wire.TripUnmatchedPayload{Reason: "no_drivers"},
+		})
+
 		if r.hooks.OnAbandoned != nil {
 			r.hooks.OnAbandoned()
 		}

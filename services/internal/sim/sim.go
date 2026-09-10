@@ -39,6 +39,15 @@ type Config struct {
 	SpeedKmhMin float64
 	SpeedKmhMax float64
 
+	// Epoch identifies this simulator run, stamped on every ping.
+	//
+	// Restarting the simulator is exactly a fleet of clients reinstalling at
+	// once: sequence numbers go back to one. Without an epoch the consumer
+	// rejects every one of them as a reordering and the whole fleet freezes at
+	// its last known position — which is precisely what happened, and is why
+	// this field exists.
+	Epoch uint64
+
 	// GPSNoiseMeters perturbs each reported position.
 	//
 	// Not cosmetic. Real GPS jitters, and a driver parked near a cell boundary
@@ -51,6 +60,7 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
+		Epoch:          uint64(time.Now().UnixNano()),
 		Drivers:        1000,
 		PingInterval:   4 * time.Second,
 		Seed:           1,
@@ -245,6 +255,7 @@ func (s *Sim) drive(ctx context.Context, index int, config Config) {
 		seq++
 		ping := wire.DriverPing{
 			DriverID: id,
+			Epoch:    config.Epoch,
 			Seq:      seq,
 			Lat:      position.Lat,
 			Lng:      position.Lng,

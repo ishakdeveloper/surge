@@ -194,6 +194,11 @@ func consume(ctx context.Context, client *kgo.Client, producer *kgo.Client, inde
 			}
 
 			if observation.Stale {
+				kind := "reordered"
+				if observation.Duplicate {
+					kind = "duplicate"
+				}
+				metrics.staleByKind.WithLabelValues(kind).Inc()
 				metrics.stale.Inc()
 				return
 			}
@@ -239,6 +244,7 @@ type metrics struct {
 	consumed      prometheus.Counter
 	rejected      *prometheus.CounterVec
 	stale         prometheus.Counter
+	staleByKind   *prometheus.CounterVec
 	transitions   prometheus.Counter
 	handovers     prometheus.Counter
 	produced      *prometheus.CounterVec
@@ -261,6 +267,10 @@ func newMetrics(registry *obs.Registry) *metrics {
 		stale: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "surge_ingest_stale_total", Help: "Pings dropped for arriving out of order.",
 		}),
+		staleByKind: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "surge_ingest_stale_by_kind_total",
+			Help: "Stale pings split by cause. `duplicate` is at-least-once delivery working; `reordered` should be zero.",
+		}, []string{"kind"}),
 		transitions: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "surge_ingest_cell_transitions_total",
 			Help: "Drivers crossing a resolution-9 index cell boundary.",
@@ -301,7 +311,7 @@ func newMetrics(registry *obs.Registry) *metrics {
 		}),
 	}
 
-	registry.MustRegister(m.consumed, m.rejected, m.stale, m.transitions, m.handovers,
+	registry.MustRegister(m.consumed, m.rejected, m.stale, m.staleByKind, m.transitions, m.handovers,
 		m.produced, m.produceErrors, m.drivers, m.cells, m.shards, m.age, m.process)
 	return m
 }

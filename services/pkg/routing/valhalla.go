@@ -46,6 +46,13 @@ type Route struct {
 	Path     *geo.Path
 	Duration time.Duration
 	Meters   float64
+	// Encoded is the shape as Valhalla emitted it, precision 6.
+	//
+	// Kept alongside the decoded path because the two have different consumers:
+	// the simulator walks the path, while anything that sends a route to a
+	// browser wants the encoded form — a city route is hundreds of points, and
+	// encoded it is roughly a tenth the bytes on a connection a phone pays for.
+	Encoded string
 }
 
 type location struct {
@@ -128,6 +135,7 @@ func (c *Client) Route(ctx context.Context, from, to geo.Point) (*Route, error) 
 		Path:     path,
 		Duration: time.Duration(decoded.Trip.Summary.Time * float64(time.Second)),
 		Meters:   decoded.Trip.Summary.Length * 1000,
+		Encoded:  decoded.Trip.Legs[0].Shape,
 	}, nil
 }
 

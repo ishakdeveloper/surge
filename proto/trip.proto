@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package surge.trip.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/pkg/proto/trip;trip";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// TripService owns the trip lifecycle and is the only writer of trip state.
+//
+// Synchronous on purpose, and the contrast with the rest of the system is the
+// point. Location and matching are event-driven because they are streams: a
+// position is one of thousands a second and nobody waits for it. A rider
+// pressing "request ride" is waiting, and wants an answer — a fare, a trip id,
+// or a reason it cannot happen. Modelling that as an event and correlating a
+// reply would be an RPC with extra steps and worse error handling.
+service TripService {
+  // Preview quotes a trip without committing to it. Read-only, so a rider
+  // dragging a pin can call it repeatedly.
+  rpc PreviewTrip(PreviewTripRequest) returns (PreviewTripResponse);
+
+  // Create commits a previewed fare to a real trip and starts matching.
+  //
+  // Takes an idempotency key because the caller is a browser on a phone
+  // network: a retried request must return the original trip rather than
+  // booking a second one.
+  rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
+
+  // Get returns a trip's current state.
+  rpc GetTrip(GetTripRequest) returns (GetTripResponse);
+
+  // Cancel ends a trip before completion.
+  rpc CancelTrip(CancelTripRequest) returns (CancelTripResponse);
+}
+
+message PreviewTripRequest {
+  string rider_id = 1;
+  surge.common.v1.Coordinate pickup = 2;
+  surge.common.v1.Coordinate dropoff = 3;
+}
+
+message PreviewTripResponse {
+  // Quotes for each vehicle class, priced from the same route.
+  repeated FareQuote fares = 1;
+  surge.common.v1.Route route = 2;
+}
+
+message FareQuote {
+  string fare_id = 1;
+  // Sedan, van and so on. A string rather than an enum because the catalogue is
+  // operator configuration, not a protocol change.
+  string package_slug = 2;
+  int64 total_cents = 3;
+  // The multiplier applied for demand in the pickup cell at quote time. Carried
+  // explicitly so a rider can be shown why a fare is what it is.
+  double surge_multiplier = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+
+message CreateTripRequest {
+  string rider_id = 1;
+  string fare_id = 2;
+  // Generated client-side, so a retry over a flaky connection is recognised
+  // rather than booked twice.
+  string idempotency_key = 3;
+}
+
+message CreateTripResponse {
+  Trip trip = 1;
+}
+
+message GetTripRequest {
+  string trip_id = 1;
+}
+
+message GetTripResponse {
+  Trip trip = 1;
+}
+
+message CancelTripRequest {
+  string trip_id = 1;
+  string reason = 2;
+}
+
+message CancelTripResponse {
+  Trip trip = 1;
+}
+
+message Trip {
+  string id = 1;
+  string rider_id = 2;
+  string driver_id = 3;
+  TripStatus status = 4;
+  surge.common.v1.Coordinate pickup = 5;
+  surge.common.v1.Coordinate dropoff = 6;
+  surge.common.v1.Route route = 7;
+  int64 total_cents = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// TripStatus is the state machine, and the wire is the place it is written
+// down once. UNSPECIFIED is reserved by convention so an unset field is not
+// silently a valid state.
+enum TripStatus {
+  TRIP_STATUS_UNSPECIFIED = 0;
+  TRIP_STATUS_REQUESTED = 1;
+  TRIP_STATUS_OFFERED = 2;
+  TRIP_STATUS_ACCEPTED = 3;
+  TRIP_STATUS_ARRIVED = 4;
+  TRIP_STATUS_IN_PROGRESS = 5;
+  TRIP_STATUS_COMPLETED = 6;
+  TRIP_STATUS_CANCELLED = 7;
+  // No driver was found before the request expired. Distinct from cancelled:
+  // nobody chose it, and the rider should be offered a retry rather than an
+  // apology.
+  TRIP_STATUS_UNMATCHED = 8;
+}

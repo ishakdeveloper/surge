@@ -37,6 +37,7 @@ func Translate(observation Observation, now time.Time) []wire.GeoEvent {
 			AtMs: atMs,
 			Entered: &wire.DriverEnteredPayload{
 				DriverID:  entry.DriverID,
+				Epoch:     entry.Epoch,
 				Seq:       entry.Seq,
 				Lat:       entry.Point.Lat,
 				Lng:       entry.Point.Lng,
@@ -63,6 +64,7 @@ func Translate(observation Observation, now time.Time) []wire.GeoEvent {
 				AtMs: atMs,
 				Left: &wire.DriverLeftPayload{
 					DriverID: entry.DriverID,
+					Epoch:    entry.Epoch,
 					Seq:      entry.Seq,
 					To:       shard,
 				},
@@ -78,6 +80,7 @@ func Translate(observation Observation, now time.Time) []wire.GeoEvent {
 		AtMs: atMs,
 		Moved: &wire.DriverMovedPayload{
 			DriverID:  entry.DriverID,
+			Epoch:     entry.Epoch,
 			Seq:       entry.Seq,
 			Lat:       entry.Point.Lat,
 			Lng:       entry.Point.Lng,

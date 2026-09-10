@@ -75,7 +75,9 @@ type GeoEvent struct {
 
 // DriverMovedPayload is a position update inside a cell the shard already owns.
 type DriverMovedPayload struct {
-	DriverID  string       `json:"driverId"`
+	DriverID string `json:"driverId"`
+	// Epoch scopes Seq to a client session; see wire.DriverPing.
+	Epoch     uint64       `json:"epoch"`
 	Seq       uint64       `json:"seq"`
 	Lat       float64      `json:"lat"`
 	Lng       float64      `json:"lng"`
@@ -89,7 +91,9 @@ type DriverMovedPayload struct {
 // position, because the receiving shard has never seen this driver and cannot
 // derive one from anything it holds.
 type DriverEnteredPayload struct {
-	DriverID  string       `json:"driverId"`
+	DriverID string `json:"driverId"`
+	// Epoch scopes Seq to a client session; see wire.DriverPing.
+	Epoch     uint64       `json:"epoch"`
 	Seq       uint64       `json:"seq"`
 	Lat       float64      `json:"lat"`
 	Lng       float64      `json:"lng"`
@@ -105,8 +109,10 @@ type DriverEnteredPayload struct {
 // receiving shard needs an identity and a sequence number, nothing else.
 type DriverLeftPayload struct {
 	DriverID string `json:"driverId"`
-	Seq      uint64 `json:"seq"`
-	To       string `json:"to"`
+	// Epoch scopes Seq to a client session; see wire.DriverPing.
+	Epoch uint64 `json:"epoch"`
+	Seq   uint64 `json:"seq"`
+	To    string `json:"to"`
 }
 
 // MatchRequestPayload is a ride request, addressed to the pickup's shard.
@@ -286,4 +292,40 @@ type CheckpointedOffer struct {
 	ReplyCell     string `json:"replyCell"`
 	RequestedAtMs int64  `json:"requestedAtMs"`
 	ExpiresAtMs   int64  `json:"expiresAtMs"`
+}
+
+// The `trip.events` vocabulary, keyed by trip id.
+//
+// A separate topic from geo.events because it is about a different thing:
+// geo.events is addressed to places and consumed by whoever owns them, while
+// these are addressed to a trip and consumed by the service that owns trip
+// state. Putting them on one topic would mean the trip service consuming ten
+// thousand position updates a second to find the handful it cares about.
+const (
+	TagTripMatched   = "TripMatched"
+	TagTripUnmatched = "TripUnmatched"
+)
+
+// TripEvent is the envelope on `trip.events`.
+type TripEvent struct {
+	Tag    string `json:"_tag"`
+	TripID string `json:"tripId"`
+	AtMs   int64  `json:"atMs"`
+
+	Matched   *TripMatchedPayload   `json:"matched,omitempty"`
+	Unmatched *TripUnmatchedPayload `json:"unmatched,omitempty"`
+}
+
+// TripMatchedPayload is the matcher telling the trip service it found somebody.
+type TripMatchedPayload struct {
+	DriverID string `json:"driverId"`
+	// LatencyMs is request to acceptance, carried so the trip service records
+	// what the rider actually experienced rather than measuring its own hop.
+	LatencyMs int64 `json:"latencyMs"`
+}
+
+// TripUnmatchedPayload is the matcher giving up.
+type TripUnmatchedPayload struct {
+	// Reason is a closed set so it can be a metric label.
+	Reason string `json:"reason"`
 }

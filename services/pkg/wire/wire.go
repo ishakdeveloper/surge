@@ -56,7 +56,21 @@ func (s DriverStatus) Available() bool { return s == StatusIdle }
 type DriverPing struct {
 	DriverID string `json:"driverId"`
 
-	// Seq is a per-driver monotonic counter.
+	// Epoch identifies the client session this sequence belongs to.
+	//
+	// Learned the hard way. A sequence number is only meaningful within a
+	// session: restart the client and the counter goes back to 1, which to a
+	// consumer holding sequence 400 looks like four hundred consecutive
+	// reorderings. Every subsequent ping is rejected as stale, and the driver
+	// is frozen at their last known position — permanently, since the counter
+	// never catches up.
+	//
+	// The real-world version is a driver reinstalling the app or a phone
+	// rebooting. Comparing (epoch, seq) rather than seq alone is what makes a
+	// counter reset a new session instead of an eternal reordering.
+	Epoch uint64 `json:"epoch"`
+
+	// Seq is a monotonic counter within Epoch.
 	//
 	// Load-bearing, not decoration. When a driver crosses a cell boundary the
 	// ingest service emits DriverLeftCell to one Kafka partition and

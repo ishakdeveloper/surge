@@ -18,6 +18,7 @@ type Entry struct {
 	Point    geo.Point
 	Heading  float64
 	Status   wire.DriverStatus
+	Epoch    uint64
 	Seq      uint64
 	Index    geo.Cell
 	Shard    geo.Cell
@@ -43,6 +44,9 @@ type Index struct {
 	transitions uint64
 	// Stale counts pings dropped for arriving out of order.
 	stale uint64
+	// reordered counts the subset that arrived with a LOWER sequence, which
+	// should not be possible and is worth separating from redelivery.
+	reordered uint64
 }
 
 func NewIndex() *Index {
@@ -62,6 +66,9 @@ func NewIndex() *Index {
 // on two different Kafka partitions.
 type Observation struct {
 	Stale bool
+	// Duplicate distinguishes a redelivery (same sequence) from a reordering
+	// (lower sequence).
+	Duplicate bool
 	// New means this driver was not in the index at all — a cold start or a
 	// driver coming online. Treated as an entry, since some shard has to learn
 	// about them.
@@ -98,9 +105,33 @@ func (i *Index) Observe(ping wire.DriverPing) (Observation, error) {
 	defer i.mu.Unlock()
 
 	previous, existed := i.drivers[ping.DriverID]
-	if existed && ping.Seq <= previous.Seq {
+
+	// A sequence number only means something inside its epoch.
+	//
+	// A newer epoch is a new client session — a reinstall, a reboot, a process
+	// restart — and its sequence starts again from one. Comparing it against
+	// the old session's counter would reject every ping the new session ever
+	// sends, freezing that driver at their last known position for good.
+	// An older epoch is a straggler from a session that has already ended.
+	stale := existed &&
+		((ping.Epoch == previous.Epoch && ping.Seq <= previous.Seq) ||
+			ping.Epoch < previous.Epoch)
+
+	if stale {
 		i.stale++
-		return Observation{Stale: true}, nil
+		// Distinguishing the two matters, because they mean different things.
+		// An equal sequence is a redelivery — at-least-once doing what it says,
+		// and harmless. A lower one is a genuine reordering, which should be
+		// impossible for records keyed by driver on a single partition, and
+		// means something upstream is wrong.
+		observation := Observation{
+			Stale:     true,
+			Duplicate: ping.Epoch == previous.Epoch && ping.Seq == previous.Seq,
+		}
+		if !observation.Duplicate {
+			i.reordered++
+		}
+		return observation, nil
 	}
 
 	entry := Entry{
@@ -108,6 +139,7 @@ func (i *Index) Observe(ping wire.DriverPing) (Observation, error) {
 		Point:    point,
 		Heading:  ping.Heading,
 		Status:   ping.Status,
+		Epoch:    ping.Epoch,
 		Seq:      ping.Seq,
 		Index:    index,
 		Shard:    shard,
@@ -184,6 +216,7 @@ type Stats struct {
 	Shards      int    `json:"shards"`
 	Transitions uint64 `json:"cellTransitions"`
 	Stale       uint64 `json:"stalePings"`
+	Reordered   uint64 `json:"reorderedPings"`
 }
 
 func (i *Index) Stats() Stats {
@@ -201,6 +234,7 @@ func (i *Index) Stats() Stats {
 		Shards:      len(shards),
 		Transitions: i.transitions,
 		Stale:       i.stale,
+		Reordered:   i.reordered,
 	}
 }
 
