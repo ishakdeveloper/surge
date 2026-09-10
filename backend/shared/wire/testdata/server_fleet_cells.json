@@ -1,0 +1,62 @@
+{
+  "_tag": "FleetUpdate",
+  "fleet": {
+    "atMs": 1757512340000,
+    "mode": "cells",
+    "cells": [
+      {
+        "cell": "871f1d492ffffff",
+        "drivers": 12,
+        "idle": 9,
+        "boundary": [
+          [
+            4.8943,
+            52.3702
+          ],
+          [
+            4.9012,
+            52.3751
+          ],
+          [
+            4.9101,
+            52.3733
+          ],
+          [
+            4.9121,
+            52.366
+          ],
+          [
+            4.9052,
+            52.3611
+          ],
+          [
+            4.8963,
+            52.3629
+          ]
+        ]
+      }
+    ],
+    "drivers": [],
+    "shards": [
+      {
+        "partition": 7,
+        "instance": "matcher-a",
+        "drivers": 12,
+        "pending": 1,
+        "offers": 2,
+        "ageMs": 340
+      }
+    ],
+    "stats": {
+      "drivers": 12,
+      "idle": 9,
+      "pending": 1,
+      "offers": 2,
+      "matchedPerSecond": 0.5,
+      "abandonedPerSecond": 0,
+      "p50Ms": 2100,
+      "p95Ms": 3900,
+      "p99Ms": 4400
+    }
+  }
+}

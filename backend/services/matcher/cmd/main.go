@@ -8,10 +8,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +24,7 @@ import (
 	"github.com/ishakdeveloper/surge/shared/config"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	"github.com/ishakdeveloper/surge/shared/obs"
+	"github.com/ishakdeveloper/surge/shared/routing"
 	"github.com/ishakdeveloper/surge/shared/tracing"
 	"github.com/ishakdeveloper/surge/shared/wire"
 	"github.com/prometheus/client_golang/prometheus"
@@ -52,6 +57,14 @@ func run() error {
 	if settings.OfferTTL, err = config.DurationOr("MATCHER_OFFER_TTL", settings.OfferTTL); err != nil {
 		return err
 	}
+	// greedy | batched. A runtime switch rather than a build, so the two can be
+	// compared on the same fleet, the same seed and the same demand.
+	if settings.Strategy, err = domain.ParseStrategy(config.StringOr("MATCH_STRATEGY", string(settings.Strategy))); err != nil {
+		return err
+	}
+	if settings.BatchWindow, err = config.DurationOr("MATCHER_BATCH_WINDOW", settings.BatchWindow); err != nil {
+		return err
+	}
 
 	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
 		return err
@@ -68,6 +81,8 @@ func run() error {
 		"expected", kafkax.GeoPartitions,
 		"offerTTL", settings.OfferTTL,
 		"searchRings", settings.SearchRings,
+		"strategy", settings.Strategy,
+		"batchWindow", settings.BatchWindow,
 	)
 
 	shutdownTracing, err := tracing.Init(ctx, "matcher",
@@ -82,7 +97,7 @@ func run() error {
 	}()
 
 	registry := obs.NewRegistry("matcher")
-	metrics := newMetrics(registry)
+	metrics := newMetrics(registry, settings.Strategy)
 
 	producer, err := kafkax.NewProducer(brokers)
 	if err != nil {
@@ -90,7 +105,23 @@ func run() error {
 	}
 	defer producer.Close()
 
-	runner := events.NewRunner(brokers, settings, producer, events.Hooks{
+	// Named on every frame, so the console can show which instance holds which
+	// slice of the city, and watch it move during a rebalance.
+	instance := config.StringOr("HOSTNAME", fmt.Sprintf("matcher-%d", os.Getpid()))
+
+	// Travel times for batched matching, fetched off the shard loop (see
+	// Runner.solve). Greedy never calls it.
+	router := routing.New(config.StringOr("VALHALLA_URL", "http://localhost:8002"))
+
+	// Off unless set: every offer's car and rider positions, for a benchmark to
+	// price over real roads once the run is over.
+	dispatches, err := openDispatchLog(config.StringOr("MATCHER_DISPATCH_LOG", ""), settings.Strategy)
+	if err != nil {
+		return err
+	}
+	defer dispatches.Close()
+
+	runner := events.NewRunner(brokers, settings, producer, router, instance, events.Hooks{
 		OnMatched: func(result domain.MatchResult) {
 			metrics.matched.Inc()
 			metrics.latency.Observe(result.Latency.Seconds())
@@ -100,6 +131,20 @@ func run() error {
 			metrics.rejections.WithLabelValues(string(reason)).Inc()
 		},
 		OnEvent: func(tag string) { metrics.events.WithLabelValues(tag).Inc() },
+		OnDispatched: func(dispatch domain.Dispatch) {
+			metrics.pickup.Observe(dispatch.Meters)
+			dispatches.write(dispatch)
+		},
+		OnBatch: func(requests, _ int, took time.Duration, err error) {
+			fetched := "ok"
+			if err != nil {
+				// Solved over distance instead; counted rather than logged,
+				// because a router outage would be one line per shard per window.
+				fetched = "no_travel_times"
+			}
+			metrics.batchSize.Observe(float64(requests))
+			metrics.batchFetch.WithLabelValues(fetched).Observe(took.Seconds())
+		},
 		OnOwnership: func(total int, changed []int32, gained bool) {
 			metrics.owned.Set(float64(total))
 			direction := "revoked"
@@ -160,19 +205,30 @@ type metrics struct {
 	shardPending   *prometheus.GaugeVec
 	shardOffers    *prometheus.GaugeVec
 	errors         *prometheus.CounterVec
+	batchSize      prometheus.Histogram
+	pickup         prometheus.Histogram
+	batchFetch     *prometheus.HistogramVec
 }
 
-func newMetrics(registry *obs.Registry) *metrics {
+func newMetrics(registry *obs.Registry, strategy domain.Strategy) *metrics {
+	// The strategy rides on the outcome metrics as a constant label, so a
+	// greedy run and a batched run land as two series of the same metric and
+	// one query compares them.
+	byStrategy := prometheus.Labels{"strategy": string(strategy)}
+
 	m := &metrics{
 		matched: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "surge_matcher_matched_total", Help: "Trips matched to a driver.",
+			ConstLabels: byStrategy,
 		}),
 		abandoned: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "surge_matcher_abandoned_total", Help: "Requests that found nobody.",
+			ConstLabels: byStrategy,
 		}),
 		latency: prometheus.NewHistogram(prometheus.HistogramOpts{
-			Name: "surge_matcher_match_latency_seconds",
-			Help: "Rider request to driver accepted, end to end.",
+			Name:        "surge_matcher_match_latency_seconds",
+			ConstLabels: byStrategy,
+			Help:        "Rider request to driver accepted, end to end.",
 			// The headline number. Buckets chosen for a range where a human is
 			// waiting: sub-second is excellent, ten seconds is a bad day.
 			Buckets: []float64{.05, .1, .25, .5, 1, 2, 3, 5, 8, 12, 20, 45},
@@ -213,10 +269,88 @@ func newMetrics(registry *obs.Registry) *metrics {
 		errors: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "surge_matcher_errors_total", Help: "Failures, by stage.",
 		}, []string{"stage"}),
+		pickup: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Name:        "surge_matcher_pickup_meters",
+			Help:        "Straight-line distance from an offered car to its rider. What batched matching is for.",
+			ConstLabels: byStrategy,
+			Buckets:     []float64{100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000},
+		}),
+		batchSize: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Name:    "surge_matcher_batch_requests",
+			Help:    "Riders per batched solve. One means the window saw no contention to solve.",
+			Buckets: []float64{1, 2, 3, 5, 8, 13, 21, 32},
+		}),
+		batchFetch: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "surge_matcher_batch_fetch_seconds",
+			Help:    "Travel-time matrix fetch per batch, by whether the router answered.",
+			Buckets: []float64{.005, .01, .025, .05, .1, .25, .5, 1, 3},
+		}, []string{"fetched"}),
 	}
 
 	registry.MustRegister(m.matched, m.abandoned, m.latency, m.rejections, m.events,
 		m.owned, m.rebalances, m.restoreStall, m.restoredOffers,
-		m.shardDrivers, m.shardPending, m.shardOffers, m.errors)
+		m.shardDrivers, m.shardPending, m.shardOffers, m.errors, m.batchSize, m.batchFetch, m.pickup)
 	return m
+}
+
+// dispatchLog writes each offer's car and rider positions as JSON lines.
+//
+// For `make bench-matching`, which prices a sample of them over real roads
+// once the run is over. Pricing during the run would compete with the batched
+// strategy for Valhalla, and measure the measurement as much as the matcher.
+type dispatchLog struct {
+	mu       sync.Mutex
+	file     *os.File
+	out      *bufio.Writer
+	strategy domain.Strategy
+}
+
+func openDispatchLog(path string, strategy domain.Strategy) (*dispatchLog, error) {
+	if path == "" {
+		return nil, nil
+	}
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, fmt.Errorf("matcher: dispatch log: %w", err)
+	}
+	log := &dispatchLog{file: file, out: bufio.NewWriterSize(file, 64<<10), strategy: strategy}
+	// Flushed every second, not only on Close: a benchmark stops the matcher
+	// with a signal, and a buffer lost to a hard stop is a run without a result.
+	go func() {
+		for range time.Tick(time.Second) {
+			log.mu.Lock()
+			_ = log.out.Flush()
+			log.mu.Unlock()
+		}
+	}()
+	return log, nil
+}
+
+func (l *dispatchLog) write(dispatch domain.Dispatch) {
+	if l == nil {
+		return
+	}
+	line, err := json.Marshal(map[string]any{
+		"atMs": time.Now().UnixMilli(), "strategy": l.strategy,
+		"tripId": dispatch.TripID, "driverId": dispatch.DriverID,
+		"driverLat": dispatch.Driver.Lat, "driverLng": dispatch.Driver.Lng,
+		"pickupLat": dispatch.Pickup.Lat, "pickupLng": dispatch.Pickup.Lng,
+		"meters": dispatch.Meters,
+	})
+	if err != nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, _ = l.out.Write(append(line, '\n'))
+}
+
+func (l *dispatchLog) Close() {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_ = l.out.Flush()
+	_ = l.file.Close()
 }

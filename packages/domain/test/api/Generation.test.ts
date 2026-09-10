@@ -1,14 +1,14 @@
 import type { Cents, TripId } from "@surge/domain/api/Primitives";
 import {
-  Cancel200,
-  Create200,
-  Get200,
-  Get404,
-  GetPathParams,
-  List200,
-  List401,
-  Preview200,
   SurgeApi,
+  TripsCancel200,
+  TripsCreate200,
+  TripsGet200,
+  TripsGet404,
+  TripsGetPathParams,
+  TripsList200,
+  TripsList401,
+  TripsPreview200,
 } from "@surge/domain/api/SurgeApi";
 import type { Trip } from "@surge/domain/trip/Trip";
 import { Effect, Schema } from "effect";
@@ -41,7 +41,7 @@ const decode = <A, I>(schema: Schema.Codec<A, I>, input: unknown) =>
 
 describe("the generated client decodes what the gateway sends", () => {
   it("previews", () => {
-    const preview = decode(Preview200, responses["preview"]);
+    const preview = decode(TripsPreview200, responses["preview"]);
 
     expect(preview.fares.length).toBeGreaterThan(0);
     expect(preview.route.meters).toBeGreaterThan(0);
@@ -49,10 +49,10 @@ describe("the generated client decodes what the gateway sends", () => {
   });
 
   it("books, lists and cancels", () => {
-    const created = decode(Create200, responses["created"]);
+    const created = decode(TripsCreate200, responses["created"]);
     expect(created.trip.status).toBe("TRIP_STATUS_REQUESTED");
 
-    const listed = decode(List200, responses["listed"]);
+    const listed = decode(TripsList200, responses["listed"]);
     expect(listed.trips.map((trip) => trip.id)).toContain(created.trip.id);
     expect(listed.nextPageToken).toBe("");
   });
@@ -63,14 +63,14 @@ describe("the generated client decodes what the gateway sends", () => {
    * `"1627"`.
    */
   it("decodes 64-bit fields into numbers", () => {
-    const preview = decode(Preview200, responses["preview"]);
+    const preview = decode(TripsPreview200, responses["preview"]);
     const raw = responses["preview"] as { fares: ReadonlyArray<{ totalCents: unknown; }>; };
 
     expect(raw.fares[0]?.totalCents).toBeTypeOf("string");
     expect(preview.fares[0]?.totalCents).toBeTypeOf("number");
     expect(preview.fares[0]?.totalCents).toBe(Number(raw.fares[0]?.totalCents));
 
-    expect(decode(Get200, responses["created"]).trip.route.seconds).toBeTypeOf("number");
+    expect(decode(TripsGet200, responses["created"]).trip.route.seconds).toBeTypeOf("number");
   });
 
   /**
@@ -80,8 +80,8 @@ describe("the generated client decodes what the gateway sends", () => {
   it("brands the ids", () => {
     // `.make` is only on a branded schema; a bare `Schema.String` has no such
     // constructor, so this failing to compile is the assertion.
-    const params = GetPathParams.make({
-      tripId: decode(Get200, responses["created"]).trip.id,
+    const params = TripsGetPathParams.make({
+      tripId: decode(TripsGet200, responses["created"]).trip.id,
     });
     expect(params.tripId).toBe((responses["created"] as { trip: { id: string; }; }).trip.id);
   });
@@ -93,14 +93,14 @@ describe("the generated client decodes what the gateway sends", () => {
    * driver is `""` below rather than missing.
    */
   it("requires every field, because the gateway always sends one", () => {
-    expect(decode(Get200, responses["created"]).trip.driverId).toBe("");
+    expect(decode(TripsGet200, responses["created"]).trip.driverId).toBe("");
 
     const withoutDriver = structuredClone(responses["created"]) as {
       trip: Record<string, unknown>;
     };
     delete withoutDriver.trip["driverId"];
 
-    expect(() => decode(Get200, withoutDriver)).toThrow();
+    expect(() => decode(TripsGet200, withoutDriver)).toThrow();
   });
 
   /**
@@ -111,15 +111,15 @@ describe("the generated client decodes what the gateway sends", () => {
    * would have failed to decode every error the server has ever sent.
    */
   it("decodes the error the gateway actually returns", () => {
-    const notFound = decode(Get404, responses["notFound"]);
+    const notFound = decode(TripsGet404, responses["notFound"]);
     expect(notFound.error.code).toBe("not_found");
     expect(notFound.error.message).toBe("unknown trip");
 
-    expect(decode(List401, responses["unauth"]).error.code).toBe("unauthenticated");
+    expect(decode(TripsList401, responses["unauth"]).error.code).toBe("unauthenticated");
 
     // The code is a closed set, so a server inventing one is a decode failure
     // here rather than a string nobody branches on.
-    expect(() => decode(Get404, { error: { code: "kaput", message: "" } })).toThrow();
+    expect(() => decode(TripsGet404, { error: { code: "kaput", message: "" } })).toThrow();
   });
 
   it("routes cancellation through the binding Effect can express", () => {
@@ -132,7 +132,7 @@ describe("the generated client decodes what the gateway sends", () => {
     // but Effect's router reads it as a parameter named `tripId:cancel`.
     expect(paths).not.toContain("POST /v1/trips/:tripId:cancel");
 
-    expect(decode(Cancel200, responses["created"]).trip.id).toBeTypeOf("string");
+    expect(decode(TripsCancel200, responses["created"]).trip.id).toBeTypeOf("string");
   });
 
   /**

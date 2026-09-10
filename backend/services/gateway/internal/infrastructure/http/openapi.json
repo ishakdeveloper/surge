@@ -12,6 +12,10 @@
     {
       "name": "DriverService",
       "description": "DriverService owns driver profiles and vehicles — the slow-moving facts.\n\nDeliberately NOT where driver location lives. Positions arrive ten thousand\ntimes a second and are answered from the matcher's in-memory index; putting\nthem behind an RPC would be a synchronous call per ping, which is the thing\nthis whole architecture exists to avoid."
+    },
+    {
+      "name": "SimulatorService",
+      "description": "SimulatorService is the load generator's control panel: how many drivers,\nreporting how often.\n\nBehind the gateway like every other API, rather than on the simulator's own\nport, for two reasons. The console should reach one origin with one token.\nAnd turning the knob from 500 drivers to 50,000 is an operation on shared\ninfrastructure, so it is ops only — enforced by the simulator itself against\nthe caller the gateway forwards, the same way the trip service enforces who\nmay read a trip."
     }
   ],
   "consumes": [
@@ -21,6 +25,61 @@
     "application/json"
   ],
   "paths": {
+    "/v1/simulator": {
+      "get": {
+        "summary": "GetSimulator is the fleet's size and rate, as configured and as running.",
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetSimulatorResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "simulator"
+        ]
+      },
+      "put": {
+        "summary": "ConfigureSimulator rescales the fleet.",
+        "description": "The whole desired configuration rather than a partial patch: the console\nshows both values and sends both, and a request that must carry every\nfield is one the generated client can type as exactly that.",
+        "operationId": "configure",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ConfigureSimulatorResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1ConfigureSimulatorRequest"
+            }
+          }
+        ],
+        "tags": [
+          "simulator"
+        ]
+      }
+    },
     "/v1/trips": {
       "get": {
         "summary": "ListTrips is the caller's history, newest first — the rides a rider booked,\nor the rides a driver was assigned. The token decides which.",
@@ -477,6 +536,27 @@
         }
       }
     },
+    "v1ConfigureSimulatorRequest": {
+      "type": "object",
+      "properties": {
+        "drivers": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pingIntervalMs": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1ConfigureSimulatorResponse": {
+      "type": "object",
+      "properties": {
+        "simulator": {
+          "$ref": "#/definitions/v1Simulator"
+        }
+      }
+    },
     "v1Coordinate": {
       "type": "object",
       "properties": {
@@ -561,6 +641,14 @@
         }
       }
     },
+    "v1GetSimulatorResponse": {
+      "type": "object",
+      "properties": {
+        "simulator": {
+          "$ref": "#/definitions/v1Simulator"
+        }
+      }
+    },
     "v1GetTripResponse": {
       "type": "object",
       "properties": {
@@ -630,6 +718,33 @@
         }
       },
       "description": "Route is a driveable path with its cost."
+    },
+    "v1Simulator": {
+      "type": "object",
+      "properties": {
+        "drivers": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "running": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Running is how many driver goroutines are actually up, which lags\n`drivers` for a moment after a rescale."
+        },
+        "pingsTotal": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pingIntervalMs": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "targetPingsPerSecond": {
+          "type": "number",
+          "format": "double",
+          "description": "Drivers divided by the interval: ingest's load, stated."
+        }
+      }
     },
     "v1StartTripResponse": {
       "type": "object",

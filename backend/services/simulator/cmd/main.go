@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,15 +25,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ishakdeveloper/surge/services/simulator/internal/control"
 	"github.com/ishakdeveloper/surge/services/simulator/internal/sim"
+	"github.com/ishakdeveloper/surge/shared/authz"
 	"github.com/ishakdeveloper/surge/shared/config"
 	"github.com/ishakdeveloper/surge/shared/geo"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	"github.com/ishakdeveloper/surge/shared/obs"
+	simpb "github.com/ishakdeveloper/surge/shared/proto/sim"
 	"github.com/ishakdeveloper/surge/shared/retry"
 	"github.com/ishakdeveloper/surge/shared/routing"
 	"github.com/ishakdeveloper/surge/shared/tracing"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
 )
 
 // disconnectSample rate-limits disconnect logging.
@@ -52,6 +57,9 @@ func run() error {
 	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
 	valhallaURL := config.StringOr("VALHALLA_URL", "http://localhost:8002")
 	controlAddr := config.StringOr("SIM_CONTROL_ADDR", ":8101")
+	// The same knob over gRPC, for the gateway to put behind /v1/simulator.
+	// The HTTP one stays for `make load` and curl, which have no token.
+	grpcAddr := config.StringOr("SIM_GRPC_LISTEN", ":8111")
 	metricsAddr := config.StringOr("SIM_METRICS_ADDR", ":9101")
 
 	poolTarget, err := config.IntOr("SIM_ROUTE_POOL", 400)
@@ -115,6 +123,7 @@ func run() error {
 	}
 
 	riderSettings.Seed = settings.Seed
+	riderSettings.Run = settings.Epoch
 	policy := sim.NewOfferPolicy(riderSettings)
 
 	var (
@@ -271,9 +280,21 @@ func run() error {
 		)
 	}
 
-	errs := make(chan error, 2)
+	server := grpc.NewServer(grpc.UnaryInterceptor(authz.UnaryServerInterceptor()))
+	simpb.RegisterSimulatorServiceServer(server, control.NewServer(ctx, fleet))
+	listener, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		return fmt.Errorf("simd: listen %s: %w", grpcAddr, err)
+	}
+	defer server.GracefulStop()
+
+	errs := make(chan error, 3)
 	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
 	go func() { errs <- serveControl(ctx, controlAddr, fleet, pool) }()
+	go func() {
+		slog.Info("control grpc listening", "addr", grpcAddr)
+		errs <- server.Serve(listener)
+	}()
 
 	select {
 	case <-ctx.Done():

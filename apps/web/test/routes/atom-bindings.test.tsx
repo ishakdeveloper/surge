@@ -59,6 +59,7 @@ describe("page modules", () => {
     ["home", () => import("@/routes/_protected/index.js")],
     ["ride", () => import("@/routes/_protected/ride/index.js")],
     ["drive", () => import("@/routes/_protected/drive/index.js")],
+    ["console", () => import("@/routes/_protected/console/index.js")],
   ] as const;
 
   for (const [name, load] of pages) {

@@ -1,13 +1,17 @@
+import type { TripId } from "@surge/domain/api/Primitives";
 import {
   type ClientMessage,
   ClientMessageFromJson,
   DriverPing,
+  type DriverPosition,
   type DriverStatus,
+  type FleetUpdate,
   type Offer,
   OfferReply,
   type ServerMessage,
   ServerMessageFromJson,
   type TripUpdate,
+  type Viewport,
 } from "@surge/domain/realtime/Wire";
 import {
   Clock,
@@ -16,6 +20,7 @@ import {
   Duration,
   Effect,
   Layer,
+  Option,
   PubSub,
   Queue,
   Ref,
@@ -70,6 +75,10 @@ export interface RealtimeService {
    * polling, and how `/drive` learns an accepted offer became its trip.
    */
   readonly tripUpdates: Stream.Stream<TripUpdate>;
+  /** The console's live map, once a second while watching. */
+  readonly fleet: Stream.Stream<FleetUpdate>;
+  /** The assigned driver's position, once a second while following a trip. */
+  readonly positions: Stream.Stream<DriverPosition>;
   /** For the reconnecting banner. Emits the current value on subscribe. */
   readonly status: Stream.Stream<ConnectionStatus>;
 
@@ -97,6 +106,19 @@ export interface RealtimeService {
    * somewhere else entirely.
    */
   readonly reply: (offer: Offer, accepted: boolean) => Effect.Effect<void>;
+
+  /**
+   * Watch the fleet through a viewport, or stop with `Option.none()`.
+   *
+   * Remembered and sent again after every reconnect. The gateway forgets a
+   * subscription when the socket it arrived on closes — there is nothing else
+   * it could do — so a console that lived through a gateway restart would
+   * otherwise sit on its last frame, looking live and showing nothing new.
+   */
+  readonly watchFleet: (viewport: Option.Option<Viewport>) => Effect.Effect<void>;
+
+  /** Follow a trip's driver, or stop with `Option.none()`. Re-sent after a reconnect, like `watchFleet`. */
+  readonly followTrip: (tripId: Option.Option<TripId>) => Effect.Effect<void>;
 
   /** The escape hatch, for anything the two helpers above do not cover. */
   readonly send: (message: ClientMessage) => Effect.Effect<void>;
@@ -179,6 +201,29 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
           Effect.orElseSucceed(() => baseUrl),
         );
 
+        const send = (message: ClientMessage): Effect.Effect<void> =>
+          encodeFrame(message).pipe(
+            Effect.flatMap((frame) => Queue.offer(outbound, frame)),
+            Effect.asVoid,
+            // The value was built from the schema's own types, so a failure
+            // here is a bug in this file rather than something a caller could
+            // respond to.
+            Effect.catchTag("SchemaError", (error) => Effect.die(error)),
+          );
+
+        const watching = yield* Ref.make<Option.Option<Viewport>>(Option.none());
+        const following = yield* Ref.make<Option.Option<TripId>>(Option.none());
+
+        /** What this client has asked for, said again — on every welcome, since a new socket starts with nothing. */
+        const resubscribe = Effect.gen(function*() {
+          const viewport = yield* Ref.get(watching);
+          if (Option.isSome(viewport)) {
+            yield* send({ _tag: "ClientWatchFleet", viewport: viewport.value });
+          }
+          const trip = yield* Ref.get(following);
+          if (Option.isSome(trip)) yield* send({ _tag: "ClientFollowTrip", tripId: trip.value });
+        });
+
         const attempt = Stream.unwrap(
           Effect.map(Socket.makeWebSocket(url), (socket) =>
             Stream.fromQueue(outbound).pipe(
@@ -202,7 +247,7 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
           ),
           Stream.tap((message) =>
             message._tag === "ServerWelcome"
-              ? SubscriptionRef.set(connection, "Connected")
+              ? SubscriptionRef.set(connection, "Connected").pipe(Effect.andThen(resubscribe))
               : Effect.void
           ),
           Stream.onError(() => SubscriptionRef.set(connection, "Connecting")),
@@ -214,16 +259,6 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
         );
 
         const messages = Stream.fromPubSub(inbound);
-
-        const send = (message: ClientMessage): Effect.Effect<void> =>
-          encodeFrame(message).pipe(
-            Effect.flatMap((frame) => Queue.offer(outbound, frame)),
-            Effect.asVoid,
-            // The value was built from the schema's own types, so a failure
-            // here is a bug in this file rather than something a caller could
-            // respond to.
-            Effect.catchTag("SchemaError", (error) => Effect.die(error)),
-          );
 
         /**
          * One epoch per service instance, which is what an epoch is: the client
@@ -253,6 +288,18 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
             (message) =>
               message._tag === "TripUpdated" ? Result.succeed(message.trip) : Result.fail(message),
           ),
+          fleet: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "FleetUpdate" ? Result.succeed(message.fleet) : Result.fail(message),
+          ),
+          positions: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "DriverPosition"
+                ? Result.succeed(message.position)
+                : Result.fail(message),
+          ),
           status: SubscriptionRef.changes(connection),
           send,
           ping: (position) =>
@@ -270,6 +317,24 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
               reply: new OfferReply({ tripId: offer.tripId, accepted }),
               replyCell: offer.replyCell,
             }),
+          watchFleet: (viewport) =>
+            Ref.set(watching, viewport).pipe(
+              Effect.andThen(
+                Option.match(viewport, {
+                  onNone: () => send({ _tag: "ClientUnwatchFleet" }),
+                  onSome: (value) => send({ _tag: "ClientWatchFleet", viewport: value }),
+                }),
+              ),
+            ),
+          followTrip: (tripId) =>
+            Ref.set(following, tripId).pipe(
+              Effect.andThen(
+                Option.match(tripId, {
+                  onNone: () => send({ _tag: "ClientUnfollowTrip" }),
+                  onSome: (value) => send({ _tag: "ClientFollowTrip", tripId: value }),
+                }),
+              ),
+            ),
         };
       }),
       // A ConfigError means SURGE_WS_URL is set to something unusable, and

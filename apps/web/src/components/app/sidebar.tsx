@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator.js";
 import type { LinkProps } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { Car, LayoutDashboard, Navigation } from "lucide-react";
+import { Car, Gauge, LayoutDashboard, Navigation } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Exported for the command palette, so the two cannot list different pages. */
@@ -17,6 +17,7 @@ export const nav: ReadonlyArray<{
   { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
   { to: "/ride", label: "Ride", icon: Car },
   { to: "/drive", label: "Drive", icon: Navigation },
+  { to: "/console", label: "Console", icon: Gauge },
   // /console joins these when the fleet feed exists to draw. Absent rather than
   // stubbed, because `to` is typed against the generated route tree and a link
   // to a route that does not exist should be a compile error.

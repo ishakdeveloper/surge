@@ -1,7 +1,8 @@
 import { runtime } from "@/atom/runtime.js";
 import { Realtime } from "@surge/client/Realtime";
+import type { TripId } from "@surge/domain/api/Primitives";
 import type { Offer } from "@surge/domain/realtime/Wire";
-import { Effect, Stream } from "effect";
+import { Effect, Option, Stream } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
 /**
@@ -93,3 +94,24 @@ export interface Answered {
 // Wrapped in an object on purpose: `Atom.make` given a bare Set — anything
 // iterable — resolves to its Effect overload, since an Effect is iterable too.
 export const answeredAtom = Atom.make<Answered>({ tripIds: new Set<Offer["tripId"]>() });
+
+/**
+ * Where the rider's driver is, once a second, for as long as it is read.
+ *
+ * Following is a request the gateway checks against the trip service as the
+ * rider — the same rule that decides who may read a trip decides who may watch
+ * its driver — and it lasts as long as this atom does: the finalizer unfollows
+ * when the trip leaves the screen.
+ */
+export const driverPositionAtom = Atom.family((tripId: TripId) =>
+  runtime.atom(
+    Stream.unwrap(
+      Effect.gen(function*() {
+        const realtime = yield* Realtime;
+        yield* realtime.followTrip(Option.some(tripId));
+        yield* Effect.addFinalizer(() => realtime.followTrip(Option.none()));
+        return realtime.positions.pipe(Stream.filter((position) => position.tripId === tripId));
+      }),
+    ),
+  )
+);

@@ -21,7 +21,8 @@ import (
 type Clients struct {
 	Trip trippb.TripServiceClient
 
-	conns []*grpc.ClientConn
+	trip      *grpc.ClientConn
+	simulator *grpc.ClientConn
 }
 
 // Dial connects to everything the gateway needs.
@@ -30,8 +31,21 @@ type Clients struct {
 // because the trip service is briefly down is a gateway that turns one
 // service's restart into a total outage. Requests made while it is down fail
 // individually, which is the right blast radius.
-func Dial(tripAddr string) (*Clients, error) {
-	conn, err := grpc.NewClient(tripAddr,
+func Dial(tripAddr, simulatorAddr string) (*Clients, error) {
+	trip, err := dial("trip service", tripAddr)
+	if err != nil {
+		return nil, err
+	}
+	simulator, err := dial("simulator", simulatorAddr)
+	if err != nil {
+		_ = trip.Close()
+		return nil, err
+	}
+	return &Clients{Trip: trippb.NewTripServiceClient(trip), trip: trip, simulator: simulator}, nil
+}
+
+func dial(name, addr string) (*grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(addr,
 		// Plaintext inside the cluster. TLS belongs at the mesh or ingress; two
 		// layers of certificate management for a hop that never leaves the
 		// network is cost without benefit.
@@ -50,23 +64,23 @@ func Dial(tripAddr string) (*Clients, error) {
 		opentelemetry.DialOption(opentelemetry.Options{}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("gateway: dial trip service at %s: %w", tripAddr, err)
+		return nil, fmt.Errorf("gateway: dial %s at %s: %w", name, addr, err)
 	}
-
-	return &Clients{Trip: trippb.NewTripServiceClient(conn), conns: []*grpc.ClientConn{conn}}, nil
+	return conn, nil
 }
 
-// Conn is the connection the generated REST gateway proxies onto.
+// TripConn and SimulatorConn are the connections the generated REST gateway
+// proxies onto.
 //
 // grpc-gateway registers against a ClientConn rather than a typed client,
 // because it dispatches by method name from the annotations rather than by
 // calling Go methods.
-func (c *Clients) Conn() *grpc.ClientConn { return c.conns[0] }
+func (c *Clients) TripConn() *grpc.ClientConn      { return c.trip }
+func (c *Clients) SimulatorConn() *grpc.ClientConn { return c.simulator }
 
 func (c *Clients) Close() {
-	for _, conn := range c.conns {
-		_ = conn.Close()
-	}
+	_ = c.trip.Close()
+	_ = c.simulator.Close()
 }
 
 // Timeout bounds a downstream call.

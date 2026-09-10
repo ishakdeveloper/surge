@@ -29,6 +29,28 @@ func main() {
 	fixtures := map[string]any{
 		"server_welcome.json": wire.ServerMessage{Tag: wire.TagServerWelcome},
 		"server_error.json":   wire.ServerMessage{Tag: wire.TagServerError, Error: "token expired"},
+		"server_fleet_cells.json": wire.ServerMessage{Tag: wire.TagFleetUpdate, Fleet: &wire.FleetUpdate{
+			AtMs: 1757512340000, Mode: "cells",
+			Cells: []wire.FleetCell{{Cell: "871f1d492ffffff", Drivers: 12, Idle: 9, Boundary: [][2]float64{
+				{4.8943, 52.3702}, {4.9012, 52.3751}, {4.9101, 52.3733}, {4.9121, 52.3660}, {4.9052, 52.3611}, {4.8963, 52.3629},
+			}}},
+			Drivers: []wire.FleetDriver{},
+			Shards:  []wire.FleetShard{{Partition: 7, Instance: "matcher-a", Drivers: 12, Pending: 1, Offers: 2, AgeMs: 340}},
+			Stats: wire.FleetStats{Drivers: 12, Idle: 9, Pending: 1, Offers: 2, MatchedPerSecond: 0.5,
+				P50Ms: 2100, P95Ms: 3900, P99Ms: 4400},
+		}},
+		"server_fleet_drivers.json": wire.ServerMessage{Tag: wire.TagFleetUpdate, Fleet: &wire.FleetUpdate{
+			AtMs: 1757512340000, Mode: "drivers",
+			Cells: []wire.FleetCell{},
+			Drivers: []wire.FleetDriver{{ID: "drv-000123", Lat: 52.3702, Lng: 4.8952, Heading: 137.5,
+				Status: wire.StatusIdle, Cell: "871f1d492ffffff", Reserved: false}},
+			Shards: []wire.FleetShard{},
+			Stats:  wire.FleetStats{Drivers: 1, Idle: 1},
+		}},
+		"server_driver_position.json": wire.ServerMessage{Tag: wire.TagDriverPosition, Position: &wire.DriverPosition{
+			TripID: "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80", DriverID: "drv-000123",
+			Lat: 52.3711, Lng: 4.8963, Heading: 90, AtMs: 1757512341000,
+		}},
 		"server_trip_updated.json": wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{
 			TripID:   "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
 			RiderID:  "rider-000456",

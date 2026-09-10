@@ -51,6 +51,11 @@ const Home = () => {
           Start a shift →
         </Link>
       )}
+      {session.value.role === "ops" && (
+        <Link to="/console" className="text-primary text-sm underline-offset-4 hover:underline">
+          Open the console →
+        </Link>
+      )}
     </section>
   );
 };

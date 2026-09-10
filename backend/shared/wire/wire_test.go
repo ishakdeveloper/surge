@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ishakdeveloper/surge/shared/wire"
@@ -180,6 +181,53 @@ func TestServerMessageValid(t *testing.T) {
 	for _, c := range cases {
 		if got := c.message.Valid(); got != c.want {
 			t.Errorf("%s: Valid() = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// The console's and the rider's subscriptions, as the browser sends them.
+func TestFleetClientMessagesDecodeFromFixtures(t *testing.T) {
+	var watch wire.ClientMessage
+	if err := json.Unmarshal(fixture(t, "client_watch_fleet.json"), &watch); err != nil {
+		t.Fatalf("watch: %v", err)
+	}
+	if watch.Tag != wire.TagClientWatchFleet || watch.Viewport == nil {
+		t.Fatalf("watch = %+v", watch)
+	}
+	if watch.Viewport.Zoom != 13 || watch.Viewport.West != 4.85 || watch.Viewport.North != 52.4 {
+		t.Errorf("viewport = %+v", *watch.Viewport)
+	}
+
+	var follow wire.ClientMessage
+	if err := json.Unmarshal(fixture(t, "client_follow_trip.json"), &follow); err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	if follow.Tag != wire.TagClientFollowTrip || follow.TripID != "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80" {
+		t.Errorf("follow = %+v", follow)
+	}
+
+	for name, tag := range map[string]string{
+		"client_unwatch_fleet.json": wire.TagClientUnwatchFleet,
+		"client_unfollow_trip.json": wire.TagClientUnfollowTrip,
+	} {
+		var message wire.ClientMessage
+		if err := json.Unmarshal(fixture(t, name), &message); err != nil || message.Tag != tag {
+			t.Errorf("%s: %v, tag %q", name, err, message.Tag)
+		}
+	}
+}
+
+// The fleet fixtures are generated; this holds them to the types, and to the
+// rule that no list in them is null.
+func TestFleetFixturesHaveNoNull(t *testing.T) {
+	for _, name := range []string{"server_fleet_cells.json", "server_fleet_drivers.json", "server_driver_position.json"} {
+		raw := fixture(t, name)
+		var message wire.ServerMessage
+		if err := json.Unmarshal(raw, &message); err != nil || !message.Valid() {
+			t.Errorf("%s does not decode to a valid message: %v", name, err)
+		}
+		if strings.Contains(string(raw), "null") {
+			t.Errorf("%s contains null, which the browser's array schemas reject", name)
 		}
 	}
 }

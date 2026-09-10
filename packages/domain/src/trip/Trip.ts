@@ -1,5 +1,5 @@
 import { DriverId } from "../api/Primitives.js";
-import { Get200, type Preview200 } from "../api/SurgeApi.js";
+import { TripsGet200, type TripsPreview200 } from "../api/SurgeApi.js";
 
 /**
  * Names for the shapes the generated client returns, and the rules about them
@@ -14,10 +14,10 @@ import { Get200, type Preview200 } from "../api/SurgeApi.js";
  */
 
 /** A trip, as the API returns it. */
-export type Trip = Get200["trip"];
+export type Trip = TripsGet200["trip"];
 
 /** A quote for one vehicle class. */
-export type FareQuote = Preview200["fares"][number];
+export type FareQuote = TripsPreview200["fares"][number];
 
 export type Route = Trip["route"];
 
@@ -38,7 +38,7 @@ export type Coordinate = Trip["pickup"];
  * because the WebSocket's trip push decodes the same field and should fail on
  * the same values the REST response would.
  */
-export const TripStatus = Get200.fields.trip.fields.status;
+export const TripStatus = TripsGet200.fields.trip.fields.status;
 export type TripStatus = typeof TripStatus.Type;
 
 /** Statuses a rider is still waiting through. */

@@ -1,12 +1,13 @@
+import { driverPositionAtom } from "@/atom/realtime-atoms.js";
 import { activeTripAtom, cancelTrip } from "@/atom/trip-atoms.js";
 import { ActionError } from "@/components/app/action-error.js";
 import { SplitView } from "@/components/app/split-view.js";
-import { SurgeMap } from "@/components/map/surge-map.js";
+import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
 import { Button } from "@/components/ui/button.js";
 import { formatCents, formatDistance, formatDuration, riderStatus } from "@/lib/format.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
-import { isPending } from "@surge/domain/trip/Trip";
+import { isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
 import { Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -78,14 +79,41 @@ export const RiderTrip = () => {
         </>
       }
     >
-      <SurgeMap
-        markers={[
-          { id: "pickup", position: trip.pickup, kind: "pickup" },
-          { id: "dropoff", position: trip.dropoff, kind: "dropoff" },
-        ]}
-        route={route}
-        follow={[trip.pickup, trip.dropoff]}
-      />
+      {isUnderway(trip.status) && trip.driverId !== ""
+        ? <FollowedMap trip={trip} route={route} />
+        : <SurgeMap markers={stops(trip)} route={route} follow={[trip.pickup, trip.dropoff]} />}
     </SplitView>
+  );
+};
+
+const stops = (trip: Trip): ReadonlyArray<MapMarker> => [
+  { id: "pickup", position: trip.pickup, kind: "pickup" },
+  { id: "dropoff", position: trip.dropoff, kind: "dropoff" },
+];
+
+/**
+ * The map once a driver is assigned, with the driver on it.
+ *
+ * Its own component because following is a subscription: mounting this asks
+ * the gateway for the driver's position, and unmounting — the trip finishing —
+ * stops it. The camera stays on the trip rather than chasing the driver, so a
+ * rider watching the car approach is not also watching the map lurch.
+ */
+const FollowedMap = (props: { readonly trip: Trip; readonly route: ReadonlyArray<MapPoint>; }) => {
+  const position = useAtomValue(driverPositionAtom(props.trip.id));
+  const driver: ReadonlyArray<MapMarker> = AsyncResult.isSuccess(position)
+    ? [{
+      id: "driver",
+      position: { lat: position.value.lat, lng: position.value.lng },
+      kind: "driver",
+    }]
+    : [];
+
+  return (
+    <SurgeMap
+      markers={[...stops(props.trip), ...driver]}
+      route={props.route}
+      follow={[props.trip.pickup, props.trip.dropoff]}
+    />
   );
 };

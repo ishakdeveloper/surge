@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package surge.sim.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/sim;sim";
+
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// SimulatorService is the load generator's control panel: how many drivers,
+// reporting how often.
+//
+// Behind the gateway like every other API, rather than on the simulator's own
+// port, for two reasons. The console should reach one origin with one token.
+// And turning the knob from 500 drivers to 50,000 is an operation on shared
+// infrastructure, so it is ops only — enforced by the simulator itself against
+// the caller the gateway forwards, the same way the trip service enforces who
+// may read a trip.
+service SimulatorService {
+  // GetSimulator is the fleet's size and rate, as configured and as running.
+  rpc GetSimulator(GetSimulatorRequest) returns (GetSimulatorResponse) {
+    option (google.api.http) = {get: "/v1/simulator"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "simulator"
+      operation_id: "get"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ConfigureSimulator rescales the fleet.
+  //
+  // The whole desired configuration rather than a partial patch: the console
+  // shows both values and sends both, and a request that must carry every
+  // field is one the generated client can type as exactly that.
+  rpc ConfigureSimulator(ConfigureSimulatorRequest) returns (ConfigureSimulatorResponse) {
+    option (google.api.http) = {
+      put: "/v1/simulator"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "simulator"
+      operation_id: "configure"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+}
+
+message Simulator {
+  int32 drivers = 1;
+  // Running is how many driver goroutines are actually up, which lags
+  // `drivers` for a moment after a rescale.
+  int32 running = 2;
+  int64 pings_total = 3;
+  int32 ping_interval_ms = 4;
+  // Drivers divided by the interval: ingest's load, stated.
+  double target_pings_per_second = 5;
+}
+
+message GetSimulatorRequest {}
+
+message GetSimulatorResponse {
+  Simulator simulator = 1;
+}
+
+message ConfigureSimulatorRequest {
+  int32 drivers = 1;
+  int32 ping_interval_ms = 2;
+}
+
+message ConfigureSimulatorResponse {
+  Simulator simulator = 1;
+}

@@ -9,7 +9,17 @@
 # are open but nothing responds, check `docker context ls` and whether a stale
 # com.docker.backend still holds them.
 #
-# Budget, roughly: redpanda 1G, valhalla 1-2G, postgres 512M, the rest small.
+# Budget, enforced rather than hoped for: every container has a CPU and memory
+# cap below. On a 16 GB laptop the VM competes with the browser, the editor
+# and the Go services on the host, and an uncapped container under load is how
+# the whole machine starts swapping and freezes. The caps sum to about 7
+# CPUs and 5 GB, inside a VM capped at 4 CPUs and 4 GB, so contention stays in
+# the VM instead of reaching the desktop.
+#
+# `make up` starts everything. Prometheus, Grafana, Jaeger and Redpanda Console
+# are nonetheless their own `observability` profile, so `make up-core` can
+# leave them out when the laptop needs the headroom: together they were the
+# second largest CPU cost here after Redpanda itself.
 
 name: surge
 
@@ -31,6 +41,8 @@ services:
       # Creates the second database. The image runs anything in here once, on
       # an empty data directory — so `make nuke` is what re-runs it.
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    cpus: 1
+    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U surge -d surge"]
       interval: 5s
@@ -63,6 +75,10 @@ services:
       - "9644:9644"
     volumes:
       - redpanda:/var/lib/redpanda/data
+    # --smp=1 pins Seastar's reactor to one core; the rest is its helper
+    # threads. Above the 1G it allocates for itself, for page cache headroom.
+    cpus: 1.5
+    mem_limit: 1536m
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'"]
       interval: 10s
@@ -72,6 +88,9 @@ services:
   redpanda-console:
     image: redpandadata/console:latest
     container_name: surge-redpanda-console
+    profiles: [observability]
+    cpus: 0.5
+    mem_limit: 384m
     environment:
       KAFKA_BROKERS: redpanda:9092
     ports:
@@ -87,6 +106,8 @@ services:
     image: redis:7-alpine
     container_name: surge-redis
     command: ["redis-server", "--save", "", "--appendonly", "no"]
+    cpus: 0.5
+    mem_limit: 128m
     ports:
       - "56380:6379"
     healthcheck:
@@ -116,7 +137,14 @@ services:
       build_time_zones: "False"
       build_elevation: "False"
       serve_tiles: "True"
+      # Four threads and two CPUs: batched matching asks every shard's travel
+      # times every two seconds. At 1.5 CPUs and two threads a benchmark had
+      # 27% of those solves time out and fall back to straight-line distance.
       server_threads: "4"
+    # The first tile build wants more than serving does; if a `make nuke`
+    # rebuild dies, raise this for that one run.
+    cpus: 2
+    mem_limit: 1536m
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8002/status || exit 1"]
       interval: 30s
@@ -127,6 +155,9 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: surge-prometheus
+    profiles: [observability]
+    cpus: 1
+    mem_limit: 512m
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=6h
@@ -141,6 +172,9 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: surge-grafana
+    profiles: [observability]
+    cpus: 0.5
+    mem_limit: 384m
     environment:
       GF_SECURITY_ADMIN_PASSWORD: surge
       GF_AUTH_ANONYMOUS_ENABLED: "true"
@@ -158,6 +192,9 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: surge-jaeger
+    profiles: [observability]
+    cpus: 0.5
+    mem_limit: 512m
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:

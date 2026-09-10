@@ -54,6 +54,7 @@ func run() error {
 		httpAddr    = config.StringOr("GATEWAY_HTTP_ADDR", ":8100")
 		metricsAddr = config.StringOr("GATEWAY_METRICS_ADDR", ":9104")
 		tripAddr    = config.StringOr("TRIP_GRPC_ADDR", "localhost:8110")
+		simAddr     = config.StringOr("SIM_GRPC_ADDR", "localhost:8111")
 		webOrigins  = config.Strings("GATEWAY_ORIGINS", []string{"http://localhost:5273"})
 	)
 
@@ -86,15 +87,16 @@ func run() error {
 	}
 	defer producer.Close()
 
-	clients, err := gatewaygrpc.Dial(tripAddr)
+	clients, err := gatewaygrpc.Dial(tripAddr, simAddr)
 	if err != nil {
 		return err
 	}
 	defer clients.Close()
 
 	connections := domain.NewRegistry()
+	fleet := domain.NewFleet()
 
-	hub := ws.NewHub(connections, verifier, producer, webOrigins, ws.Hooks{
+	hub := ws.NewHub(connections, verifier, producer, webOrigins, fleet, clients.Trip, ws.Hooks{
 		OnConnect: func(role string) { metrics.connects.WithLabelValues(role).Inc() },
 		OnDisconnect: func(role string, reason domain.EvictionReason) {
 			metrics.disconnects.WithLabelValues(role, string(reason)).Inc()
@@ -124,12 +126,20 @@ func run() error {
 	}
 	defer pushes.Close()
 
+	// The matchers' frames, which every instance needs for the same reason:
+	// a console may be connected to any of them.
+	frames, err := events.NewFleetConsumer(brokers, "gateway-fleet-"+instance, fleet)
+	if err != nil {
+		return err
+	}
+	defer frames.Close()
+
 	guard := authz.Middleware(verifier, func(reason string) {
 		metrics.rejected.WithLabelValues(reason).Inc()
 	})
 
 	// The REST surface, generated from the proto annotations.
-	rest, err := gatewayhttp.NewMux(ctx, clients.Conn())
+	rest, err := gatewayhttp.NewMux(ctx, clients.TripConn(), clients.SimulatorConn())
 	if err != nil {
 		return err
 	}
@@ -175,10 +185,12 @@ func run() error {
 		subsystem string
 		err       error
 	}
-	errs := make(chan failure, 3)
+	errs := make(chan failure, 4)
 
 	go func() { errs <- failure{"metrics", registry.ServeMetrics(ctx, metricsAddr)} }()
 	go func() { errs <- failure{"push consumer", pushes.Run(ctx)} }()
+	go func() { errs <- failure{"fleet consumer", frames.Run(ctx)} }()
+	go hub.RunFleet(ctx)
 	go func() {
 		slog.Info("gateway listening", "addr", httpAddr, "trip", tripAddr, "origins", webOrigins)
 		errs <- failure{"http", server.ListenAndServe()}

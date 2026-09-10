@@ -18,6 +18,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/ishakdeveloper/surge/shared/authz"
 	commonpb "github.com/ishakdeveloper/surge/shared/proto/common"
+	simpb "github.com/ishakdeveloper/surge/shared/proto/sim"
 	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,7 +27,7 @@ import (
 )
 
 // NewMux builds the REST surface over a gRPC connection.
-func NewMux(ctx context.Context, conn *grpc.ClientConn) (*runtime.ServeMux, error) {
+func NewMux(ctx context.Context, trip, simulator *grpc.ClientConn) (*runtime.ServeMux, error) {
 	mux := runtime.NewServeMux(
 		// Canonical proto3 JSON: camelCase, enums by name, int64 as a string.
 		// EmitUnpopulated because a zero value is meaningful — a trip with no
@@ -51,7 +52,10 @@ func NewMux(ctx context.Context, conn *grpc.ClientConn) (*runtime.ServeMux, erro
 		runtime.WithErrorHandler(writeError),
 	)
 
-	if err := trippb.RegisterTripServiceHandler(ctx, mux, conn); err != nil {
+	if err := trippb.RegisterTripServiceHandler(ctx, mux, trip); err != nil {
+		return nil, err
+	}
+	if err := simpb.RegisterSimulatorServiceHandler(ctx, mux, simulator); err != nil {
 		return nil, err
 	}
 	return mux, nil

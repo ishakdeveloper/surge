@@ -45,6 +45,21 @@ type Config struct {
 	// IdempotencyWindow is how long a request key is remembered, so an
 	// at-least-once redelivery cannot dispatch the same trip twice.
 	IdempotencyWindow time.Duration
+
+	// Strategy is how requests are matched: one at a time as they arrive, or
+	// gathered over BatchWindow and solved together. See batch.go.
+	Strategy Strategy
+	// BatchWindow is how long a batched shard gathers requests before solving.
+	// Long enough to see riders competing for the same cars, short enough that
+	// nobody waiting for one notices.
+	BatchWindow time.Duration
+	// BatchMaxRequests and BatchMaxDrivers bound a single solve. The travel-time
+	// matrix is drivers × requests, and the solver is cubic.
+	BatchMaxRequests int
+	BatchMaxDrivers  int
+	// BatchTimeout gives up on travel times that never came back, and solves
+	// that batch over straight-line distance instead.
+	BatchTimeout time.Duration
 }
 
 func DefaultConfig() Config {
@@ -55,6 +70,11 @@ func DefaultConfig() Config {
 		RequestTTL:        45 * time.Second,
 		DepartedGrace:     10 * time.Second,
 		IdempotencyWindow: 5 * time.Minute,
+		Strategy:          StrategyGreedy,
+		BatchWindow:       2 * time.Second,
+		BatchMaxRequests:  32,
+		BatchMaxDrivers:   64,
+		BatchTimeout:      5 * time.Second,
 	}
 }
 
@@ -64,6 +84,7 @@ type driverState struct {
 	indexCell geo.Cell
 	shardCell string
 	status    wire.DriverStatus
+	heading   float64
 	epoch     uint64
 	seq       uint64
 	// reservedFor is the trip holding this driver, or "" when free. A single
@@ -126,6 +147,32 @@ type Outcome struct {
 	Abandoned []string
 	// Rejections counts reservation refusals by reason — the contention signal.
 	Rejections []wire.ReserveRejection
+	// Dispatches are the offers sent, with where the car and the rider were.
+	// Match latency is what a rider feels now; the drive to the pickup is what
+	// they feel next, waiting on the kerb — and it is what batching exists to
+	// shrink.
+	Dispatches []Dispatch
+	// Batch asks the runner for travel times, when a batched shard closes its
+	// window. The answer comes back through Solved.
+	Batch *BatchRequest
+}
+
+// Dispatch is one offer: which car, and how far it is from its rider.
+type Dispatch struct {
+	TripID   string
+	DriverID string
+	Driver   geo.Point
+	Pickup   geo.Point
+	// Meters is the straight-line distance. Road time needs a router, and is
+	// priced afterwards from the positions (see `make bench-matching`).
+	Meters float64
+}
+
+func dispatched(tripID, driverID string, driver, pickup geo.Point) Dispatch {
+	return Dispatch{
+		TripID: tripID, DriverID: driverID, Driver: driver, Pickup: pickup,
+		Meters: geo.DistanceMeters(driver, pickup),
+	}
 }
 
 type MatchResult struct {
@@ -155,6 +202,13 @@ type Shard struct {
 	// checkpointed tracks every cell this shard has written a checkpoint for,
 	// so it can write an empty record to supersede it.
 	checkpointed map[string]struct{}
+
+	// Batched matching: requests waiting for the window to close, when it
+	// opened, and the batch whose travel times are being fetched.
+	waiting      []string
+	windowOpened time.Time
+	inflight     *batch
+	batchSeq     uint64
 }
 
 func NewShard(partition int32, config Config) *Shard {
@@ -229,6 +283,7 @@ func (s *Shard) driverEntered(event wire.GeoEvent, now time.Time) (Outcome, erro
 		indexCell: indexCell,
 		shardCell: event.Cell,
 		status:    payload.Status,
+		heading:   payload.Heading,
 		epoch:     payload.Epoch,
 		seq:       payload.Seq,
 	}
@@ -308,6 +363,7 @@ func (s *Shard) driverMoved(event wire.GeoEvent) (Outcome, error) {
 	driver.epoch = payload.Epoch
 	driver.seq = payload.Seq
 	driver.status = payload.Status
+	driver.heading = payload.Heading
 
 	return Outcome{}, nil
 }
@@ -335,6 +391,15 @@ func (s *Shard) matchRequested(event wire.GeoEvent, now time.Time) (Outcome, err
 	s.seen[payload.IdempotencyKey] = now
 
 	if _, active := s.pending[payload.TripID]; active {
+		return Outcome{}, nil
+	}
+
+	if s.config.Strategy == StrategyBatched {
+		s.pending[payload.TripID] = &pendingRequest{
+			payload:  *payload,
+			deadline: now.Add(s.config.RequestTTL),
+		}
+		s.queue(payload.TripID, now)
 		return Outcome{}, nil
 	}
 
@@ -420,7 +485,11 @@ func (s *Shard) advance(request *pendingRequest, now time.Time) Outcome {
 			expires:       now.Add(s.config.OfferTTL),
 		}
 
-		return Outcome{Offers: []wire.Offer{offer}}
+		pickup := geo.Point{Lat: request.payload.PickupLat, Lng: request.payload.PickupLng}
+		return Outcome{
+			Offers:     []wire.Offer{offer},
+			Dispatches: []Dispatch{dispatched(request.payload.TripID, driver.id, driver.point, pickup)},
+		}
 	}
 
 	delete(s.pending, request.payload.TripID)
@@ -469,6 +538,8 @@ func (s *Shard) reserveDriver(event wire.GeoEvent, now time.Time) (Outcome, erro
 		expires:       time.UnixMilli(payload.DeadlineMs),
 	}
 
+	dispatch := dispatched(payload.TripID, driver.id, driver.point, geo.Point{Lat: payload.PickupLat, Lng: payload.PickupLng})
+
 	return Outcome{Offers: []wire.Offer{{
 		Tag:            wire.TagOffer,
 		TripID:         payload.TripID,
@@ -479,7 +550,7 @@ func (s *Shard) reserveDriver(event wire.GeoEvent, now time.Time) (Outcome, erro
 		ReplyCell:      driver.shardCell,
 		ExpiresAtMs:    payload.DeadlineMs,
 		DispatchedAtMs: now.UnixMilli(),
-	}}}, nil
+	}}, Dispatches: []Dispatch{dispatch}}, nil
 }
 
 // reserveResult is the requesting shard learning how a cross-shard reservation
@@ -584,10 +655,7 @@ func (s *Shard) Tick(now time.Time) Outcome {
 
 		if request, mine := s.pending[tripID]; mine {
 			request.outstanding = ""
-			next := s.advance(request, now)
-			outcome.GeoEvents = append(outcome.GeoEvents, next.GeoEvents...)
-			outcome.Offers = append(outcome.Offers, next.Offers...)
-			outcome.Abandoned = append(outcome.Abandoned, next.Abandoned...)
+			outcome.merge(s.advance(request, now))
 		} else {
 			outcome.GeoEvents = append(outcome.GeoEvents, wire.GeoEvent{
 				Tag:  wire.TagReserveResult,
@@ -628,6 +696,10 @@ func (s *Shard) Tick(now time.Time) Outcome {
 		if _, live := s.offers[trip]; !live {
 			delete(s.restoredHolds, driverID)
 		}
+	}
+
+	if s.config.Strategy == StrategyBatched {
+		outcome.merge(s.maybeBatch(now))
 	}
 
 	return outcome
@@ -806,3 +878,22 @@ func (s *Shard) Restore(records []wire.ShardCheckpoint, now time.Time) {
 // reappear. It falls to zero within a ping interval of a rebalance, and a value
 // that stays above zero means drivers are not coming back.
 func (s *Shard) RestoredHolds() int { return len(s.restoredHolds) }
+
+// Frame is this shard's fleet, for the console: every driver it owns, and how
+// many promises it is holding. Pure, like Handle — it reads and allocates, and
+// the runner decides what to do with the result.
+func (s *Shard) Frame() (drivers []wire.FleetDriver, pending, offers int) {
+	drivers = make([]wire.FleetDriver, 0, len(s.drivers))
+	for _, driver := range s.drivers {
+		drivers = append(drivers, wire.FleetDriver{
+			ID:       driver.id,
+			Lat:      driver.point.Lat,
+			Lng:      driver.point.Lng,
+			Heading:  driver.heading,
+			Status:   driver.status,
+			Cell:     driver.shardCell,
+			Reserved: driver.reservedFor != "",
+		})
+	}
+	return drivers, len(s.pending), len(s.offers)
+}

@@ -29,11 +29,36 @@ export interface MapMarker {
   readonly id: string;
   readonly position: MapPoint;
   /** Categorisation, which is the only thing colour is used for here. */
-  readonly kind: "pickup" | "dropoff" | "driver" | "self";
+  readonly kind: "pickup" | "dropoff" | "driver" | "idle" | "self";
+}
+
+/** A shaded region — for the console, one H3 cell and how full it is. */
+export interface MapCell {
+  readonly id: string;
+  /** The outline as `[lng, lat]` pairs, in order. */
+  readonly boundary: ReadonlyArray<readonly [number, number]>;
+  /** 0 to 1: how strongly to shade it. */
+  readonly weight: number;
+}
+
+/** What the map is showing: its bounds and zoom. */
+export interface MapView {
+  readonly west: number;
+  readonly south: number;
+  readonly east: number;
+  readonly north: number;
+  readonly zoom: number;
 }
 
 export interface SurgeMapProps {
   readonly markers: ReadonlyArray<MapMarker>;
+  /**
+   * Many small points — the console's fleet. Drawn under `markers`, smaller and
+   * unoutlined, because thousands of outlined discs become one grey smear.
+   */
+  readonly dots?: ReadonlyArray<MapMarker>;
+  /** Shaded regions, drawn beneath everything else. */
+  readonly cells?: ReadonlyArray<MapCell>;
   readonly route: ReadonlyArray<MapPoint>;
   /**
    * The view is fitted to these whenever the set changes — not on every render,
@@ -43,6 +68,11 @@ export interface SurgeMapProps {
   readonly follow: ReadonlyArray<MapPoint>;
   /** A click on the map, for pages where the map is how a point is chosen. */
   readonly onPick?: (point: MapPoint) => void;
+  /**
+   * The view, once the map has loaded and again whenever a pan or zoom comes
+   * to rest — not during one, which would be sixty calls a second.
+   */
+  readonly onView?: (view: MapView) => void;
   readonly className?: string;
 }
 
@@ -56,8 +86,11 @@ const COLOURS: Record<MapMarker["kind"], [number, number, number]> = {
   pickup: [34, 197, 94],
   dropoff: [96, 165, 250],
   driver: [245, 158, 11],
+  idle: [45, 212, 191],
   self: [240, 240, 240],
 };
+
+const NONE: ReadonlyArray<never> = [];
 
 type Layers = typeof import("@deck.gl/layers");
 
@@ -69,9 +102,11 @@ export const SurgeMap = (props: SurgeMapProps) => {
   const overlay = React.useRef<MapboxOverlay | null>(null);
   const layers = React.useRef<Layers | null>(null);
   const onPick = React.useRef(props.onPick);
+  const onView = React.useRef(props.onView);
   const [status, setStatus] = React.useState<Status>("loading");
 
   onPick.current = props.onPick;
+  onView.current = props.onView;
 
   React.useEffect(() => {
     // Checked by constructor rather than by asking a canvas for a context:
@@ -105,6 +140,18 @@ export const SurgeMap = (props: SurgeMapProps) => {
       instance.on("click", (event) => {
         onPick.current?.({ lat: event.lngLat.lat, lng: event.lngLat.lng });
       });
+      const reportView = () => {
+        const bounds = instance.getBounds();
+        onView.current?.({
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth(),
+          zoom: instance.getZoom(),
+        });
+      };
+      instance.on("load", reportView);
+      instance.on("moveend", reportView);
 
       map.current = instance;
       overlay.current = deckOverlay;
@@ -127,12 +174,33 @@ export const SurgeMap = (props: SurgeMapProps) => {
 
     overlay.current.setProps({
       layers: [
+        new deckLayers.PolygonLayer<MapCell>({
+          id: "cells",
+          data: props.cells ?? NONE,
+          getPolygon: (cell) => cell.boundary.map(([lng, lat]): [number, number] => [lng, lat]),
+          getFillColor: (cell) => [245, 158, 11, Math.round(20 + 170 * cell.weight)],
+          getLineColor: [245, 158, 11, 90],
+          lineWidthMinPixels: 1,
+          stroked: true,
+          filled: true,
+          updateTriggers: { getFillColor: props.cells },
+        }),
         new deckLayers.PathLayer<ReadonlyArray<MapPoint>>({
           id: "route",
           data: props.route.length > 1 ? [props.route] : [],
           getPath: (path) => path.map((point): [number, number] => [point.lng, point.lat]),
           getColor: [96, 165, 250, 200],
           widthMinPixels: 4,
+        }),
+        new deckLayers.ScatterplotLayer<MapMarker>({
+          id: "dots",
+          data: props.dots ?? NONE,
+          getPosition: (marker) => [marker.position.lng, marker.position.lat],
+          getFillColor: (marker) => COLOURS[marker.kind],
+          radiusMinPixels: 2.5,
+          radiusMaxPixels: 6,
+          getRadius: 8,
+          updateTriggers: { getFillColor: props.dots },
         }),
         new deckLayers.ScatterplotLayer<MapMarker>({
           id: "markers",
@@ -147,7 +215,7 @@ export const SurgeMap = (props: SurgeMapProps) => {
         }),
       ],
     });
-  }, [status, props.markers, props.route]);
+  }, [status, props.markers, props.route, props.dots, props.cells]);
 
   // A string key, so the effect fires when the points change rather than when
   // the array identity does — a parent re-rendering with equal points must not

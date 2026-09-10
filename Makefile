@@ -9,7 +9,7 @@ GO      := cd backend && go
 BIN     := backend/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures grant-ops bench-matching up up-core down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -70,13 +70,17 @@ tilt: ## Kubernetes with live rebuilds
 scaffold: ## Create a new service: make scaffold NAME=pricing
 	cd backend && go run ./tools/create-service -name $(or $(NAME),$(error set NAME))
 
+grant-ops: ## Make an account ops, for /console: make grant-ops EMAIL=you@example.com, then sign in again
+	@docker exec surge-postgres psql -U surge -d surge_auth -c \
+		"update \"user\" set role = 'ops' where email = '$(or $(EMAIL),$(error set EMAIL))'"
+
 wire-fixtures: ## Regenerate the WebSocket protocol fixtures both suites assert against
 	cd backend && go run ./tools/wire-fixtures
 
-up: ## Start infrastructure (redpanda, postgres, redis, valhalla, prometheus, grafana)
+up: ## Start all infrastructure: the system and its dashboards
 	@docker context show 2>/dev/null | grep -q orbstack || \
 		echo "  note: not on the orbstack context; docker desktop wedged under this workload"
-	$(COMPOSE) up -d
+	$(COMPOSE) --profile observability up -d
 	@echo
 	@echo "  redpanda console  http://localhost:8080"
 	@echo "  grafana           http://localhost:3005"
@@ -86,8 +90,11 @@ up: ## Start infrastructure (redpanda, postgres, redis, valhalla, prometheus, gr
 	@echo
 	@echo "  Valhalla builds tiles on first boot: 10-20 minutes. 'make logs' to watch."
 
+up-core: ## Only what the system needs to run (postgres, redpanda, redis, valhalla), no dashboards
+	$(COMPOSE) up -d
+
 down: ## Stop infrastructure, keep the volumes
-	$(COMPOSE) down
+	$(COMPOSE) --profile observability down
 
 logs: ## Follow infrastructure logs
 	$(COMPOSE) logs -f
@@ -128,7 +135,7 @@ proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 		--grpc-gateway_opt=generate_unbound_methods=false \
 		--openapiv2_out=docs/api \
 		--openapiv2_opt=allow_merge=true,merge_file_name=surge,disable_default_errors=true \
-		proto/trip.proto proto/driver.proto proto/common.proto
+		proto/trip.proto proto/driver.proto proto/common.proto proto/sim.proto
 	cd backend && gofmt -w shared/proto
 	# The gateway embeds the document it serves, so a rebuild cannot leave the
 	# published spec describing an older API.
@@ -191,6 +198,9 @@ control: ## Simulator-only control run, pings discarded
 	@set -a; . ./.env; set +a; \
 	SIM_KAFKA=false SIM_DRIVERS=$${DRIVERS:-100000} $(BIN)/simd
 
+bench-matching: build ## Greedy vs batched matching on the same demand: make bench-matching RPS=20 MINUTES=4
+	@DRIVERS=$(or $(DRIVERS),300) RPS=$(or $(RPS),20) MINUTES=$(or $(MINUTES),4) scripts/bench-matching.sh
+
 stats: ## Current simulator and ingest state
 	@echo "sim:    $$(curl -s localhost:8101/sim/stats)"
 	@echo "ingest: $$(curl -s localhost:8102/debug/stats)"
@@ -210,4 +220,4 @@ clean: ## Remove build output
 	rm -rf $(BIN) apps/*/build packages/*/build apps/web/.output
 
 nuke: ## Remove infrastructure AND its data
-	$(COMPOSE) down -v
+	$(COMPOSE) --profile observability down -v

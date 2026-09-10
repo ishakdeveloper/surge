@@ -1,0 +1,31 @@
+{
+  "_tag": "FleetUpdate",
+  "fleet": {
+    "atMs": 1757512340000,
+    "mode": "drivers",
+    "cells": [],
+    "drivers": [
+      {
+        "id": "drv-000123",
+        "lat": 52.3702,
+        "lng": 4.8952,
+        "heading": 137.5,
+        "status": "idle",
+        "cell": "871f1d492ffffff",
+        "reserved": false
+      }
+    ],
+    "shards": [],
+    "stats": {
+      "drivers": 1,
+      "idle": 1,
+      "pending": 0,
+      "offers": 0,
+      "matchedPerSecond": 0,
+      "abandonedPerSecond": 0,
+      "p50Ms": 0,
+      "p95Ms": 0,
+      "p99Ms": 0
+    }
+  }
+}

@@ -5,6 +5,7 @@ import {
   DriverPing,
   OfferReply,
   ServerMessageFromJson,
+  Viewport,
 } from "@surge/domain/realtime/Wire";
 import { Effect, Schema } from "effect";
 import * as fs from "node:fs";
@@ -89,6 +90,51 @@ describe("server messages", () => {
     expect(result._tag).toBe("Failure");
   });
 
+  it("decodes a fleet update in cell mode, with each cell's hexagon", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_fleet_cells.json")));
+
+    if (message._tag !== "FleetUpdate") {
+      throw new Error(`expected a fleet update, got ${message._tag}`);
+    }
+    expect(message.fleet.mode).toBe("cells");
+    expect(message.fleet.drivers).toEqual([]);
+    expect(message.fleet.cells[0]?.cell).toBe("871f1d492ffffff");
+    expect(message.fleet.cells[0]?.boundary).toHaveLength(6);
+    expect(message.fleet.shards[0]).toMatchObject({
+      partition: 7,
+      instance: "matcher-a",
+      ageMs: 340,
+    });
+    expect(message.fleet.stats.p99Ms).toBe(4400);
+  });
+
+  it("decodes a fleet update in driver mode", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_fleet_drivers.json")));
+
+    if (message._tag !== "FleetUpdate") {
+      throw new Error(`expected a fleet update, got ${message._tag}`);
+    }
+    expect(message.fleet.mode).toBe("drivers");
+    expect(message.fleet.cells).toEqual([]);
+    expect(message.fleet.drivers[0]).toMatchObject({
+      id: "drv-000123",
+      heading: 137.5,
+      status: "idle",
+      reserved: false,
+    });
+  });
+
+  it("decodes a driver's position for the rider following them", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_driver_position.json")));
+
+    if (message._tag !== "DriverPosition") {
+      throw new Error(`expected a position, got ${message._tag}`);
+    }
+    expect(message.position.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
+    expect(message.position.driverId).toBe("drv-000123");
+    expect(message.position.lat).toBeCloseTo(52.3711, 4);
+  });
+
   it("decodes an error frame", async () => {
     const message = await Effect.runPromise(decodeServer(fixture("server_error.json")));
 
@@ -160,6 +206,27 @@ describe("client messages", () => {
     }));
 
     expect(JSON.parse(encoded)).toEqual(JSON.parse(fixture("client_offer_reply.json")));
+  });
+
+  it("encodes a fleet watch with its viewport", async () => {
+    const encoded = await Effect.runPromise(encodeClient({
+      _tag: "ClientWatchFleet",
+      viewport: new Viewport({ west: 4.85, south: 52.35, east: 4.95, north: 52.4, zoom: 13 }),
+    }));
+    expect(JSON.parse(encoded)).toEqual(JSON.parse(fixture("client_watch_fleet.json")));
+  });
+
+  it("encodes following a trip, and stopping both subscriptions", async () => {
+    const follow = await Effect.runPromise(encodeClient({
+      _tag: "ClientFollowTrip",
+      tripId: TripId.make("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80"),
+    }));
+    expect(JSON.parse(follow)).toEqual(JSON.parse(fixture("client_follow_trip.json")));
+
+    const unwatch = await Effect.runPromise(encodeClient({ _tag: "ClientUnwatchFleet" }));
+    expect(JSON.parse(unwatch)).toEqual(JSON.parse(fixture("client_unwatch_fleet.json")));
+    const unfollow = await Effect.runPromise(encodeClient({ _tag: "ClientUnfollowTrip" }));
+    expect(JSON.parse(unfollow)).toEqual(JSON.parse(fixture("client_unfollow_trip.json")));
   });
 
   it("rejects a position that is not on the planet", async () => {

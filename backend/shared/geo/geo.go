@@ -177,3 +177,20 @@ func Lerp(a, b Point, t float64) Point {
 		Lng: a.Lng + (b.Lng-a.Lng)*t,
 	}
 }
+
+// Boundary is a cell's outline, for drawing it: vertices in order, not closed.
+func Boundary(cell string) ([]Point, error) {
+	c := h3.CellFromString(cell)
+	if !c.IsValid() {
+		return nil, fmt.Errorf("geo: %q is not an H3 cell", cell)
+	}
+	vertices, err := c.Boundary()
+	if err != nil {
+		return nil, fmt.Errorf("geo: boundary of %s: %w", cell, err)
+	}
+	points := make([]Point, len(vertices))
+	for i, vertex := range vertices {
+		points[i] = Point{Lat: vertex.Lat, Lng: vertex.Lng}
+	}
+	return points, nil
+}

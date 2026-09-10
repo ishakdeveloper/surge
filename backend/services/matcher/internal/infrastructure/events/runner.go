@@ -3,14 +3,19 @@ package events
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
+	"math"
+	"strconv"
 	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/ishakdeveloper/surge/services/matcher/internal/domain"
+	"github.com/ishakdeveloper/surge/shared/geo"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
+	"github.com/ishakdeveloper/surge/shared/routing"
 	"github.com/ishakdeveloper/surge/shared/tracing"
 	"github.com/ishakdeveloper/surge/shared/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -31,6 +36,18 @@ type Hooks struct {
 	OnShardState     func(partition int32, drivers, pending, offers int)
 	OnHandlerError   func(error)
 	OnProduceFailure func(error)
+	// OnBatch reports one travel-time fetch for a batched solve: how many
+	// riders and cars it covered, how long the router took, and whether it
+	// answered at all.
+	OnBatch func(requests, drivers int, took time.Duration, err error)
+	// OnDispatched reports every offer: which car, which rider, how far apart.
+	// Called from every worker goroutine at once.
+	OnDispatched func(domain.Dispatch)
+}
+
+// Router is where batched matching gets its travel times.
+type Router interface {
+	Matrix(ctx context.Context, sources, targets []geo.Point) ([][]routing.MatrixCell, error)
 }
 
 // Runner owns the consumer group and one worker per assigned partition.
@@ -40,7 +57,9 @@ type Hooks struct {
 // "single writer per geography" property is a consequence of the process
 // layout rather than something enforced by discipline.
 type Runner struct {
+	router   Router
 	brokers  []string
+	instance string
 	config   domain.Config
 	hooks    Hooks
 	producer *kgo.Client
@@ -64,10 +83,21 @@ type worker struct {
 	// the way out — and writing this still-empty shard would overwrite that
 	// checkpoint and erase every reservation in it.
 	restored chan struct{}
+
+	// solved carries travel times back from Runner.solve. Buffered for the one
+	// batch a shard has in flight, so the fetch never waits on the loop.
+	solved chan domain.BatchResult
+
+	// latencies and abandoned accumulate between frames. Only the worker
+	// goroutine touches them, like the shard itself.
+	latencies []int64
+	abandoned int
 }
 
-func NewRunner(brokers []string, config domain.Config, producer *kgo.Client, hooks Hooks) *Runner {
+func NewRunner(brokers []string, config domain.Config, producer *kgo.Client, router Router, instance string, hooks Hooks) *Runner {
 	return &Runner{
+		router:   router,
+		instance: instance,
 		brokers:  brokers,
 		config:   config,
 		hooks:    hooks,
@@ -178,6 +208,7 @@ func (r *Runner) assigned(ctx context.Context, client *kgo.Client, assigned map[
 			stopped:  make(chan struct{}),
 			done:     make(chan struct{}),
 			restored: make(chan struct{}),
+			solved:   make(chan domain.BatchResult, 1),
 		}
 		r.workers[partition] = w
 		fresh[partition] = w
@@ -323,6 +354,12 @@ func (r *Runner) run(w *worker) {
 	report := time.NewTicker(2 * time.Second)
 	defer report.Stop()
 
+	// The console's view of this partition. Once a second: fast enough that a
+	// map looks live, slow enough that thirty-two partitions cost a few
+	// kilobytes a second rather than a stream the size of the pings.
+	frame := time.NewTicker(time.Second)
+	defer frame.Stop()
+
 	for {
 		select {
 		case <-w.stopped:
@@ -337,7 +374,15 @@ func (r *Runner) run(w *worker) {
 			// Expiries have no inbound record to inherit a trace from, so they
 			// start their own. A timed-out offer is worth seeing as a trace in
 			// its own right: it is a rider waiting.
-			r.emit(context.Background(), w.shard.Tick(now))
+			r.emit(context.Background(), w, w.shard.Tick(now))
+
+		case result := <-w.solved:
+			// A batch's travel times, back from the router. Like an expiry it
+			// has no inbound record to continue a trace from.
+			r.emit(context.Background(), w, w.shard.Solved(result, time.Now()))
+
+		case <-frame.C:
+			r.publishFrame(w)
 
 		case <-report.C:
 			if r.hooks.OnShardState != nil {
@@ -388,11 +433,11 @@ func (r *Runner) handle(w *worker, record *kgo.Record) {
 	if r.hooks.OnEvent != nil {
 		r.hooks.OnEvent(event.Tag)
 	}
-	r.emit(ctx, outcome)
+	r.emit(ctx, w, outcome)
 }
 
 // emit sends everything an outcome produced, and counts what happened.
-func (r *Runner) emit(ctx context.Context, outcome domain.Outcome) {
+func (r *Runner) emit(ctx context.Context, w *worker, outcome domain.Outcome) {
 	for _, event := range outcome.GeoEvents {
 		r.produce(ctx, kafkax.TopicGeoEvents, event.Cell, event)
 	}
@@ -403,7 +448,15 @@ func (r *Runner) emit(ctx context.Context, outcome domain.Outcome) {
 			wire.ServerMessage{Tag: wire.TagOffer, Offer: &offer})
 	}
 
+	if r.hooks.OnDispatched != nil {
+		for _, dispatch := range outcome.Dispatches {
+			r.hooks.OnDispatched(dispatch)
+		}
+	}
+
 	for _, match := range outcome.Matched {
+		w.latencies = append(w.latencies, match.Latency.Milliseconds())
+
 		// Keyed by trip id on its own topic, so the trip service consumes the
 		// handful of outcomes it cares about rather than ten thousand position
 		// updates a second looking for them.
@@ -422,6 +475,8 @@ func (r *Runner) emit(ctx context.Context, outcome domain.Outcome) {
 		}
 	}
 	for _, tripID := range outcome.Abandoned {
+		w.abandoned++
+
 		r.produce(ctx, kafkax.TopicTripEvents, tripID, wire.TripEvent{
 			Tag:       wire.TagTripUnmatched,
 			TripID:    tripID,
@@ -438,6 +493,61 @@ func (r *Runner) emit(ctx context.Context, outcome domain.Outcome) {
 			r.hooks.OnRejection(rejection)
 		}
 	}
+	if outcome.Batch != nil {
+		r.solve(w, *outcome.Batch)
+	}
+}
+
+// solve fetches the travel times a batch asked for, off the worker's
+// goroutine, and hands them back to it.
+//
+// The only I/O in matching, and the reason it lives here rather than in the
+// shard: a matrix call takes tens of milliseconds, and the loop that owns a
+// slice of the city must not stop for it. The shard keeps handling pings,
+// replies and new requests meanwhile, and the answer arrives as one more
+// message on the worker's queue. The deadline sits inside the shard's own
+// BatchTimeout, so a slow router is given up on here before the shard gives
+// up on it there.
+func (r *Runner) solve(w *worker, request domain.BatchRequest) {
+	go func() {
+		started := time.Now()
+		result := domain.BatchResult{ID: request.ID}
+		if r.router == nil {
+			result.Err = errors.New("matcher: no router configured")
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), r.config.BatchTimeout*3/5)
+			matrix, err := r.router.Matrix(ctx, request.Drivers, request.Pickups)
+			cancel()
+			result.Err = err
+			if err == nil {
+				result.Seconds = travelSeconds(matrix)
+			}
+		}
+		if r.hooks.OnBatch != nil {
+			r.hooks.OnBatch(len(request.Pickups), len(request.Drivers), time.Since(started), result.Err)
+		}
+		select {
+		case w.solved <- result:
+		case <-w.stopped:
+		}
+	}()
+}
+
+// travelSeconds turns the router's matrix into the shard's costs, with +Inf
+// where there is no road: a pair the solver must never choose, not a free one.
+func travelSeconds(matrix [][]routing.MatrixCell) [][]float64 {
+	out := make([][]float64, len(matrix))
+	for j, row := range matrix {
+		out[j] = make([]float64, len(row))
+		for i, cell := range row {
+			if cell.Reachable {
+				out[j][i] = cell.Duration.Seconds()
+			} else {
+				out[j][i] = math.Inf(1)
+			}
+		}
+	}
+	return out
 }
 
 func (r *Runner) produce(ctx context.Context, topic, key string, message any) {
@@ -497,4 +607,34 @@ func (r *Runner) shutdown(ctx context.Context) {
 	for _, w := range workers {
 		r.release(ctx, w)
 	}
+}
+
+// publishFrame tells the console what this partition holds.
+//
+// Keyed by partition, so each gateway's view of a partition is simply the
+// latest record for it. The counters reset here, which is what makes them
+// "since the last frame".
+func (r *Runner) publishFrame(w *worker) {
+	drivers, pending, offers := w.shard.Frame()
+
+	latencies := w.latencies
+	if latencies == nil {
+		latencies = []int64{}
+	}
+
+	frame := wire.FleetFrame{
+		Tag:              wire.TagFleetFrame,
+		Partition:        w.shard.Partition(),
+		Instance:         r.instance,
+		AtMs:             time.Now().UnixMilli(),
+		Drivers:          drivers,
+		Pending:          pending,
+		Offers:           offers,
+		MatchLatenciesMs: latencies,
+		Abandoned:        w.abandoned,
+	}
+	w.latencies = nil
+	w.abandoned = 0
+
+	r.produce(context.Background(), kafkax.TopicFleetFrames, strconv.Itoa(int(frame.Partition)), frame)
 }

@@ -145,6 +145,84 @@ export class TripUpdate extends Schema.Class<TripUpdate>("TripUpdate")({
   atMs: Schema.Number,
 }) {}
 
+/**
+ * What a console is looking at. The gateway sends cell counts below zoom 14 and
+ * individual drivers above it, and only the drivers inside this box.
+ */
+export class Viewport extends Schema.Class<Viewport>("Viewport")({
+  west: Schema.Number,
+  south: Schema.Number,
+  east: Schema.Number,
+  north: Schema.Number,
+  zoom: Schema.Number,
+}) {}
+
+/** One driver as the console draws them. `reserved` is held for a trip, whatever their own status says. */
+export class FleetDriver extends Schema.Class<FleetDriver>("FleetDriver")({
+  id: DriverId,
+  lat: Schema.Number,
+  lng: Schema.Number,
+  heading: Schema.Number,
+  status: DriverStatus,
+  cell: CellId,
+  reserved: Schema.Boolean,
+}) {}
+
+/**
+ * One resolution-7 cell, counted. The hexagon comes with it as `[lng, lat]`
+ * pairs, computed once per cell by the gateway, so the browser draws a polygon
+ * without an H3 library of its own.
+ */
+export class FleetCell extends Schema.Class<FleetCell>("FleetCell")({
+  cell: CellId,
+  drivers: Schema.Number,
+  idle: Schema.Number,
+  boundary: Schema.Array(Schema.Tuple([Schema.Number, Schema.Number])),
+}) {}
+
+/** One matcher partition's load. An `ageMs` that keeps climbing is a partition nobody owns right now. */
+export class FleetShard extends Schema.Class<FleetShard>("FleetShard")({
+  partition: Schema.Number,
+  instance: Schema.String,
+  drivers: Schema.Number,
+  pending: Schema.Number,
+  offers: Schema.Number,
+  ageMs: Schema.Number,
+}) {}
+
+/** The numbers above the map. Percentiles are over the last ten seconds; zero means nothing matched in it. */
+export class FleetStats extends Schema.Class<FleetStats>("FleetStats")({
+  drivers: Schema.Number,
+  idle: Schema.Number,
+  pending: Schema.Number,
+  offers: Schema.Number,
+  matchedPerSecond: Schema.Number,
+  abandonedPerSecond: Schema.Number,
+  p50Ms: Schema.Number,
+  p95Ms: Schema.Number,
+  p99Ms: Schema.Number,
+}) {}
+
+/** One console's view of the fleet, once a second while it watches. */
+export class FleetUpdate extends Schema.Class<FleetUpdate>("FleetUpdate")({
+  atMs: Schema.Number,
+  mode: Schema.Literals(["cells", "drivers"]),
+  cells: Schema.Array(FleetCell),
+  drivers: Schema.Array(FleetDriver),
+  shards: Schema.Array(FleetShard),
+  stats: FleetStats,
+}) {}
+
+/** Where a rider's driver is, once a second while the rider follows the trip. */
+export class DriverPosition extends Schema.Class<DriverPosition>("DriverPosition")({
+  tripId: TripId,
+  driverId: DriverId,
+  lat: Schema.Number,
+  lng: Schema.Number,
+  heading: Schema.Number,
+  atMs: Schema.Number,
+}) {}
+
 /** A driver's answer to a dispatched offer. `driverId` is absent for the same reason it is on {@link DriverPing}. */
 export class OfferReply extends Schema.Class<OfferReply>("OfferReply")({
   tripId: TripId,
@@ -161,6 +239,14 @@ export class OfferReply extends Schema.Class<OfferReply>("OfferReply")({
 export const ClientMessage = Schema.Union([
   Schema.TaggedStruct("ClientHeartbeat", {}).annotate({ identifier: "ClientHeartbeat" }),
   Schema.TaggedStruct("ClientPing", { ping: DriverPing }).annotate({ identifier: "ClientPing" }),
+  Schema.TaggedStruct("ClientWatchFleet", { viewport: Viewport }).annotate({
+    identifier: "ClientWatchFleet",
+  }),
+  Schema.TaggedStruct("ClientUnwatchFleet", {}).annotate({ identifier: "ClientUnwatchFleet" }),
+  Schema.TaggedStruct("ClientFollowTrip", { tripId: TripId }).annotate({
+    identifier: "ClientFollowTrip",
+  }),
+  Schema.TaggedStruct("ClientUnfollowTrip", {}).annotate({ identifier: "ClientUnfollowTrip" }),
   Schema.TaggedStruct("ClientOfferReply", {
     reply: OfferReply,
     replyCell: CellId,
@@ -184,6 +270,12 @@ export const ServerMessage = Schema.Union([
   Schema.TaggedStruct("ServerWelcome", {}).annotate({ identifier: "ServerWelcome" }),
   Schema.TaggedStruct("Offer", { offer: Offer }).annotate({ identifier: "OfferMessage" }),
   Schema.TaggedStruct("TripUpdated", { trip: TripUpdate }).annotate({ identifier: "TripUpdated" }),
+  Schema.TaggedStruct("FleetUpdate", { fleet: FleetUpdate }).annotate({
+    identifier: "FleetUpdateMessage",
+  }),
+  Schema.TaggedStruct("DriverPosition", { position: DriverPosition }).annotate({
+    identifier: "DriverPositionMessage",
+  }),
   Schema.TaggedStruct("ServerError", { error: Schema.String }).annotate({
     identifier: "ServerError",
   }),

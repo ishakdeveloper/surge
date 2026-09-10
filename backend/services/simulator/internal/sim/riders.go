@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"time"
 
 	"github.com/ishakdeveloper/surge/shared/geo"
@@ -29,6 +30,15 @@ type RiderConfig struct {
 	// slow, and the offer is holding a reservation the whole time.
 	AcceptLatency time.Duration
 	Seed          uint64
+	// Run tells this simulator run's trips apart from every other run's.
+	//
+	// The seed makes demand reproducible — the same pickups in the same order —
+	// so on its own it also repeats trip ids, and those double as idempotency
+	// keys. A matcher that outlived a simulator restart would drop the new
+	// run's requests as duplicates of the old one's for its whole dedupe
+	// window, and a benchmark reading trip.events counted a thousand trips
+	// "matched twice" that were two runs sharing names.
+	Run uint64
 }
 
 func DefaultRiderConfig() RiderConfig {
@@ -93,6 +103,11 @@ func NewRiders(brokers []string, group string, pool *RoutePool, config RiderConf
 	}, nil
 }
 
+// TripID names a simulated trip: the seed, the run, and its place in the run.
+func TripID(seed, run, sequence uint64) string {
+	return fmt.Sprintf("trip-%d-%s-%d", seed, strconv.FormatUint(run, 36), sequence)
+}
+
 func (r *Riders) Close() {
 	r.producer.Close()
 	r.consumer.Close()
@@ -147,7 +162,7 @@ func (r *Riders) request(ctx context.Context) error {
 		}
 
 		sequence++
-		tripID := fmt.Sprintf("trip-%d-%d", r.config.Seed, sequence)
+		tripID := TripID(r.config.Seed, r.config.Run, sequence)
 		now := time.Now()
 
 		event := wire.GeoEvent{

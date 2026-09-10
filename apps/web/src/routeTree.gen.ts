@@ -19,6 +19,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-passw
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as AuthVerifiedRouteImport } from './routes/auth/verified'
+import { Route as ProtectedConsoleIndexRouteImport } from './routes/_protected/console/index'
 import { Route as ProtectedDriveIndexRouteImport } from './routes/_protected/drive/index'
 import { Route as ProtectedRideIndexRouteImport } from './routes/_protected/ride/index'
 
@@ -71,6 +72,11 @@ const AuthVerifiedRoute = AuthVerifiedRouteImport.update({
   path: '/verified',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const ProtectedConsoleIndexRoute = ProtectedConsoleIndexRouteImport.update({
+  id: '/console/',
+  path: '/console/',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedDriveIndexRoute = ProtectedDriveIndexRouteImport.update({
   id: '/drive/',
   path: '/drive/',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/console/': typeof ProtectedConsoleIndexRoute
   '/drive/': typeof ProtectedDriveIndexRoute
   '/ride/': typeof ProtectedRideIndexRoute
 }
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/': typeof ProtectedIndexRoute
+  '/console': typeof ProtectedConsoleIndexRoute
   '/drive': typeof ProtectedDriveIndexRoute
   '/ride': typeof ProtectedRideIndexRoute
 }
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/_protected/': typeof ProtectedIndexRoute
+  '/_protected/console/': typeof ProtectedConsoleIndexRoute
   '/_protected/drive/': typeof ProtectedDriveIndexRoute
   '/_protected/ride/': typeof ProtectedRideIndexRoute
 }
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/auth/verified'
+    | '/console/'
     | '/drive/'
     | '/ride/'
   fileRoutesByTo: FileRoutesByTo
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/verified'
     | '/'
+    | '/console'
     | '/drive'
     | '/ride'
   id:
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/verified'
     | '/_protected/'
+    | '/_protected/console/'
     | '/_protected/drive/'
     | '/_protected/ride/'
   fileRoutesById: FileRoutesById
@@ -243,6 +255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthVerifiedRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_protected/console/': {
+      id: '/_protected/console/'
+      path: '/console'
+      fullPath: '/console/'
+      preLoaderRoute: typeof ProtectedConsoleIndexRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/drive/': {
       id: '/_protected/drive/'
       path: '/drive'
@@ -286,12 +305,14 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface ProtectedRouteChildren {
   ProtectedIndexRoute: typeof ProtectedIndexRoute
+  ProtectedConsoleIndexRoute: typeof ProtectedConsoleIndexRoute
   ProtectedDriveIndexRoute: typeof ProtectedDriveIndexRoute
   ProtectedRideIndexRoute: typeof ProtectedRideIndexRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedIndexRoute: ProtectedIndexRoute,
+  ProtectedConsoleIndexRoute: ProtectedConsoleIndexRoute,
   ProtectedDriveIndexRoute: ProtectedDriveIndexRoute,
   ProtectedRideIndexRoute: ProtectedRideIndexRoute,
 }

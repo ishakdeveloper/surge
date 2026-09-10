@@ -52,6 +52,11 @@ const (
 
 	// TopicWSPush is server-to-client delivery, keyed by user id.
 	TopicWSPush = "ws.push"
+
+	// TopicFleetFrames is each matcher partition's fleet, once a second, for
+	// the console. Short-lived: a frame is superseded a second after it is
+	// written, and a gateway starting up wants the next one, not the backlog.
+	TopicFleetFrames = "fleet.frames"
 )
 
 // GeoPartitions is the shard count, and therefore the ceiling on matcher
@@ -88,6 +93,7 @@ func specs() []topicSpec {
 		}},
 		{TopicTripEvents, 16, nil},
 		{TopicWSPush, 16, map[string]*string{"retention.ms": stringPtr("600000")}},
+		{TopicFleetFrames, GeoPartitions, map[string]*string{"retention.ms": stringPtr("60000")}},
 	}
 }
 

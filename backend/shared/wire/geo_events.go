@@ -357,6 +357,9 @@ type ClientMessage struct {
 	// what it was given, because only the shard holding the reservation can
 	// resolve it.
 	ReplyCell string `json:"replyCell,omitempty"`
+	// Viewport comes with ClientWatchFleet; TripID with ClientFollowTrip.
+	Viewport *Viewport `json:"viewport,omitempty"`
+	TripID   string    `json:"tripId,omitempty"`
 }
 
 // ServerMessage is the outbound envelope. Offers are the main event; trip
@@ -366,9 +369,11 @@ type ClientMessage struct {
 // id, so the gateway forwards bytes it did not have to build: whoever produces a
 // push decides what the client sees, and the gateway only decides who.
 type ServerMessage struct {
-	Tag   string      `json:"_tag"`
-	Offer *Offer      `json:"offer,omitempty"`
-	Trip  *TripUpdate `json:"trip,omitempty"`
+	Tag      string          `json:"_tag"`
+	Offer    *Offer          `json:"offer,omitempty"`
+	Trip     *TripUpdate     `json:"trip,omitempty"`
+	Fleet    *FleetUpdate    `json:"fleet,omitempty"`
+	Position *DriverPosition `json:"position,omitempty"`
 	// Error carries a human-meaningful reason when the gateway refuses
 	// something, so a client can distinguish "your token expired" from "the
 	// network dropped".
@@ -411,6 +416,10 @@ func (m ServerMessage) Valid() bool {
 		return m.Offer != nil
 	case TagTripUpdated:
 		return m.Trip != nil && m.Trip.TripID != ""
+	case TagFleetUpdate:
+		return m.Fleet != nil
+	case TagDriverPosition:
+		return m.Position != nil
 	case TagServerError, TagServerWelcome:
 		return true
 	default:

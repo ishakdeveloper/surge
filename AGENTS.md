@@ -191,6 +191,8 @@ Everything routine is a make target; `make help` lists them.
 |                                    |                                     |
 | ---------------------------------- | ----------------------------------- |
 | `make up` / `make down`            | infrastructure in Docker            |
+| `make up-core`                     | without the dashboards              |
+| `make bench-matching RPS=20`       | greedy vs batched matching, A/B     |
 | `make migrate`                     | apply database migrations           |
 | `make dev-auth`                    | the auth service                    |
 | `make dev-ingest` / `make dev-sim` | the Go services, on the host        |
@@ -224,8 +226,9 @@ server had it, and auth and the gateway each trust a single web origin.
 | Prometheus       | 9090  | Grafana  | 3005  |
 | Jaeger           | 16686 | web      | 5273  |
 
-Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101,
-`ingest` 8102/9102.
+Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101
+(and 8111 for its gRPC control, which the gateway serves as `/v1/simulator`),
+`ingest` 8102/9102, `trip` gRPC on 8110.
 
 ## Testing
 

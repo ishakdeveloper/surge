@@ -1,0 +1,11 @@
+{
+  "_tag": "DriverPosition",
+  "position": {
+    "tripId": "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+    "driverId": "drv-000123",
+    "lat": 52.3711,
+    "lng": 4.8963,
+    "heading": 90,
+    "atMs": 1757512341000
+  }
+}

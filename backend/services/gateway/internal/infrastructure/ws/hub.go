@@ -12,6 +12,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -19,6 +20,7 @@ import (
 	"github.com/ishakdeveloper/surge/services/gateway/internal/domain"
 	"github.com/ishakdeveloper/surge/shared/authz"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
+	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
 	"github.com/ishakdeveloper/surge/shared/tracing"
 	"github.com/ishakdeveloper/surge/shared/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -45,10 +47,40 @@ type Hub struct {
 
 	// origins the browser may connect from. Empty means same-origin only.
 	origins []string
+
+	// fleet is the picture the console draws; trips is how a follow request
+	// is checked against who is asking.
+	fleet *domain.Fleet
+	trips trippb.TripServiceClient
+
+	// Subscriptions, by connection id. Held here rather than on the connection
+	// because they are what the fan-out iterates; a connection that closes
+	// takes its subscriptions with it, in forget.
+	mu        sync.Mutex
+	watchers  map[string]watcher
+	followers map[string]follower
 }
 
-func NewHub(registry *domain.Registry, verifier authz.Verifier, producer *kgo.Client, origins []string, hooks Hooks) *Hub {
-	return &Hub{registry: registry, verifier: verifier, producer: producer, origins: origins, hooks: hooks}
+type watcher struct {
+	connection *domain.Connection
+	viewport   wire.Viewport
+}
+
+type follower struct {
+	connection *domain.Connection
+	tripID     string
+	driverID   string
+}
+
+func NewHub(
+	registry *domain.Registry, verifier authz.Verifier, producer *kgo.Client, origins []string,
+	fleet *domain.Fleet, trips trippb.TripServiceClient, hooks Hooks,
+) *Hub {
+	return &Hub{
+		registry: registry, verifier: verifier, producer: producer, origins: origins, hooks: hooks,
+		fleet: fleet, trips: trips,
+		watchers: map[string]watcher{}, followers: map[string]follower{},
+	}
 }
 
 // heartbeat bounds how long a dead connection can look alive.
@@ -98,6 +130,7 @@ func (h *Hub) serve(ctx context.Context, socket *websocket.Conn, identity authz.
 	}
 
 	defer func() {
+		h.forget(connection.ID)
 		h.registry.Remove(connection)
 		reason := connection.Reason()
 		if reason == "" {
@@ -154,7 +187,7 @@ func (h *Hub) read(ctx context.Context, socket *websocket.Conn, connection *doma
 			h.hooks.OnInbound(message.Tag)
 		}
 
-		h.dispatch(ctx, message, identity)
+		h.dispatch(ctx, connection, message, identity)
 
 		select {
 		case <-connection.Closed():
@@ -165,7 +198,7 @@ func (h *Hub) read(ctx context.Context, socket *websocket.Conn, connection *doma
 }
 
 // dispatch turns a client message into a record on the bus.
-func (h *Hub) dispatch(ctx context.Context, message wire.ClientMessage, identity authz.Identity) {
+func (h *Hub) dispatch(ctx context.Context, connection *domain.Connection, message wire.ClientMessage, identity authz.Identity) {
 	switch message.Tag {
 	case wire.TagClientHeartbeat:
 		// Touch already happened; nothing else to do.
@@ -188,6 +221,52 @@ func (h *Hub) dispatch(ctx context.Context, message wire.ClientMessage, identity
 		}
 
 		h.produce(ctx, kafkax.TopicLocPing, identity.UserID, ping)
+
+	case wire.TagClientWatchFleet:
+		// The whole fleet, every driver's position, is for ops. Checked here
+		// rather than trusted from the page, because the page is not the
+		// security boundary — this socket is.
+		if identity.Role != authz.RoleOps {
+			h.reject(connection, "not_ops", "the fleet is visible to ops only")
+			return
+		}
+		if message.Viewport == nil {
+			return
+		}
+		h.mu.Lock()
+		h.watchers[connection.ID] = watcher{connection: connection, viewport: *message.Viewport}
+		h.mu.Unlock()
+
+	case wire.TagClientUnwatchFleet:
+		h.mu.Lock()
+		delete(h.watchers, connection.ID)
+		h.mu.Unlock()
+
+	case wire.TagClientFollowTrip:
+		if message.TripID == "" {
+			return
+		}
+		// Checked against the trip service as the caller, so the rule that
+		// decides who may read a trip decides who may watch its driver: its
+		// rider, its driver, or ops. A rider who could follow any trip id could
+		// follow anybody's driver.
+		lookup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer cancel()
+		response, err := h.trips.GetTrip(authz.Outgoing(lookup, identity), &trippb.GetTripRequest{TripId: message.TripID})
+		if err != nil || response.GetTrip().GetDriverId() == "" {
+			h.reject(connection, "not_followable", "that trip has no driver to follow")
+			return
+		}
+		h.mu.Lock()
+		h.followers[connection.ID] = follower{
+			connection: connection, tripID: message.TripID, driverID: response.GetTrip().GetDriverId(),
+		}
+		h.mu.Unlock()
+
+	case wire.TagClientUnfollowTrip:
+		h.mu.Lock()
+		delete(h.followers, connection.ID)
+		h.mu.Unlock()
 
 	case wire.TagClientOfferReply:
 		if message.Reply == nil || message.ReplyCell == "" {
@@ -302,4 +381,77 @@ func (h *Hub) Push(userID string, message []byte) bool {
 		}
 	}
 	return false
+}
+
+// forget drops a closed connection's subscriptions.
+func (h *Hub) forget(connectionID string) {
+	h.mu.Lock()
+	delete(h.watchers, connectionID)
+	delete(h.followers, connectionID)
+	h.mu.Unlock()
+}
+
+// reject counts a refused request and tells the client why, so a console
+// opened by the wrong role says so instead of sitting on an empty map.
+func (h *Hub) reject(connection *domain.Connection, reason, message string) {
+	if h.hooks.OnRejected != nil {
+		h.hooks.OnRejected(reason)
+	}
+	if payload, err := json.Marshal(wire.ServerMessage{Tag: wire.TagServerError, Error: message}); err == nil {
+		_ = connection.Send(payload)
+	}
+}
+
+// RunFleet sends every watching console its view, and every following rider
+// their driver's position, once a second.
+//
+// Through each connection's bounded send queue like everything else, so a
+// console that stops reading is evicted rather than allowed to hold the
+// fan-out up — the same rule that protects the drivers' offers.
+func (h *Hub) RunFleet(ctx context.Context) {
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-tick.C:
+			h.fanOut(now)
+		}
+	}
+}
+
+func (h *Hub) fanOut(now time.Time) {
+	h.mu.Lock()
+	watchers := make([]watcher, 0, len(h.watchers))
+	for _, w := range h.watchers {
+		watchers = append(watchers, w)
+	}
+	followers := make([]follower, 0, len(h.followers))
+	for _, f := range h.followers {
+		followers = append(followers, f)
+	}
+	h.mu.Unlock()
+
+	for _, w := range watchers {
+		update := h.fleet.Snapshot(w.viewport, now)
+		if payload, err := json.Marshal(wire.ServerMessage{Tag: wire.TagFleetUpdate, Fleet: &update}); err == nil {
+			_ = w.connection.Send(payload)
+		}
+	}
+
+	for _, f := range followers {
+		driver, found := h.fleet.Driver(f.driverID, now)
+		if !found {
+			continue
+		}
+		position := wire.DriverPosition{
+			TripID: f.tripID, DriverID: driver.ID,
+			Lat: driver.Lat, Lng: driver.Lng, Heading: driver.Heading, AtMs: now.UnixMilli(),
+		}
+		if payload, err := json.Marshal(wire.ServerMessage{Tag: wire.TagDriverPosition, Position: &position}); err == nil {
+			_ = f.connection.Send(payload)
+		}
+	}
 }
