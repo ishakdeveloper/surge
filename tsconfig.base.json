@@ -41,6 +41,7 @@
       }
     ],
     "paths": {
+      "@surge/client/*": ["./packages/client/src/*.js"],
       "@surge/domain/*": ["./packages/domain/src/*.js"]
     }
   }

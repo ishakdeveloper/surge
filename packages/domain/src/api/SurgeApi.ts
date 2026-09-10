@@ -6,16 +6,33 @@ import { Coordinate, FareId, FareQuote, Route, Trip, TripId } from "../trip/Trip
  * The Go API, as this codebase consumes it.
  *
  * The server is Go and the REST surface is generated from `proto/trip.proto` by
- * grpc-gateway, so this file is a *client-side declaration* of that contract —
+ * grpc-gateway, so this is a *client-side declaration* of that contract —
  * `HttpApiBuilder` is never used, because no TypeScript implements it. What it
- * buys is a fully typed client and runtime decoding at the boundary, which is
- * the difference between a wrong response failing here with a readable error
- * and failing three components later as `undefined is not an object`.
+ * buys is a typed client and runtime decoding at the boundary, which is the
+ * difference between a wrong response failing here with a readable error and
+ * failing three components later as `undefined is not an object`.
  *
- * It is also the second source of truth for a surface that already has one, and
- * `test/ApiContract.test.ts` is the answer to that: it reads the generated
- * OpenAPI document and fails if a path, method or field here has drifted from
- * what the gateway actually serves.
+ * ## Why this is hand-written when a generator exists
+ *
+ * `@effect/openapi-generator` reads the same Swagger document and emits a
+ * working `HttpApi`; `make proto` runs it, and the output is committed at
+ * `../../test/api/generated.ts`. It is not used as the client, for three
+ * reasons that all show up at every call site rather than here:
+ *
+ * - **Everything would be optional.** proto3 has no required fields, so every
+ *   property in the Swagger is optional and `trip.id` decodes as
+ *   `string | undefined`. The gateway sets `EmitUnpopulated: true`, so an
+ *   unassigned driver arrives as `""` rather than absent — a fact the document
+ *   does not record and a generator cannot infer.
+ * - **Ids would be bare strings.** `TripId` and `FareId` are branded here, which
+ *   is what makes passing a fare id where a trip id belongs a compile error.
+ * - **`int64` would stay a string.** proto3 JSON quotes 64-bit numbers, so
+ *   `totalCents` is `"1627"` on the wire. `Int64FromString` decodes it once,
+ *   here, instead of in every component that renders a price.
+ *
+ * What the generator is used for instead is `test/api/ApiContract.test.ts`,
+ * which diffs this file against its output: routes, methods, parameters and
+ * every reachable field name. Drift becomes a failing test rather than a 404.
  */
 
 /**

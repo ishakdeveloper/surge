@@ -133,6 +133,9 @@ proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 	# The gateway embeds the document it serves, so a rebuild cannot leave the
 	# published spec describing an older API.
 	cp docs/api/surge.swagger.json backend/services/gateway/internal/infrastructure/http/openapi.json
+	# And the reference HttpApi the contract test diffs the hand-written client
+	# against, so a field that moves in the proto fails a test rather than a page.
+	pnpm generate:api
 
 build: ## Build every Go binary
 	$(GO) build -o bin/simd ./services/simulator/cmd

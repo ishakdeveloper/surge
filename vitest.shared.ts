@@ -2,10 +2,11 @@ import * as path from "node:path";
 import type { ViteUserConfig } from "vitest/config";
 
 /**
- * Mirrors the `@surge/domain/*` mapping in tsconfig.base.json so runtime
+ * Mirrors the `@surge/*` mappings in tsconfig.base.json so runtime
  * resolution matches what the compiler sees.
  */
-const domainAlias = {
+const workspaceAliases = {
+  "@surge/client/": path.join(import.meta.dirname, "packages", "client", "src") + "/",
   "@surge/domain/": path.join(import.meta.dirname, "packages", "domain", "src") + "/",
 };
 
@@ -15,8 +16,8 @@ const config: ViteUserConfig = {
    * built JavaScript otherwise. Vitest compiles TypeScript, so it wants the
    * source — without this it resolves `build/`, which need not exist.
    *
-   * The `@surge/domain` alias above predates this and still short-circuits that
-   * one package; the condition is what covers `@surge/database`.
+   * The aliases above predate this and still short-circuit those
+   * packages; the condition is what covers `@surge/database`.
    */
   resolve: { conditions: ["development"] },
   test: {
@@ -33,7 +34,7 @@ const config: ViteUserConfig = {
     slowTestThreshold: 5_000,
     testTimeout: 30_000,
     include: ["test/**/*.test.ts", "src/**/*.test.ts"],
-    alias: { ...domainAlias },
+    alias: { ...workspaceAliases },
   },
 };
 

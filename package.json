@@ -17,6 +17,7 @@
     "check": "tsc -b tsconfig.json && tsc -p tsconfig.tools.json",
     "check:watch": "tsc -b tsconfig.json --watch",
     "format": "dprint fmt",
+    "generate:api": "node scripts/generate-api-reference.mjs",
     "format:check": "dprint check",
     "lint": "oxlint --disable-nested-config",
     "lint:fix": "oxlint --disable-nested-config --fix",
@@ -26,6 +27,7 @@
     "sync:skills": "node scripts/sync-effect-skills.mjs"
   },
   "devDependencies": {
+    "@effect/openapi-generator": "catalog:",
     "@effect/tsgo": "0.36.5",
     "@effect/vitest": "catalog:",
     "@surge/scripts": "workspace:*",
