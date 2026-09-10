@@ -109,64 +109,83 @@ func NewShardConsumer(brokers []string, group string, topics []string, options .
 	return client, nil
 }
 
-// ReadCompactedPartition reads one partition of a compacted topic to its end
-// and returns the surviving value for each key.
+// ReadCompacted reads partitions of a compacted topic to their ends and returns
+// the surviving value for each key, per partition.
 //
-// Used to restore a shard's checkpoint when it is handed a partition. Bounded
-// work: compaction keeps roughly one record per cell, and a partition holds a
-// handful of cells.
-func ReadCompactedPartition(ctx context.Context, brokers []string, topic string, partition int32) (map[string][]byte, error) {
+// One end-offset lookup and one reader for all of them. It replaced a
+// per-partition version that opened two new clients and looked up offsets for
+// the whole topic every time, and that difference is the reason it exists: the
+// matcher restores every partition it is handed through here, and thirty-two of
+// those against a slow broker took long enough to lose the consumer-group
+// session and be handed them all over again.
+//
+// Every requested partition is present in the result, empty if it held nothing.
+func ReadCompacted(ctx context.Context, brokers []string, topic string, partitions []int32) (map[int32]map[string][]byte, error) {
+	latest := make(map[int32]map[string][]byte, len(partitions))
+	for _, partition := range partitions {
+		latest[partition] = map[string][]byte{}
+	}
+	if len(partitions) == 0 {
+		return latest, nil
+	}
+
 	admin, err := kgo.NewClient(kgo.SeedBrokers(brokers...))
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: admin client: %w", err)
 	}
-
 	ends, err := kadm.NewClient(admin).ListEndOffsets(ctx, topic)
 	admin.Close()
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: end offsets for %s: %w", topic, err)
 	}
 
-	end, ok := ends.Lookup(topic, partition)
-	if !ok || end.Offset <= 0 {
-		return map[string][]byte{}, nil
+	// Only partitions with something in them are read; an empty one is done.
+	remaining := make(map[int32]int64)
+	start := make(map[int32]kgo.Offset)
+	for _, partition := range partitions {
+		end, ok := ends.Lookup(topic, partition)
+		if !ok || end.Offset <= 0 {
+			continue
+		}
+		remaining[partition] = end.Offset
+		start[partition] = kgo.NewOffset().AtStart()
+	}
+	if len(remaining) == 0 {
+		return latest, nil
 	}
 
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
-		kgo.ConsumePartitions(map[string]map[int32]kgo.Offset{
-			topic: {partition: kgo.NewOffset().AtStart()},
-		}),
+		kgo.ConsumePartitions(map[string]map[int32]kgo.Offset{topic: start}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: checkpoint reader: %w", err)
 	}
 	defer client.Close()
 
-	latest := make(map[string][]byte)
-
-	for {
+	for len(remaining) > 0 {
 		fetches := client.PollFetches(ctx)
 		if fetches.IsClientClosed() || ctx.Err() != nil {
 			return latest, ctx.Err()
 		}
 		if err := fetches.Err0(); err != nil {
-			return nil, fmt.Errorf("kafkax: reading %s/%d: %w", topic, partition, err)
+			return nil, fmt.Errorf("kafkax: reading %s: %w", topic, err)
 		}
 
-		var reached bool
 		fetches.EachRecord(func(record *kgo.Record) {
+			values, wanted := latest[record.Partition]
+			if !wanted {
+				return
+			}
 			// Later records supersede earlier ones for the same key, which is
 			// what compaction guarantees and what makes this a state read
 			// rather than a log replay.
-			latest[string(record.Key)] = record.Value
-			if record.Offset >= end.Offset-1 {
-				reached = true
+			values[string(record.Key)] = record.Value
+			if end, open := remaining[record.Partition]; open && record.Offset >= end-1 {
+				delete(remaining, record.Partition)
 			}
 		})
-
-		if reached {
-			return latest, nil
-		}
 	}
+
+	return latest, nil
 }

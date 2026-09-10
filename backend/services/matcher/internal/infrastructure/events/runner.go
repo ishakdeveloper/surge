@@ -52,7 +52,18 @@ type Runner struct {
 type worker struct {
 	shard   *domain.Shard
 	records chan []*kgo.Record
+	// stopped asks the goroutine to leave.
 	stopped chan struct{}
+	// done is the goroutine having left. A checkpoint reads the shard, and
+	// reading it while run may still be mid-event writes down a torn state —
+	// closing stopped alone does not wait for anything.
+	done chan struct{}
+	// restored closes once the checkpoint has been applied and run has
+	// started. Until then this instance has learned nothing the previous
+	// owner's checkpoint does not already say, so there is nothing to write on
+	// the way out — and writing this still-empty shard would overwrite that
+	// checkpoint and erase every reservation in it.
+	restored chan struct{}
 }
 
 func NewRunner(brokers []string, config domain.Config, producer *kgo.Client, hooks Hooks) *Runner {
@@ -133,60 +144,97 @@ func collect(fetches kgo.Fetches) []*kgo.Record {
 	return records
 }
 
-// assigned starts a worker per partition, restoring its promises first.
+// assigned takes ownership at once and restores in the background.
 //
-// The restore is deliberately blocking: a shard that starts matching before it
-// knows which drivers are already spoken for will hand one of them to a second
-// rider. The time it takes is measured rather than hidden, because it is the
-// real cost of a rebalance.
+// The restore used to run here, one partition at a time, and it could not stay.
+// This callback runs inside the group protocol, franz-go documents that it must
+// not outlast the rebalance interval, and the session is ten seconds. Each
+// restore opened two new Kafka clients and looked up offsets for the whole
+// topic, so thirty-two of them against a slow broker took minutes: the member
+// was evicted mid-restore, rejoined, was handed the same partitions and began
+// again — owning nothing, indefinitely, while riders waited for a driver.
+//
+// "Restore before serving" still holds; it is enforced by fetching rather than
+// by blocking. The partitions are paused before this returns — fetches for newly
+// assigned partitions only begin after it does — and each resumes once its own
+// shard has been restored and its worker started. No record reaches a shard
+// that does not yet know which drivers it has promised.
 func (r *Runner) assigned(ctx context.Context, client *kgo.Client, assigned map[string][]int32) {
 	partitions := assigned[kafkax.TopicGeoEvents]
 	if len(partitions) == 0 {
 		return
 	}
 
+	client.PauseFetchPartitions(map[string][]int32{kafkax.TopicGeoEvents: partitions})
+
+	started := time.Now()
+	fresh := make(map[int32]*worker, len(partitions))
+
+	r.mu.Lock()
 	for _, partition := range partitions {
-		started := time.Now()
-		shard := domain.NewShard(partition, r.config)
-
-		records, err := kafkax.ReadCompactedPartition(ctx, r.brokers, kafkax.TopicGeoState, partition)
-		if err != nil {
-			// Starting without a checkpoint is worse than starting slowly, but
-			// refusing to start at all is worse still: the partition would go
-			// unconsumed. The stranded offers expire on their deadlines.
-			slog.Warn("checkpoint restore failed; starting cold",
-				"partition", partition, "error", err)
-		} else {
-			var checkpoints []wire.ShardCheckpoint
-			for _, raw := range records {
-				var checkpoint wire.ShardCheckpoint
-				if err := json.Unmarshal(raw, &checkpoint); err != nil {
-					continue
-				}
-				checkpoints = append(checkpoints, checkpoint)
-			}
-			shard.Restore(checkpoints, time.Now())
-		}
-
-		if r.hooks.OnRestoreStall != nil {
-			r.hooks.OnRestoreStall(partition, time.Since(started), shard.Offers())
-		}
-
 		w := &worker{
-			shard:   shard,
-			records: make(chan []*kgo.Record, 8),
-			stopped: make(chan struct{}),
+			shard:    domain.NewShard(partition, r.config),
+			records:  make(chan []*kgo.Record, 8),
+			stopped:  make(chan struct{}),
+			done:     make(chan struct{}),
+			restored: make(chan struct{}),
 		}
-
-		r.mu.Lock()
 		r.workers[partition] = w
-		r.mu.Unlock()
+		fresh[partition] = w
+	}
+	r.mu.Unlock()
 
-		go r.run(w)
+	// Ownership is reported on assignment, not on restore: the partition is
+	// ours from this moment, and the restore stall histogram is what measures
+	// the gap before it serves.
+	r.reportOwnership(partitions, true)
+	slog.Info("partitions assigned, restoring", "partitions", partitions, "owned", r.owned())
+
+	go r.restore(ctx, client, fresh, started)
+}
+
+// restore reads every new partition's checkpoint in one pass, then brings each
+// shard up and lets its records flow.
+func (r *Runner) restore(ctx context.Context, client *kgo.Client, fresh map[int32]*worker, started time.Time) {
+	partitions := make([]int32, 0, len(fresh))
+	for partition := range fresh {
+		partitions = append(partitions, partition)
 	}
 
-	r.reportOwnership(partitions, true)
-	slog.Info("partitions assigned", "partitions", partitions, "owned", r.owned())
+	records, err := kafkax.ReadCompacted(ctx, r.brokers, kafkax.TopicGeoState, partitions)
+	if err != nil {
+		// Starting without a checkpoint is worse than starting slowly, but
+		// never starting is worse still: the partitions would go unconsumed.
+		// The stranded offers expire on their own deadlines.
+		slog.Warn("checkpoint restore failed; starting cold", "partitions", partitions, "error", err)
+	}
+
+	for partition, w := range fresh {
+		select {
+		case <-w.stopped:
+			// Revoked or lost while restoring: somebody else owns it now, so
+			// it is neither started nor resumed.
+			continue
+		default:
+		}
+
+		var checkpoints []wire.ShardCheckpoint
+		for _, raw := range records[partition] {
+			var checkpoint wire.ShardCheckpoint
+			if err := json.Unmarshal(raw, &checkpoint); err == nil {
+				checkpoints = append(checkpoints, checkpoint)
+			}
+		}
+		w.shard.Restore(checkpoints, time.Now())
+
+		if r.hooks.OnRestoreStall != nil {
+			r.hooks.OnRestoreStall(partition, time.Since(started), w.shard.Offers())
+		}
+
+		close(w.restored)
+		go r.run(w)
+		client.ResumeFetchPartitions(map[string][]int32{kafkax.TopicGeoEvents: {partition}})
+	}
 }
 
 // revoked is the graceful half of a rebalance: stop, write down the promises,
@@ -207,10 +255,7 @@ func (r *Runner) revoked(ctx context.Context, client *kgo.Client, revoked map[st
 			continue
 		}
 
-		close(w.stopped)
-		// The worker stops touching the shard before it is read, so the
-		// checkpoint is a consistent snapshot rather than a torn one.
-		r.checkpoint(ctx, w.shard)
+		r.release(ctx, w)
 	}
 
 	r.reportOwnership(partitions, false)
@@ -237,6 +282,22 @@ func (r *Runner) lost(_ context.Context, _ *kgo.Client, lost map[string][]int32)
 	}
 }
 
+// release stops a worker and writes down its promises, if it has any of its own.
+func (r *Runner) release(ctx context.Context, w *worker) {
+	close(w.stopped)
+
+	select {
+	case <-w.restored:
+		// Wait for the goroutine to actually leave, so the checkpoint is a
+		// consistent snapshot rather than one taken halfway through an event.
+		<-w.done
+		r.checkpoint(ctx, w.shard)
+	default:
+		// Still restoring. The previous owner's checkpoint is the truth for
+		// this partition, and writing this empty shard over it would erase it.
+	}
+}
+
 func (r *Runner) owned() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -252,6 +313,8 @@ func (r *Runner) reportOwnership(changed []int32, gained bool) {
 // run is one shard's whole life: a single goroutine, and therefore a single
 // writer for every cell in this partition.
 func (r *Runner) run(w *worker) {
+	defer close(w.done)
+
 	// The sweep that expires offers and requests. Frequent enough that a
 	// timeout is felt as a timeout rather than as a hang.
 	tick := time.NewTicker(500 * time.Millisecond)
@@ -432,7 +495,6 @@ func (r *Runner) shutdown(ctx context.Context) {
 	r.mu.Unlock()
 
 	for _, w := range workers {
-		close(w.stopped)
-		r.checkpoint(ctx, w.shard)
+		r.release(ctx, w)
 	}
 }
