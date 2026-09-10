@@ -36,6 +36,7 @@ const (
 	TxnTransfer TxnKind = "transfer"
 	TxnRefund   TxnKind = "refund"
 	TxnReversal TxnKind = "reversal"
+	TxnDispute  TxnKind = "dispute"
 )
 
 // Entry is one leg of a transaction. Positive is a debit, negative a credit.

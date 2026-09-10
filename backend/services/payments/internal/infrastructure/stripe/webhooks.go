@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ishakdeveloper/surge/services/payments/internal/domain"
 	"github.com/ishakdeveloper/surge/services/payments/internal/service"
@@ -111,6 +112,36 @@ func (w *Webhooks) apply(ctx context.Context, event stripego.Event) error {
 			return err
 		}
 		return w.payments.CardSaved(ctx, intent.Customer.ID, saved)
+
+	case stripego.EventTypeChargeDisputeCreated:
+		var dispute stripego.Dispute
+		if err := json.Unmarshal(event.Data.Raw, &dispute); err != nil {
+			return fmt.Errorf("stripe: decode %s: %w", event.Type, err)
+		}
+		// An inquiry — a warning_* status — is the bank asking, and moves no
+		// money. Only a real dispute takes funds, and only one takes the
+		// driver's share back.
+		if strings.HasPrefix(string(dispute.Status), "warning_") || dispute.PaymentIntent == nil {
+			return nil
+		}
+		return w.payments.DisputeOpened(ctx, service.DisputeOpened{
+			ProcessorDisputeID: dispute.ID, ProcessorPaymentID: dispute.PaymentIntent.ID,
+			AmountCents: dispute.Amount, Reason: string(dispute.Reason),
+		})
+
+	case stripego.EventTypeChargeDisputeClosed:
+		var dispute stripego.Dispute
+		if err := json.Unmarshal(event.Data.Raw, &dispute); err != nil {
+			return fmt.Errorf("stripe: decode %s: %w", event.Type, err)
+		}
+		switch dispute.Status {
+		case stripego.DisputeStatusWon:
+			return w.payments.DisputeClosed(ctx, dispute.ID, true)
+		case stripego.DisputeStatusLost:
+			return w.payments.DisputeClosed(ctx, dispute.ID, false)
+		default:
+			return nil
+		}
 
 	case stripego.EventTypePayoutPaid, stripego.EventTypePayoutFailed, stripego.EventTypePayoutCanceled:
 		// A driver's withdrawal reaching their bank, or not. These are

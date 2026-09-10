@@ -72,6 +72,20 @@ func (r *rig) balance(t *testing.T, account string) int64 {
 	return balance
 }
 
+// sweepAt runs the sweeper as if the clock read `at`, with a service sharing
+// this rig's repository and processor.
+func (r *rig) sweepAt(t *testing.T, at time.Time) (service.SweepResult, error) {
+	t.Helper()
+	later, err := service.New(service.Options{
+		Repository: r.repo, Processor: r.processor, CommissionBps: 2000,
+		Now: func() time.Time { return at },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return later.Sweep(context.Background())
+}
+
 func serviceAccount(id, status string) service.ConnectedAccount {
 	return service.ConnectedAccount{ID: id, TransfersStatus: status}
 }

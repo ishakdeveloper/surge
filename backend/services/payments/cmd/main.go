@@ -67,6 +67,18 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	sweepEvery, err := config.DurationOr("PAYMENTS_SWEEP_INTERVAL", time.Minute)
+	if err != nil {
+		return err
+	}
+	actionTimeout, err := config.DurationOr("PAYMENTS_ACTION_TIMEOUT", service.DefaultSweepPolicy.Action)
+	if err != nil {
+		return err
+	}
+	holdMaxAge, err := config.DurationOr("PAYMENTS_HOLD_MAX_AGE", service.DefaultSweepPolicy.Hold)
+	if err != nil {
+		return err
+	}
 
 	// Required, with no in-memory fallback. The trip service can run from a
 	// map on a laptop; a payments service that forgets on restart which cards
@@ -122,6 +134,7 @@ func run() error {
 		Processor:     processor,
 		CommissionBps: commission,
 		WebURL:        webURL,
+		Sweep:         service.SweepPolicy{Action: actionTimeout, Hold: holdMaxAge},
 	})
 	if err != nil {
 		return err
@@ -180,6 +193,29 @@ func run() error {
 	go func() { errs <- relay.Run(ctx) }()
 	go func() { errs <- consumer.Run(ctx) }()
 	go func() { errs <- server.Serve(listener) }()
+
+	// The sweeper: stuck holds finished, expired or released, and drivers
+	// paid once they can be. Every instance runs it; see Service.Sweep for
+	// why that is safe.
+	go func() {
+		ticker := time.NewTicker(sweepEvery)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				result, err := payments.Sweep(ctx)
+				metrics.swept.WithLabelValues("resumed").Add(float64(result.Resumed))
+				metrics.swept.WithLabelValues("expired").Add(float64(result.Expired))
+				metrics.swept.WithLabelValues("released").Add(float64(result.Released))
+				metrics.swept.WithLabelValues("drivers_paid").Add(float64(result.DriversPaid))
+				if err != nil && ctx.Err() == nil {
+					slog.Warn("sweep did not finish everything; the next one retries", "error", err)
+				}
+			}
+		}
+	}()
 
 	slog.Info("payments running", "grpc", grpcAddr, "commission_bps", commission, "group", group)
 
@@ -250,6 +286,7 @@ type metrics struct {
 	applied *prometheus.CounterVec
 	skipped *prometheus.CounterVec
 	retries prometheus.Counter
+	swept   *prometheus.CounterVec
 }
 
 func newMetrics(registry *obs.Registry) *metrics {
@@ -266,6 +303,10 @@ func newMetrics(registry *obs.Registry) *metrics {
 			Help: "Attempts that failed transiently and were retried in place. Climbing means the processor or the database is unreachable.",
 		}),
 	}
-	registry.MustRegister(m.applied, m.skipped, m.retries)
+	m.swept = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "surge_payments_swept_total",
+		Help: "Stuck payments the sweeper acted on, by what it did. `released` climbing means trips are not being completed.",
+	}, []string{"kind"})
+	registry.MustRegister(m.applied, m.skipped, m.retries, m.swept)
 	return m
 }

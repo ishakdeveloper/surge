@@ -27,6 +27,7 @@ type InMemory struct {
 	events      map[string]bool
 	refunds     map[string]domain.Refund
 	withdrawals map[string]domain.Withdrawal
+	disputes    map[string]domain.Dispute
 	facts       []domain.Fact
 }
 
@@ -50,6 +51,7 @@ func NewInMemory() *InMemory {
 		accounts: map[string]domain.PayoutAccount{}, earnings: map[string]domain.Earning{},
 		posted: map[string]bool{}, balances: map[string]int64{}, events: map[string]bool{},
 		refunds: map[string]domain.Refund{}, withdrawals: map[string]domain.Withdrawal{},
+		disputes: map[string]domain.Dispute{},
 	}
 }
 
@@ -267,6 +269,11 @@ func (r *InMemory) Apply(_ context.Context, change domain.Change) error {
 			return err
 		}
 	}
+	if dispute := change.Dispute; dispute != nil {
+		if err := r.checkDispute(dispute, change.DisputeFrom); err != nil {
+			return err
+		}
+	}
 
 	for _, txn := range change.Txns {
 		for _, entry := range txn.Entries {
@@ -288,6 +295,9 @@ func (r *InMemory) Apply(_ context.Context, change domain.Change) error {
 	}
 	if refund := change.Refund; refund != nil {
 		r.applyRefund(refund)
+	}
+	if dispute := change.Dispute; dispute != nil {
+		r.disputes[dispute.ID] = *dispute
 	}
 	for _, txn := range change.Txns {
 		for _, entry := range txn.Entries {

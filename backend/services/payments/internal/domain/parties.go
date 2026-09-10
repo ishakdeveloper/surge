@@ -145,6 +145,12 @@ type Change struct {
 	// total and give back more than was taken.
 	Refund *Refund
 
+	// Dispute is inserted when DisputeFrom is empty — a second one for the
+	// same processor dispute is ErrConflict — and otherwise written with a
+	// compare-and-set on DisputeFrom.
+	Dispute     *Dispute
+	DisputeFrom DisputeStatus
+
 	Txns  []Txn
 	Facts []Fact
 }
@@ -181,6 +187,14 @@ type Repository interface {
 
 	// RefundByKey finds the refund an idempotency key already made.
 	RefundByKey(ctx context.Context, tripID, key string) (*Refund, error)
+	DisputeByProcessorID(ctx context.Context, processorDisputeID string) (*Dispute, error)
+
+	// StalePayments are payments in a status since before a time, oldest
+	// first: the sweeper's work.
+	StalePayments(ctx context.Context, status Status, before time.Time, limit int) ([]Payment, error)
+	// OwedDrivers are drivers with unpaid earnings and an account that can
+	// receive them now.
+	OwedDrivers(ctx context.Context, limit int) ([]string, error)
 
 	// SaveWithdrawal inserts a new withdrawal; a second one with the same
 	// driver and key is ErrConflict.

@@ -127,6 +127,7 @@ type Service struct {
 	processor     Processor
 	commissionBps int
 	webURL        string
+	sweep         SweepPolicy
 	now           func() time.Time
 	newID         func() string
 }
@@ -140,8 +141,11 @@ type Options struct {
 	// WebURL is the web app's origin, which onboarding links send a driver
 	// back to.
 	WebURL string
-	Now    func() time.Time
-	NewID  func() string
+	// Sweep is how long stuck payments are left; zero durations take the
+	// defaults.
+	Sweep SweepPolicy
+	Now   func() time.Time
+	NewID func() string
 }
 
 func New(options Options) (*Service, error) {
@@ -155,8 +159,18 @@ func New(options Options) (*Service, error) {
 		processor:     options.Processor,
 		commissionBps: options.CommissionBps,
 		webURL:        options.WebURL,
+		sweep:         options.Sweep,
 		now:           options.Now,
 		newID:         options.NewID,
+	}
+	if service.sweep.Authorizing <= 0 {
+		service.sweep.Authorizing = DefaultSweepPolicy.Authorizing
+	}
+	if service.sweep.Action <= 0 {
+		service.sweep.Action = DefaultSweepPolicy.Action
+	}
+	if service.sweep.Hold <= 0 {
+		service.sweep.Hold = DefaultSweepPolicy.Hold
 	}
 	if service.now == nil {
 		service.now = time.Now
@@ -456,9 +470,13 @@ func (s *Service) TripEnded(ctx context.Context, trip Trip) error {
 	if !payment.Open() {
 		return nil
 	}
+	return s.release(ctx, payment)
+}
 
+// release lets go of a hold at the processor, then records that it was let go.
+func (s *Service) release(ctx context.Context, payment *domain.Payment) error {
 	if err := s.processor.Release(ctx, payment.ProcessorPaymentID, payment.IdempotencyKey("release")); err != nil {
-		return fmt.Errorf("service: release trip %s: %w", trip.ID, err)
+		return fmt.Errorf("service: release trip %s: %w", payment.TripID, err)
 	}
 
 	from := payment.Status

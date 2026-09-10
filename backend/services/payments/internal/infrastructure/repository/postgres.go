@@ -310,6 +310,11 @@ func (r *Postgres) Apply(ctx context.Context, change domain.Change) error {
 				return err
 			}
 		}
+		if change.Dispute != nil {
+			if err := writeDispute(ctx, tx, change.Dispute, change.DisputeFrom); err != nil {
+				return err
+			}
+		}
 		for _, txn := range change.Txns {
 			if err := writeTxn(ctx, tx, txn); err != nil {
 				return err
@@ -392,9 +397,10 @@ func writeEarning(ctx context.Context, tx pgx.Tx, earning *domain.Earning, from 
 	}
 
 	tag, err := tx.Exec(ctx, `
-		update earning set status = $2, processor_transfer_id = $3, updated_at = $4
+		update earning set status = $2, processor_transfer_id = $3, updated_at = $4, reversed_cents = $6
 		where trip_id = $1 and status = $5`,
-		earning.TripID, string(earning.Status), earning.ProcessorTransferID, earning.UpdatedAt, string(from))
+		earning.TripID, string(earning.Status), earning.ProcessorTransferID, earning.UpdatedAt, string(from),
+		earning.ReversedCents)
 	if err != nil {
 		return err
 	}
