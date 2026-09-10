@@ -33,36 +33,7 @@ import {
   TripId,
 } from "./Primitives.js";
 // non-recursive definitions
-export type V1ListTripsResponse = {
-  readonly "trips": ReadonlyArray<
-    {
-      readonly "id": string;
-      readonly "riderId": string;
-      readonly "driverId": string;
-      readonly "status":
-        | "TRIP_STATUS_UNSPECIFIED"
-        | "TRIP_STATUS_REQUESTED"
-        | "TRIP_STATUS_OFFERED"
-        | "TRIP_STATUS_ACCEPTED"
-        | "TRIP_STATUS_ARRIVED"
-        | "TRIP_STATUS_IN_PROGRESS"
-        | "TRIP_STATUS_COMPLETED"
-        | "TRIP_STATUS_CANCELLED"
-        | "TRIP_STATUS_UNMATCHED";
-      readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-      readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-      readonly "route": {
-        readonly "polyline6": string;
-        readonly "meters": number;
-        readonly "seconds": string;
-      };
-      readonly "totalCents": string;
-      readonly "createdAt": string;
-      readonly "updatedAt": string;
-    }
-  >;
-  readonly "nextPageToken": string;
-};
+export type V1ListTripsResponse = typeof V1ListTripsResponse.Type;
 export const V1ListTripsResponse = Schema.Struct({
   "trips": Schema.Array(Schema.Struct({
     "id": TripId,
@@ -121,9 +92,7 @@ export const V1ListTripsResponse = Schema.Struct({
   })),
   "nextPageToken": Schema.String.annotate({ "description": "Empty when there are no more." }),
 }).annotate({ "identifier": "v1ListTripsResponse" });
-export type V1ErrorBody = {
-  readonly "error": { readonly "code": string; readonly "message": string; };
-};
+export type V1ErrorBody = typeof V1ErrorBody.Type;
 export const V1ErrorBody = Schema.Struct({
   "error": Schema.Struct({
     "code": ErrorCode,
@@ -137,7 +106,7 @@ export const V1ErrorBody = Schema.Struct({
     "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends.",
   "identifier": "v1ErrorBody",
 });
-export type V1CreateTripRequest = { readonly "fareId": string; readonly "idempotencyKey": string; };
+export type V1CreateTripRequest = typeof V1CreateTripRequest.Type;
 export const V1CreateTripRequest = Schema.Struct({
   "fareId": FareId,
   "idempotencyKey": Schema.String.annotate({
@@ -145,33 +114,7 @@ export const V1CreateTripRequest = Schema.Struct({
       "Generated client-side, so a retry over a flaky connection is recognised\nrather than booked twice.\n\nThe generated TypeScript client sends it here, in the message. The gateway\nalso accepts an `Idempotency-Key` header and copies it into this field, for\ncallers that would rather describe the request than the trip — a proxy can\nread a header without parsing a body. The handler prefers the field.",
   }),
 }).annotate({ "identifier": "v1CreateTripRequest" });
-export type V1CreateTripResponse = {
-  readonly "trip": {
-    readonly "id": string;
-    readonly "riderId": string;
-    readonly "driverId": string;
-    readonly "status":
-      | "TRIP_STATUS_UNSPECIFIED"
-      | "TRIP_STATUS_REQUESTED"
-      | "TRIP_STATUS_OFFERED"
-      | "TRIP_STATUS_ACCEPTED"
-      | "TRIP_STATUS_ARRIVED"
-      | "TRIP_STATUS_IN_PROGRESS"
-      | "TRIP_STATUS_COMPLETED"
-      | "TRIP_STATUS_CANCELLED"
-      | "TRIP_STATUS_UNMATCHED";
-    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-    readonly "route": {
-      readonly "polyline6": string;
-      readonly "meters": number;
-      readonly "seconds": string;
-    };
-    readonly "totalCents": string;
-    readonly "createdAt": string;
-    readonly "updatedAt": string;
-  };
-};
+export type V1CreateTripResponse = typeof V1CreateTripResponse.Type;
 export const V1CreateTripResponse = Schema.Struct({
   "trip": Schema.Struct({
     "id": TripId,
@@ -229,33 +172,7 @@ export const V1CreateTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1CreateTripResponse" });
-export type V1GetTripResponse = {
-  readonly "trip": {
-    readonly "id": string;
-    readonly "riderId": string;
-    readonly "driverId": string;
-    readonly "status":
-      | "TRIP_STATUS_UNSPECIFIED"
-      | "TRIP_STATUS_REQUESTED"
-      | "TRIP_STATUS_OFFERED"
-      | "TRIP_STATUS_ACCEPTED"
-      | "TRIP_STATUS_ARRIVED"
-      | "TRIP_STATUS_IN_PROGRESS"
-      | "TRIP_STATUS_COMPLETED"
-      | "TRIP_STATUS_CANCELLED"
-      | "TRIP_STATUS_UNMATCHED";
-    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-    readonly "route": {
-      readonly "polyline6": string;
-      readonly "meters": number;
-      readonly "seconds": string;
-    };
-    readonly "totalCents": string;
-    readonly "createdAt": string;
-    readonly "updatedAt": string;
-  };
-};
+export type V1GetTripResponse = typeof V1GetTripResponse.Type;
 export const V1GetTripResponse = Schema.Struct({
   "trip": Schema.Struct({
     "id": TripId,
@@ -313,33 +230,7 @@ export const V1GetTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1GetTripResponse" });
-export type V1ArriveTripResponse = {
-  readonly "trip": {
-    readonly "id": string;
-    readonly "riderId": string;
-    readonly "driverId": string;
-    readonly "status":
-      | "TRIP_STATUS_UNSPECIFIED"
-      | "TRIP_STATUS_REQUESTED"
-      | "TRIP_STATUS_OFFERED"
-      | "TRIP_STATUS_ACCEPTED"
-      | "TRIP_STATUS_ARRIVED"
-      | "TRIP_STATUS_IN_PROGRESS"
-      | "TRIP_STATUS_COMPLETED"
-      | "TRIP_STATUS_CANCELLED"
-      | "TRIP_STATUS_UNMATCHED";
-    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-    readonly "route": {
-      readonly "polyline6": string;
-      readonly "meters": number;
-      readonly "seconds": string;
-    };
-    readonly "totalCents": string;
-    readonly "createdAt": string;
-    readonly "updatedAt": string;
-  };
-};
+export type V1ArriveTripResponse = typeof V1ArriveTripResponse.Type;
 export const V1ArriveTripResponse = Schema.Struct({
   "trip": Schema.Struct({
     "id": TripId,
@@ -397,37 +288,11 @@ export const V1ArriveTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1ArriveTripResponse" });
-export type TripServiceCancelTripBody = { readonly "reason": string; };
+export type TripServiceCancelTripBody = typeof TripServiceCancelTripBody.Type;
 export const TripServiceCancelTripBody = Schema.Struct({ "reason": Schema.String }).annotate({
   "identifier": "TripServiceCancelTripBody",
 });
-export type V1CancelTripResponse = {
-  readonly "trip": {
-    readonly "id": string;
-    readonly "riderId": string;
-    readonly "driverId": string;
-    readonly "status":
-      | "TRIP_STATUS_UNSPECIFIED"
-      | "TRIP_STATUS_REQUESTED"
-      | "TRIP_STATUS_OFFERED"
-      | "TRIP_STATUS_ACCEPTED"
-      | "TRIP_STATUS_ARRIVED"
-      | "TRIP_STATUS_IN_PROGRESS"
-      | "TRIP_STATUS_COMPLETED"
-      | "TRIP_STATUS_CANCELLED"
-      | "TRIP_STATUS_UNMATCHED";
-    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-    readonly "route": {
-      readonly "polyline6": string;
-      readonly "meters": number;
-      readonly "seconds": string;
-    };
-    readonly "totalCents": string;
-    readonly "createdAt": string;
-    readonly "updatedAt": string;
-  };
-};
+export type V1CancelTripResponse = typeof V1CancelTripResponse.Type;
 export const V1CancelTripResponse = Schema.Struct({
   "trip": Schema.Struct({
     "id": TripId,
@@ -485,33 +350,7 @@ export const V1CancelTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1CancelTripResponse" });
-export type V1CompleteTripResponse = {
-  readonly "trip": {
-    readonly "id": string;
-    readonly "riderId": string;
-    readonly "driverId": string;
-    readonly "status":
-      | "TRIP_STATUS_UNSPECIFIED"
-      | "TRIP_STATUS_REQUESTED"
-      | "TRIP_STATUS_OFFERED"
-      | "TRIP_STATUS_ACCEPTED"
-      | "TRIP_STATUS_ARRIVED"
-      | "TRIP_STATUS_IN_PROGRESS"
-      | "TRIP_STATUS_COMPLETED"
-      | "TRIP_STATUS_CANCELLED"
-      | "TRIP_STATUS_UNMATCHED";
-    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-    readonly "route": {
-      readonly "polyline6": string;
-      readonly "meters": number;
-      readonly "seconds": string;
-    };
-    readonly "totalCents": string;
-    readonly "createdAt": string;
-    readonly "updatedAt": string;
-  };
-};
+export type V1CompleteTripResponse = typeof V1CompleteTripResponse.Type;
 export const V1CompleteTripResponse = Schema.Struct({
   "trip": Schema.Struct({
     "id": TripId,
@@ -569,33 +408,7 @@ export const V1CompleteTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1CompleteTripResponse" });
-export type V1StartTripResponse = {
-  readonly "trip": {
-    readonly "id": string;
-    readonly "riderId": string;
-    readonly "driverId": string;
-    readonly "status":
-      | "TRIP_STATUS_UNSPECIFIED"
-      | "TRIP_STATUS_REQUESTED"
-      | "TRIP_STATUS_OFFERED"
-      | "TRIP_STATUS_ACCEPTED"
-      | "TRIP_STATUS_ARRIVED"
-      | "TRIP_STATUS_IN_PROGRESS"
-      | "TRIP_STATUS_COMPLETED"
-      | "TRIP_STATUS_CANCELLED"
-      | "TRIP_STATUS_UNMATCHED";
-    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-    readonly "route": {
-      readonly "polyline6": string;
-      readonly "meters": number;
-      readonly "seconds": string;
-    };
-    readonly "totalCents": string;
-    readonly "createdAt": string;
-    readonly "updatedAt": string;
-  };
-};
+export type V1StartTripResponse = typeof V1StartTripResponse.Type;
 export const V1StartTripResponse = Schema.Struct({
   "trip": Schema.Struct({
     "id": TripId,
@@ -653,10 +466,7 @@ export const V1StartTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1StartTripResponse" });
-export type V1PreviewTripRequest = {
-  readonly "pickup": { readonly "lat": number; readonly "lng": number; };
-  readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
-};
+export type V1PreviewTripRequest = typeof V1PreviewTripRequest.Type;
 export const V1PreviewTripRequest = Schema.Struct({
   "pickup": Schema.Struct({
     "lat": Schema.Number.annotate({ "format": "double" }).check(
@@ -685,22 +495,7 @@ export const V1PreviewTripRequest = Schema.Struct({
     "The caller is NOT a field on any request.\n\nIt arrives as gRPC metadata, put there by the gateway from a verified token.\nThis matters more now that the REST body maps straight onto the message: a\n`rider_id` field would be client-supplied, and a client that can name the\nrider can quote, book and read rides as somebody else.",
   "identifier": "v1PreviewTripRequest",
 });
-export type V1PreviewTripResponse = {
-  readonly "fares": ReadonlyArray<
-    {
-      readonly "fareId": string;
-      readonly "packageSlug": string;
-      readonly "totalCents": string;
-      readonly "surgeMultiplier": number;
-      readonly "expiresAt": string;
-    }
-  >;
-  readonly "route": {
-    readonly "polyline6": string;
-    readonly "meters": number;
-    readonly "seconds": string;
-  };
-};
+export type V1PreviewTripResponse = typeof V1PreviewTripResponse.Type;
 export const V1PreviewTripResponse = Schema.Struct({
   "fares": Schema.Array(Schema.Struct({
     "fareId": FareId,
@@ -728,11 +523,7 @@ export const V1PreviewTripResponse = Schema.Struct({
   }).annotate({ "description": "Route is a driveable path with its cost." }),
 }).annotate({ "identifier": "v1PreviewTripResponse" });
 // schemas
-export type ListParams = {
-  readonly "pageSize"?: number;
-  readonly "pageToken"?: string;
-  readonly "status"?: string;
-};
+export type ListParams = typeof ListParams.Type;
 export const ListParams = Schema.Struct({
   "pageSize": Schema.optionalKey(
     Schema.Number.annotate({ "format": "int32" }).check(
@@ -742,11 +533,7 @@ export const ListParams = Schema.Struct({
   "pageToken": Schema.optionalKey(Schema.String),
   "status": Schema.optionalKey(Schema.String),
 });
-export type ListQuery = {
-  readonly "pageSize"?: number;
-  readonly "pageToken"?: string;
-  readonly "status"?: string;
-};
+export type ListQuery = typeof ListQuery.Type;
 export const ListQuery = Schema.Struct({
   "pageSize": Schema.optionalKey(
     Schema.Number.annotate({ "format": "int32" }).check(
@@ -756,197 +543,197 @@ export const ListQuery = Schema.Struct({
   "pageToken": Schema.optionalKey(Schema.String),
   "status": Schema.optionalKey(Schema.String),
 });
-export type List200 = V1ListTripsResponse;
+export type List200 = typeof List200.Type;
 export const List200 = V1ListTripsResponse;
-export type List400 = V1ErrorBody;
+export type List400 = typeof List400.Type;
 export const List400 = V1ErrorBody;
-export type List401 = V1ErrorBody;
+export type List401 = typeof List401.Type;
 export const List401 = V1ErrorBody;
-export type List403 = V1ErrorBody;
+export type List403 = typeof List403.Type;
 export const List403 = V1ErrorBody;
-export type List404 = V1ErrorBody;
+export type List404 = typeof List404.Type;
 export const List404 = V1ErrorBody;
-export type List409 = V1ErrorBody;
+export type List409 = typeof List409.Type;
 export const List409 = V1ErrorBody;
-export type List429 = V1ErrorBody;
+export type List429 = typeof List429.Type;
 export const List429 = V1ErrorBody;
-export type List500 = V1ErrorBody;
+export type List500 = typeof List500.Type;
 export const List500 = V1ErrorBody;
-export type List501 = V1ErrorBody;
+export type List501 = typeof List501.Type;
 export const List501 = V1ErrorBody;
-export type List503 = V1ErrorBody;
+export type List503 = typeof List503.Type;
 export const List503 = V1ErrorBody;
-export type List504 = V1ErrorBody;
+export type List504 = typeof List504.Type;
 export const List504 = V1ErrorBody;
-export type CreateRequestJson = V1CreateTripRequest;
+export type CreateRequestJson = typeof CreateRequestJson.Type;
 export const CreateRequestJson = V1CreateTripRequest;
-export type Create200 = V1CreateTripResponse;
+export type Create200 = typeof Create200.Type;
 export const Create200 = V1CreateTripResponse;
-export type Create400 = V1ErrorBody;
+export type Create400 = typeof Create400.Type;
 export const Create400 = V1ErrorBody;
-export type Create401 = V1ErrorBody;
+export type Create401 = typeof Create401.Type;
 export const Create401 = V1ErrorBody;
-export type Create403 = V1ErrorBody;
+export type Create403 = typeof Create403.Type;
 export const Create403 = V1ErrorBody;
-export type Create404 = V1ErrorBody;
+export type Create404 = typeof Create404.Type;
 export const Create404 = V1ErrorBody;
-export type Create409 = V1ErrorBody;
+export type Create409 = typeof Create409.Type;
 export const Create409 = V1ErrorBody;
-export type Create429 = V1ErrorBody;
+export type Create429 = typeof Create429.Type;
 export const Create429 = V1ErrorBody;
-export type Create500 = V1ErrorBody;
+export type Create500 = typeof Create500.Type;
 export const Create500 = V1ErrorBody;
-export type Create501 = V1ErrorBody;
+export type Create501 = typeof Create501.Type;
 export const Create501 = V1ErrorBody;
-export type Create503 = V1ErrorBody;
+export type Create503 = typeof Create503.Type;
 export const Create503 = V1ErrorBody;
-export type Create504 = V1ErrorBody;
+export type Create504 = typeof Create504.Type;
 export const Create504 = V1ErrorBody;
-export type GetPathParams = { readonly "tripId": string; };
+export type GetPathParams = typeof GetPathParams.Type;
 export const GetPathParams = Schema.Struct({ "tripId": TripId });
-export type Get200 = V1GetTripResponse;
+export type Get200 = typeof Get200.Type;
 export const Get200 = V1GetTripResponse;
-export type Get400 = V1ErrorBody;
+export type Get400 = typeof Get400.Type;
 export const Get400 = V1ErrorBody;
-export type Get401 = V1ErrorBody;
+export type Get401 = typeof Get401.Type;
 export const Get401 = V1ErrorBody;
-export type Get403 = V1ErrorBody;
+export type Get403 = typeof Get403.Type;
 export const Get403 = V1ErrorBody;
-export type Get404 = V1ErrorBody;
+export type Get404 = typeof Get404.Type;
 export const Get404 = V1ErrorBody;
-export type Get409 = V1ErrorBody;
+export type Get409 = typeof Get409.Type;
 export const Get409 = V1ErrorBody;
-export type Get429 = V1ErrorBody;
+export type Get429 = typeof Get429.Type;
 export const Get429 = V1ErrorBody;
-export type Get500 = V1ErrorBody;
+export type Get500 = typeof Get500.Type;
 export const Get500 = V1ErrorBody;
-export type Get501 = V1ErrorBody;
+export type Get501 = typeof Get501.Type;
 export const Get501 = V1ErrorBody;
-export type Get503 = V1ErrorBody;
+export type Get503 = typeof Get503.Type;
 export const Get503 = V1ErrorBody;
-export type Get504 = V1ErrorBody;
+export type Get504 = typeof Get504.Type;
 export const Get504 = V1ErrorBody;
-export type ArrivePathParams = { readonly "tripId": string; };
+export type ArrivePathParams = typeof ArrivePathParams.Type;
 export const ArrivePathParams = Schema.Struct({ "tripId": TripId });
-export type Arrive200 = V1ArriveTripResponse;
+export type Arrive200 = typeof Arrive200.Type;
 export const Arrive200 = V1ArriveTripResponse;
-export type Arrive400 = V1ErrorBody;
+export type Arrive400 = typeof Arrive400.Type;
 export const Arrive400 = V1ErrorBody;
-export type Arrive401 = V1ErrorBody;
+export type Arrive401 = typeof Arrive401.Type;
 export const Arrive401 = V1ErrorBody;
-export type Arrive403 = V1ErrorBody;
+export type Arrive403 = typeof Arrive403.Type;
 export const Arrive403 = V1ErrorBody;
-export type Arrive404 = V1ErrorBody;
+export type Arrive404 = typeof Arrive404.Type;
 export const Arrive404 = V1ErrorBody;
-export type Arrive409 = V1ErrorBody;
+export type Arrive409 = typeof Arrive409.Type;
 export const Arrive409 = V1ErrorBody;
-export type Arrive429 = V1ErrorBody;
+export type Arrive429 = typeof Arrive429.Type;
 export const Arrive429 = V1ErrorBody;
-export type Arrive500 = V1ErrorBody;
+export type Arrive500 = typeof Arrive500.Type;
 export const Arrive500 = V1ErrorBody;
-export type Arrive501 = V1ErrorBody;
+export type Arrive501 = typeof Arrive501.Type;
 export const Arrive501 = V1ErrorBody;
-export type Arrive503 = V1ErrorBody;
+export type Arrive503 = typeof Arrive503.Type;
 export const Arrive503 = V1ErrorBody;
-export type Arrive504 = V1ErrorBody;
+export type Arrive504 = typeof Arrive504.Type;
 export const Arrive504 = V1ErrorBody;
-export type CancelPathParams = { readonly "tripId": string; };
+export type CancelPathParams = typeof CancelPathParams.Type;
 export const CancelPathParams = Schema.Struct({ "tripId": TripId });
-export type CancelRequestJson = TripServiceCancelTripBody;
+export type CancelRequestJson = typeof CancelRequestJson.Type;
 export const CancelRequestJson = TripServiceCancelTripBody;
-export type Cancel200 = V1CancelTripResponse;
+export type Cancel200 = typeof Cancel200.Type;
 export const Cancel200 = V1CancelTripResponse;
-export type Cancel400 = V1ErrorBody;
+export type Cancel400 = typeof Cancel400.Type;
 export const Cancel400 = V1ErrorBody;
-export type Cancel401 = V1ErrorBody;
+export type Cancel401 = typeof Cancel401.Type;
 export const Cancel401 = V1ErrorBody;
-export type Cancel403 = V1ErrorBody;
+export type Cancel403 = typeof Cancel403.Type;
 export const Cancel403 = V1ErrorBody;
-export type Cancel404 = V1ErrorBody;
+export type Cancel404 = typeof Cancel404.Type;
 export const Cancel404 = V1ErrorBody;
-export type Cancel409 = V1ErrorBody;
+export type Cancel409 = typeof Cancel409.Type;
 export const Cancel409 = V1ErrorBody;
-export type Cancel429 = V1ErrorBody;
+export type Cancel429 = typeof Cancel429.Type;
 export const Cancel429 = V1ErrorBody;
-export type Cancel500 = V1ErrorBody;
+export type Cancel500 = typeof Cancel500.Type;
 export const Cancel500 = V1ErrorBody;
-export type Cancel501 = V1ErrorBody;
+export type Cancel501 = typeof Cancel501.Type;
 export const Cancel501 = V1ErrorBody;
-export type Cancel503 = V1ErrorBody;
+export type Cancel503 = typeof Cancel503.Type;
 export const Cancel503 = V1ErrorBody;
-export type Cancel504 = V1ErrorBody;
+export type Cancel504 = typeof Cancel504.Type;
 export const Cancel504 = V1ErrorBody;
-export type CompletePathParams = { readonly "tripId": string; };
+export type CompletePathParams = typeof CompletePathParams.Type;
 export const CompletePathParams = Schema.Struct({ "tripId": TripId });
-export type Complete200 = V1CompleteTripResponse;
+export type Complete200 = typeof Complete200.Type;
 export const Complete200 = V1CompleteTripResponse;
-export type Complete400 = V1ErrorBody;
+export type Complete400 = typeof Complete400.Type;
 export const Complete400 = V1ErrorBody;
-export type Complete401 = V1ErrorBody;
+export type Complete401 = typeof Complete401.Type;
 export const Complete401 = V1ErrorBody;
-export type Complete403 = V1ErrorBody;
+export type Complete403 = typeof Complete403.Type;
 export const Complete403 = V1ErrorBody;
-export type Complete404 = V1ErrorBody;
+export type Complete404 = typeof Complete404.Type;
 export const Complete404 = V1ErrorBody;
-export type Complete409 = V1ErrorBody;
+export type Complete409 = typeof Complete409.Type;
 export const Complete409 = V1ErrorBody;
-export type Complete429 = V1ErrorBody;
+export type Complete429 = typeof Complete429.Type;
 export const Complete429 = V1ErrorBody;
-export type Complete500 = V1ErrorBody;
+export type Complete500 = typeof Complete500.Type;
 export const Complete500 = V1ErrorBody;
-export type Complete501 = V1ErrorBody;
+export type Complete501 = typeof Complete501.Type;
 export const Complete501 = V1ErrorBody;
-export type Complete503 = V1ErrorBody;
+export type Complete503 = typeof Complete503.Type;
 export const Complete503 = V1ErrorBody;
-export type Complete504 = V1ErrorBody;
+export type Complete504 = typeof Complete504.Type;
 export const Complete504 = V1ErrorBody;
-export type StartPathParams = { readonly "tripId": string; };
+export type StartPathParams = typeof StartPathParams.Type;
 export const StartPathParams = Schema.Struct({ "tripId": TripId });
-export type Start200 = V1StartTripResponse;
+export type Start200 = typeof Start200.Type;
 export const Start200 = V1StartTripResponse;
-export type Start400 = V1ErrorBody;
+export type Start400 = typeof Start400.Type;
 export const Start400 = V1ErrorBody;
-export type Start401 = V1ErrorBody;
+export type Start401 = typeof Start401.Type;
 export const Start401 = V1ErrorBody;
-export type Start403 = V1ErrorBody;
+export type Start403 = typeof Start403.Type;
 export const Start403 = V1ErrorBody;
-export type Start404 = V1ErrorBody;
+export type Start404 = typeof Start404.Type;
 export const Start404 = V1ErrorBody;
-export type Start409 = V1ErrorBody;
+export type Start409 = typeof Start409.Type;
 export const Start409 = V1ErrorBody;
-export type Start429 = V1ErrorBody;
+export type Start429 = typeof Start429.Type;
 export const Start429 = V1ErrorBody;
-export type Start500 = V1ErrorBody;
+export type Start500 = typeof Start500.Type;
 export const Start500 = V1ErrorBody;
-export type Start501 = V1ErrorBody;
+export type Start501 = typeof Start501.Type;
 export const Start501 = V1ErrorBody;
-export type Start503 = V1ErrorBody;
+export type Start503 = typeof Start503.Type;
 export const Start503 = V1ErrorBody;
-export type Start504 = V1ErrorBody;
+export type Start504 = typeof Start504.Type;
 export const Start504 = V1ErrorBody;
-export type PreviewRequestJson = V1PreviewTripRequest;
+export type PreviewRequestJson = typeof PreviewRequestJson.Type;
 export const PreviewRequestJson = V1PreviewTripRequest;
-export type Preview200 = V1PreviewTripResponse;
+export type Preview200 = typeof Preview200.Type;
 export const Preview200 = V1PreviewTripResponse;
-export type Preview400 = V1ErrorBody;
+export type Preview400 = typeof Preview400.Type;
 export const Preview400 = V1ErrorBody;
-export type Preview401 = V1ErrorBody;
+export type Preview401 = typeof Preview401.Type;
 export const Preview401 = V1ErrorBody;
-export type Preview403 = V1ErrorBody;
+export type Preview403 = typeof Preview403.Type;
 export const Preview403 = V1ErrorBody;
-export type Preview404 = V1ErrorBody;
+export type Preview404 = typeof Preview404.Type;
 export const Preview404 = V1ErrorBody;
-export type Preview409 = V1ErrorBody;
+export type Preview409 = typeof Preview409.Type;
 export const Preview409 = V1ErrorBody;
-export type Preview429 = V1ErrorBody;
+export type Preview429 = typeof Preview429.Type;
 export const Preview429 = V1ErrorBody;
-export type Preview500 = V1ErrorBody;
+export type Preview500 = typeof Preview500.Type;
 export const Preview500 = V1ErrorBody;
-export type Preview501 = V1ErrorBody;
+export type Preview501 = typeof Preview501.Type;
 export const Preview501 = V1ErrorBody;
-export type Preview503 = V1ErrorBody;
+export type Preview503 = typeof Preview503.Type;
 export const Preview503 = V1ErrorBody;
-export type Preview504 = V1ErrorBody;
+export type Preview504 = typeof Preview504.Type;
 export const Preview504 = V1ErrorBody;
 
 class TripsGroup extends HttpApiGroup.make("trips")

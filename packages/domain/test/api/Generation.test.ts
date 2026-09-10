@@ -1,3 +1,4 @@
+import type { Cents, TripId } from "@surge/domain/api/Primitives";
 import {
   Cancel200,
   Create200,
@@ -9,10 +10,11 @@ import {
   Preview200,
   SurgeApi,
 } from "@surge/domain/api/SurgeApi";
+import type { Trip } from "@surge/domain/trip/Trip";
 import { Effect, Schema } from "effect";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 /**
  * What can go wrong now that the client is generated.
@@ -131,5 +133,18 @@ describe("the generated client decodes what the gateway sends", () => {
     expect(paths).not.toContain("POST /v1/trips/:tripId:cancel");
 
     expect(decode(Cancel200, responses["created"]).trip.id).toBeTypeOf("string");
+  });
+
+  /**
+   * Checked by the compiler, not at runtime. The generator also emits a `type`
+   * alias per shape, and until they were rewritten those described the wire —
+   * ids as strings, 64-bit fields as quoted strings — while every decoded value
+   * was branded or a number. A type that disagrees with its own schema fails to
+   * type-check here.
+   */
+  it("types every shape as what its schema decodes to", () => {
+    expectTypeOf<Trip["route"]["seconds"]>().toEqualTypeOf<number>();
+    expectTypeOf<Trip["totalCents"]>().toEqualTypeOf<Cents>();
+    expectTypeOf<Trip["id"]>().toEqualTypeOf<TripId>();
   });
 });

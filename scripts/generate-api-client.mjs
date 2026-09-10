@@ -156,6 +156,29 @@ const applyFormats = (source) => {
   return out;
 };
 
+/**
+ * Every exported type becomes the decoded type of the schema beside it.
+ *
+ * The generator emits each shape twice: a `Schema`, and a `type` alias of what
+ * the document says — the wire's view, with ids as plain strings and 64-bit
+ * fields as the quoted strings proto3 sends. After the `format` rewrite above,
+ * the schemas decode to branded ids and numbers, so those aliases described
+ * values nothing in the program ever holds. `Trip["route"]["seconds"]` typed as
+ * a string, while every runtime value was a number, is how that showed up.
+ *
+ * Each alias is one line in the generator's raw output, which is why this runs
+ * before dprint reflows them.
+ */
+const alignTypes = (source) => {
+  const schemas = new Set(
+    [...source.matchAll(/^export const (\w+) = /gm)].map((match) => match[1]),
+  );
+  return source.replace(
+    /^export type (\w+) = .*$/gm,
+    (line, name) => (schemas.has(name) ? `export type ${name} = typeof ${name}.Type` : line),
+  );
+};
+
 /** Drops the names the generator imports unconditionally but did not use. */
 const pruneImports = (source) =>
   source.replace(/^import \{([^}]+)\} from "effect\/unstable\/httpapi"$/m, (line, names) => {
@@ -186,7 +209,7 @@ const header = `/**
 
 const imports = Object.values(FORMATS).sort().join(", ");
 const source = header
-  + pruneImports(applyFormats(generated)).replace(
+  + pruneImports(alignTypes(applyFormats(generated))).replace(
     /^(import \* as Schema from "effect\/Schema"\n)/m,
     `$1import { ${imports} } from "./Primitives.js"\n`,
   );
