@@ -179,3 +179,48 @@ func TestSendToAClosedConnection(t *testing.T) {
 		t.Errorf("want ErrGone, got %v", err)
 	}
 }
+
+// The shutdown trap, pinned.
+//
+// http.Server.Shutdown waits for active handlers to return, and a WebSocket
+// handler returns only when its connection closes. A gateway that shuts down
+// without closing its connections first stops listening and then waits forever
+// for clients who have no reason to leave — alive, unreachable, and with the
+// listener already gone so nothing reports it as down. That happened, at five
+// thousand connections.
+func TestCloseAllReleasesEveryHandler(t *testing.T) {
+	registry := domain.NewRegistry()
+
+	const held = 200
+	connections := make([]*domain.Connection, held)
+	for i := range held {
+		connections[i] = domain.NewConnection(
+			"c"+string(rune('a'+i%26))+string(rune('0'+i/26)),
+			"user-"+string(rune('a'+i%26))+string(rune('0'+i/26)),
+			"driver", now)
+		registry.Add(connections[i])
+	}
+
+	if registry.Len() != held {
+		t.Fatalf("setup: registry holds %d, want %d", registry.Len(), held)
+	}
+
+	if closed := registry.CloseAll(domain.EvictionShutdown); closed != held {
+		t.Errorf("closed %d, want %d", closed, held)
+	}
+
+	for i, connection := range connections {
+		select {
+		case <-connection.Closed():
+		default:
+			t.Fatalf("connection %d was left open; its handler would never return", i)
+		}
+		if connection.Reason() != domain.EvictionShutdown {
+			t.Fatalf("connection %d closed for %q", i, connection.Reason())
+		}
+	}
+
+	if registry.Len() != 0 {
+		t.Errorf("registry still holds %d connections", registry.Len())
+	}
+}

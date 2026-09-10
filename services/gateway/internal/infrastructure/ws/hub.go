@@ -32,6 +32,9 @@ type Hooks struct {
 	OnRejected   func(reason string)
 	OnPushed     func()
 	OnPushFailed func(reason string)
+	// OnProduceError carries the real error. A "produce" label told us twelve
+	// thousand records had failed and nothing about why.
+	OnProduceError func(topic string, err error)
 }
 
 type Hub struct {
@@ -219,8 +222,14 @@ func (h *Hub) produce(ctx context.Context, topic, key string, message any) {
 		Key:   []byte(key),
 		Value: payload,
 	}, func(_ *kgo.Record, err error) {
-		if err != nil && h.hooks.OnPushFailed != nil {
+		if err == nil {
+			return
+		}
+		if h.hooks.OnPushFailed != nil {
 			h.hooks.OnPushFailed("produce")
+		}
+		if h.hooks.OnProduceError != nil {
+			h.hooks.OnProduceError(topic, err)
 		}
 	})
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
-	"sync"
 	"time"
 
 	"github.com/ishakdeveloper/surge/shared/geo"
@@ -67,18 +66,12 @@ type Riders struct {
 	config   RiderConfig
 	hooks    RiderHooks
 
-	// accepted is the double-dispatch detector.
-	//
-	// A trip may legitimately be offered to several drivers in turn — that is
-	// what happens when one declines. What must never happen is two drivers
-	// holding live offers for the same trip, because both could accept and the
-	// rider would be assigned twice. Watching from the driver side is the
-	// honest place to check it: this is what a real fleet would experience.
-	mu       sync.Mutex
-	accepted map[string]string
+	// policy is the driver behaviour, shared with the WebSocket transport so
+	// moving the fleet onto sockets changes the transport and nothing else.
+	policy *OfferPolicy
 }
 
-func NewRiders(brokers []string, group string, pool *RoutePool, config RiderConfig, hooks RiderHooks) (*Riders, error) {
+func NewRiders(brokers []string, group string, pool *RoutePool, config RiderConfig, policy *OfferPolicy, hooks RiderHooks) (*Riders, error) {
 	producer, err := kafkax.NewProducer(brokers)
 	if err != nil {
 		return nil, err
@@ -96,7 +89,7 @@ func NewRiders(brokers []string, group string, pool *RoutePool, config RiderConf
 
 	return &Riders{
 		producer: producer, consumer: consumer, pool: pool, config: config, hooks: hooks,
-		accepted: make(map[string]string),
+		policy: policy,
 	}, nil
 }
 
@@ -105,9 +98,16 @@ func (r *Riders) Close() {
 	r.consumer.Close()
 }
 
-// Run generates requests and answers offers until ctx is done.
-func (r *Riders) Run(ctx context.Context) error {
-	go r.answer(ctx)
+// Run generates demand, and answers offers only when asked to.
+//
+// Over WebSockets the drivers answer on their own sockets, which is the whole
+// point of that transport. Having this consume ws.push as well would answer
+// every offer twice — once as a socket and once as a Kafka consumer — and the
+// second answer would arrive for a reservation that no longer exists.
+func (r *Riders) Run(ctx context.Context, answerOffers bool) error {
+	if answerOffers {
+		go r.answer(ctx)
+	}
 	return r.request(ctx)
 }
 
@@ -189,8 +189,6 @@ func (r *Riders) request(ctx context.Context) error {
 
 // answer plays the drivers.
 func (r *Riders) answer(ctx context.Context) {
-	source := rand.New(rand.NewPCG(r.config.Seed, 0xd21e5))
-
 	for {
 		if ctx.Err() != nil {
 			return
@@ -220,14 +218,8 @@ func (r *Riders) answer(ctx context.Context) {
 				r.hooks.OnOffer()
 			}
 
-			// Already taken by another driver? A real driver app would refuse,
-			// and so does this — but the fact that it was offered at all is the
-			// thing worth counting.
-			r.mu.Lock()
-			holder, taken := r.accepted[offer.TripID]
-			r.mu.Unlock()
-
-			if taken && holder != offer.DriverID {
+			decision := r.policy.Decide(offer)
+			if decision.Duplicate {
 				if r.hooks.OnDuplicate != nil {
 					r.hooks.OnDuplicate(offer.TripID)
 				}
@@ -235,21 +227,13 @@ func (r *Riders) answer(ctx context.Context) {
 				return
 			}
 
-			accepted := source.Float64() < r.config.AcceptRate
-			// Jittered around the configured latency, because a fleet that all
-			// answers at exactly 1500ms would make the offer deadline a cliff
-			// rather than a distribution.
-			delay := time.Duration(float64(r.config.AcceptLatency) * (0.5 + source.Float64()))
-
-			// One goroutine per offer, so a slow answer does not hold up the
-			// rest of the batch. Offers are rare relative to pings.
 			span.SetAttributes(
 				attribute.String("surge.trip", offer.TripID),
 				attribute.String("surge.driver", offer.DriverID),
-				attribute.Bool("surge.accepted", accepted),
+				attribute.Bool("surge.accepted", decision.Accept),
 			)
 
-			go r.reply(offerCtx, offer, accepted, delay)
+			go r.reply(offerCtx, offer, decision.Accept, decision.Delay)
 		})
 	}
 }
@@ -261,18 +245,14 @@ func (r *Riders) reply(ctx context.Context, offer wire.Offer, accepted bool, del
 	case <-time.After(delay):
 	}
 
-	if accepted {
-		r.mu.Lock()
-		if holder, taken := r.accepted[offer.TripID]; taken && holder != offer.DriverID {
-			r.mu.Unlock()
-			if r.hooks.OnDuplicate != nil {
-				r.hooks.OnDuplicate(offer.TripID)
-			}
-			accepted = false
-		} else {
-			r.accepted[offer.TripID] = offer.DriverID
-			r.mu.Unlock()
+	if accepted && !r.policy.Commit(offer) {
+		// Somebody took it while this driver was thinking. That is the race
+		// worth detecting, and it can only be seen here rather than at decision
+		// time.
+		if r.hooks.OnDuplicate != nil {
+			r.hooks.OnDuplicate(offer.TripID)
 		}
+		accepted = false
 	}
 
 	event := wire.GeoEvent{

@@ -17,6 +17,8 @@ package tracing
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -36,6 +38,28 @@ import (
 // With an empty endpoint it installs nothing and returns a no-op, so callers
 // need no branch of their own — an exporter pointed at nothing retries on a
 // schedule and fills the log, and off is the honest default for a fresh clone.
+// SampleRatio is the fraction of traces exported, from OTEL_TRACES_SAMPLER_ARG.
+//
+// One is right for a handful of requests and catastrophic at ten thousand pings
+// a second: the collector becomes the bottleneck, the exporter's queue backs
+// up, and the service under test spends its time on telemetry. That is the
+// same observer effect that broke the first ingest benchmark, arriving by a
+// different route.
+//
+// Sampling is head-based and trace-wide, so a sampled trip keeps every span
+// across every service rather than a random scattering of hops.
+func sampleRatio() float64 {
+	raw := os.Getenv("OTEL_TRACES_SAMPLER_ARG")
+	if raw == "" {
+		return 1
+	}
+	ratio, err := strconv.ParseFloat(raw, 64)
+	if err != nil || ratio < 0 || ratio > 1 {
+		return 1
+	}
+	return ratio
+}
+
 func Init(ctx context.Context, service, endpoint string) (func(context.Context) error, error) {
 	// The propagator is installed either way. It costs nothing without an
 	// exporter, and installing it unconditionally means a service started
@@ -58,6 +82,10 @@ func Init(ctx context.Context, service, endpoint string) (func(context.Context) 
 		// Batched rather than synchronous: exporting a span per message would
 		// put the collector on the critical path of every ping.
 		sdktrace.WithBatcher(exporter),
+		// ParentBased so a sampling decision made at the start of a trip is
+		// honoured by every service it touches — otherwise each hop rolls its
+		// own dice and no trace is ever complete.
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(sampleRatio()))),
 		sdktrace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceName(service),

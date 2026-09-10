@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -32,6 +33,9 @@ import (
 	"github.com/ishakdeveloper/surge/shared/tracing"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+// produceSample rate-limits produce-failure logging.
+var produceSample atomic.Uint64
 
 func main() {
 	if err := run(); err != nil {
@@ -98,6 +102,12 @@ func run() error {
 		OnRejected:   func(reason string) { metrics.rejected.WithLabelValues(reason).Inc() },
 		OnPushed:     func() { metrics.pushed.WithLabelValues("delivered").Inc() },
 		OnPushFailed: func(reason string) { metrics.pushed.WithLabelValues(reason).Inc() },
+		OnProduceError: func(topic string, err error) {
+			// Sampled: one line per failed record would be its own outage.
+			if produceSample.Add(1)%200 == 1 {
+				slog.Error("produce failed", "topic", topic, "error", err)
+			}
+		},
 	})
 
 	// Its own consumer group per instance: every gateway needs every offer,
@@ -142,12 +152,20 @@ func run() error {
 		IdleTimeout: 120 * time.Second,
 	}
 
-	errs := make(chan error, 3)
-	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
-	go func() { errs <- pushes.Run(ctx) }()
+	// Labelled, because a bare error channel makes every failure look the same.
+	// A gateway that stopped listening because its metrics port was taken looks
+	// exactly like one that crashed, right up until you read the code.
+	type failure struct {
+		subsystem string
+		err       error
+	}
+	errs := make(chan failure, 3)
+
+	go func() { errs <- failure{"metrics", registry.ServeMetrics(ctx, metricsAddr)} }()
+	go func() { errs <- failure{"push consumer", pushes.Run(ctx)} }()
 	go func() {
 		slog.Info("gateway listening", "addr", httpAddr, "trip", tripAddr, "origins", webOrigins)
-		errs <- server.ListenAndServe()
+		errs <- failure{"http", server.ListenAndServe()}
 	}()
 
 	go func() {
@@ -170,17 +188,43 @@ func run() error {
 		}
 	}()
 
+	var fatal error
+
 	select {
 	case <-ctx.Done():
-	case err := <-errs:
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return err
+		slog.Info("shutting down on signal")
+	case f := <-errs:
+		switch {
+		case f.err == nil:
+			slog.Warn("subsystem stopped", "subsystem", f.subsystem)
+		case errors.Is(f.err, http.ErrServerClosed):
+		default:
+			slog.Error("subsystem failed", "subsystem", f.subsystem, "error", f.err)
+			fatal = f.err
 		}
+	}
+
+	// Connections first, listener second.
+	//
+	// http.Server.Shutdown waits for active handlers, and a WebSocket handler
+	// only returns when its connection closes. Shutting down without this hangs
+	// forever: the listener is gone, so nothing can reach the process, and the
+	// process will not exit.
+	if closed := connections.CloseAll(domain.EvictionShutdown); closed > 0 {
+		slog.Info("closed connections for shutdown", "count", closed)
 	}
 
 	shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
-	return server.Shutdown(shutdown)
+
+	if err := server.Shutdown(shutdown); err != nil {
+		// Something is still holding a handler open past the grace period.
+		// Close is abrupt, and abrupt beats never.
+		slog.Warn("graceful shutdown timed out, closing", "error", err)
+		_ = server.Close()
+	}
+
+	return fatal
 }
 
 // buildVerifier assembles who this gateway will believe.

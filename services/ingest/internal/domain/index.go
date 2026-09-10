@@ -106,16 +106,28 @@ func (i *Index) Observe(ping wire.DriverPing) (Observation, error) {
 
 	previous, existed := i.drivers[ping.DriverID]
 
-	// A sequence number only means something inside its epoch.
+	// Ordered by the client's own clock, within its session.
 	//
-	// A newer epoch is a new client session — a reinstall, a reboot, a process
-	// restart — and its sequence starts again from one. Comparing it against
-	// the old session's counter would reject every ping the new session ever
-	// sends, freezing that driver at their last known position for good.
-	// An older epoch is a straggler from a session that has already ended.
-	stale := existed &&
-		((ping.Epoch == previous.Epoch && ping.Seq <= previous.Seq) ||
-			ping.Epoch < previous.Epoch)
+	// Sequence alone was not enough once drivers moved onto WebSockets. A
+	// reconnecting client briefly has two sockets, the gateway reads them with
+	// two goroutines, and two pings for the same driver can reach the producer
+	// in the wrong order — so a perfectly fresh position arrives behind a
+	// slightly older one and, judged on sequence, is rejected. At ten thousand
+	// drivers that was thirty per cent of all pings, the matcher's index went
+	// stale, and four out of five ride requests found nobody.
+	//
+	// SentAtMs is stamped by the driver, so it increases with the sequence at
+	// the source and is immune to whatever the transport does in between. The
+	// sequence remains the tie-break, and remains what the matcher uses for the
+	// cell handover — where the two halves genuinely travel on different
+	// partitions and no clock can help.
+	//
+	// An older epoch is a straggler from a session that has already ended; a
+	// newer one is a restarted client whose counters begin again.
+	stale := existed && (ping.Epoch < previous.Epoch ||
+		(ping.Epoch == previous.Epoch &&
+			(ping.SentAtMs < previous.SentAtMs ||
+				(ping.SentAtMs == previous.SentAtMs && ping.Seq <= previous.Seq))))
 
 	if stale {
 		i.stale++
@@ -125,8 +137,9 @@ func (i *Index) Observe(ping wire.DriverPing) (Observation, error) {
 		// impossible for records keyed by driver on a single partition, and
 		// means something upstream is wrong.
 		observation := Observation{
-			Stale:     true,
-			Duplicate: ping.Epoch == previous.Epoch && ping.Seq == previous.Seq,
+			Stale: true,
+			Duplicate: ping.Epoch == previous.Epoch &&
+				ping.SentAtMs == previous.SentAtMs && ping.Seq == previous.Seq,
 		}
 		if !observation.Duplicate {
 			i.reordered++

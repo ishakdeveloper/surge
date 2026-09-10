@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -32,6 +33,9 @@ import (
 	"github.com/ishakdeveloper/surge/simulator/internal/sim"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+// disconnectSample rate-limits disconnect logging.
+var disconnectSample atomic.Uint64
 
 func main() {
 	if err := run(); err != nil {
@@ -57,9 +61,18 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	useKafka, err := config.BoolOr("SIM_KAFKA", true)
-	if err != nil {
+	// kafka | ws | discard.
+	//
+	// `kafka` produces straight to the bus, which is what Phase 1 measured and
+	// is still the way to isolate ingest from the gateway. `ws` opens a real
+	// connection per driver through the gateway, which is the only way to
+	// exercise the connection registry and slow-consumer eviction. `discard` is
+	// the control: it measures what the simulator itself costs.
+	transportKind := config.StringOr("SIM_TRANSPORT", "kafka")
+	if legacy, err := config.BoolOr("SIM_KAFKA", true); err != nil {
 		return err
+	} else if !legacy && transportKind == "kafka" {
+		transportKind = "discard"
 	}
 
 	riderSettings := sim.DefaultRiderConfig()
@@ -100,8 +113,75 @@ func run() error {
 		return fmt.Errorf("simd: %w", err)
 	}
 
-	var transport sim.Transport
-	if useKafka {
+	riderSettings.Seed = settings.Seed
+	policy := sim.NewOfferPolicy(riderSettings)
+
+	var (
+		transport sim.Transport
+		sockets   *sim.WSTransport
+	)
+
+	switch transportKind {
+	case "ws":
+		if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+			return err
+		}
+
+		secret, err := config.String("SIM_TOKEN_SECRET")
+		if err != nil {
+			return fmt.Errorf("simd: SIM_TRANSPORT=ws needs %w", err)
+		}
+		dialConcurrency, err := config.IntOr("SIM_DIAL_CONCURRENCY", 64)
+		if err != nil {
+			return err
+		}
+
+		sockets, err = sim.NewWSTransport(
+			config.StringOr("SIM_WS_URL", "ws://localhost:8100/ws"),
+			secret,
+			config.StringOr("AUTH_AUDIENCE", "surge"),
+			policy,
+			dialConcurrency,
+			sim.WSHooks{
+				OnConnected: func() { metrics.wsConnections.Inc() },
+				OnDisconnected: func(reason string, cause error) {
+					metrics.wsDisconnects.WithLabelValues(reason).Inc()
+					// Sampled: at this scale a log line per disconnect is its
+					// own outage, but the first few carry the actual error,
+					// which a label never does.
+					if cause != nil && disconnectSample.Add(1)%500 == 1 {
+						slog.Warn("driver socket lost", "reason", reason, "error", cause)
+					}
+				},
+				OnDialFailed: func() { metrics.wsDialFailures.Inc() },
+				OnOffer:      func() { metrics.offers.Inc() },
+				OnReply: func(accepted bool) {
+					outcome := "declined"
+					if accepted {
+						outcome = "accepted"
+					}
+					metrics.replies.WithLabelValues(outcome).Inc()
+				},
+				OnDuplicate: func(tripID string) {
+					metrics.duplicates.Inc()
+					slog.Error("DOUBLE DISPATCH", "trip", tripID)
+				},
+			})
+		if err != nil {
+			return err
+		}
+		transport = sockets
+		slog.Info("drivers connect over websockets", "url", config.StringOr("SIM_WS_URL", "ws://localhost:8100/ws"))
+
+	case "discard":
+		// The control run: measures what the simulator itself costs, so a
+		// throughput ceiling can be attributed rather than guessed at. Counting
+		// is left to the fleet hook below — doing it here as well would double
+		// every ping and make the control run look twice as fast as it is.
+		transport = sim.NewDiscardTransport(nil)
+		slog.Warn("pings are discarded; this measures the simulator only")
+
+	default:
 		if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
 			return err
 		}
@@ -110,13 +190,6 @@ func run() error {
 			return err
 		}
 		transport = kafka
-	} else {
-		// The control run: measures what the simulator itself costs, so a
-		// throughput ceiling can be attributed rather than guessed at. Counting
-		// is left to the fleet hook below — doing it here as well would double
-		// every ping and make the control run look twice as fast as it is.
-		transport = sim.NewDiscardTransport(nil)
-		slog.Warn("SIM_KAFKA=false: pings are discarded, this measures the simulator only")
 	}
 	defer transport.Close()
 
@@ -164,9 +237,8 @@ func run() error {
 	// Demand, and the drivers who answer it. Only with Kafka: the discard
 	// transport is a control run measuring the simulator itself, and there is
 	// nothing on the other end to match against.
-	if useKafka {
-		riderSettings.Seed = settings.Seed
-		riders, err := sim.NewRiders(brokers, config.StringOr("SIM_RIDER_GROUP", "sim-drivers"), pool, riderSettings,
+	if transportKind != "discard" {
+		riders, err := sim.NewRiders(brokers, config.StringOr("SIM_RIDER_GROUP", "sim-drivers"), pool, riderSettings, policy,
 			sim.RiderHooks{
 				OnRequest:  func() { metrics.requests.Inc() },
 				OnOffer:    func() { metrics.offers.Inc() },
@@ -186,8 +258,12 @@ func run() error {
 		}
 		defer riders.Close()
 
-		go func() { _ = riders.Run(ctx) }()
+		// Only the Kafka transport needs the rider half to play drivers too.
+		answerOffers := transportKind == "kafka"
+		go func() { _ = riders.Run(ctx, answerOffers) }()
 		slog.Info("demand started",
+			"transport", transportKind,
+			"driversAnswerOverKafka", answerOffers,
 			"requestsPerSecond", riderSettings.RequestsPerSecond,
 			"acceptRate", riderSettings.AcceptRate,
 			"acceptLatency", riderSettings.AcceptLatency,
@@ -215,20 +291,33 @@ func run() error {
 }
 
 type metrics struct {
-	duplicates prometheus.Counter
-	requests   prometheus.Counter
-	offers     prometheus.Counter
-	replies    *prometheus.CounterVec
-	drivers    prometheus.Gauge
-	pings      prometheus.Counter
-	pingErrors prometheus.Counter
-	arrivals   prometheus.Counter
-	poolSize   prometheus.Gauge
-	routeFetch *prometheus.HistogramVec
+	wsConnections  prometheus.Counter
+	wsDisconnects  *prometheus.CounterVec
+	wsDialFailures prometheus.Counter
+	duplicates     prometheus.Counter
+	requests       prometheus.Counter
+	offers         prometheus.Counter
+	replies        *prometheus.CounterVec
+	drivers        prometheus.Gauge
+	pings          prometheus.Counter
+	pingErrors     prometheus.Counter
+	arrivals       prometheus.Counter
+	poolSize       prometheus.Gauge
+	routeFetch     *prometheus.HistogramVec
 }
 
 func newMetrics(registry *obs.Registry) *metrics {
 	m := &metrics{
+		wsConnections: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "surge_sim_ws_connected_total", Help: "WebSocket connections opened by simulated drivers.",
+		}),
+		wsDisconnects: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "surge_sim_ws_disconnects_total",
+			Help: "Simulated driver connections lost, by reason. Should stay near zero; a spike means the gateway is shedding.",
+		}, []string{"reason"}),
+		wsDialFailures: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "surge_sim_ws_dial_failures_total", Help: "Connections the simulator could not establish.",
+		}),
 		duplicates: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "surge_sim_double_dispatch_total",
 			Help: "Trips offered to a second driver while already accepted. Must be zero.",
@@ -269,7 +358,8 @@ func newMetrics(registry *obs.Registry) *metrics {
 		}, []string{"outcome"}),
 	}
 
-	registry.MustRegister(m.duplicates, m.requests, m.offers, m.replies,
+	registry.MustRegister(m.wsConnections, m.wsDisconnects, m.wsDialFailures,
+		m.duplicates, m.requests, m.offers, m.replies,
 		m.drivers, m.pings, m.pingErrors, m.arrivals, m.poolSize, m.routeFetch)
 	return m
 }

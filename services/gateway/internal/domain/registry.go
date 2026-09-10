@@ -142,3 +142,33 @@ func (r *Registry) EvictIdle(before time.Time) int {
 	}
 	return evicted
 }
+
+// CloseAll ends every connection, returning how many.
+//
+// Needed for shutdown, and the reason is a trap worth naming: http.Server's
+// graceful Shutdown waits for active handlers to return, and a WebSocket
+// handler does not return until its connection closes. A gateway holding forty
+// thousand sockets therefore stops listening, waits for clients that have no
+// reason to leave, and hangs — alive, serving nothing, with the listener already
+// gone so nothing even reports it as down.
+//
+// Closing the connections first is what makes the handlers return.
+func (r *Registry) CloseAll(reason EvictionReason) int {
+	closed := 0
+
+	for i := range r.shards {
+		r.shards[i].mu.Lock()
+		connections := make([]*Connection, 0, len(r.shards[i].byUser))
+		for _, connection := range r.shards[i].byUser {
+			connections = append(connections, connection)
+		}
+		clear(r.shards[i].byUser)
+		r.shards[i].mu.Unlock()
+
+		for _, connection := range connections {
+			connection.Close(reason)
+			closed++
+		}
+	}
+	return closed
+}

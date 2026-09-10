@@ -311,9 +311,87 @@ func TestDuplicateWithinASessionIsReportedAsDuplicate(t *testing.T) {
 	}
 }
 
+// SentAtMs tracks the sequence, as it does at the source: a driver's clock and
+// its counter advance together, which is what makes the clock a safe ordering
+// key even when the transport reorders.
 func pingIn(epoch uint64, id string, seq uint64, point geo.Point) wire.DriverPing {
 	return wire.DriverPing{
 		DriverID: id, Epoch: epoch, Seq: seq,
-		Lat: point.Lat, Lng: point.Lng, Status: wire.StatusIdle,
+		SentAtMs: int64(seq) * 1000,
+		Lat:      point.Lat, Lng: point.Lng, Status: wire.StatusIdle,
+	}
+}
+
+// The bug that starved the matcher.
+//
+// Once drivers moved onto WebSockets, a reconnecting client briefly had two
+// sockets, the gateway read them with two goroutines, and two pings for the
+// same driver could reach the producer out of order. Judged on sequence alone,
+// a perfectly fresh position arriving behind a slightly older one was rejected
+// — thirty per cent of all pings at ten thousand drivers, and four out of five
+// ride requests then found nobody.
+//
+// The driver's own clock is immune to that, because it is stamped before the
+// transport gets involved.
+func TestFresherPositionWinsEvenIfItArrivesOutOfOrder(t *testing.T) {
+	index := domain.NewIndex()
+	here := geo.Point{Lat: 52.3791, Lng: 4.9003}
+	there := geo.Point{Lat: 52.3600, Lng: 4.8852}
+
+	// Sequence 8 arrives first because the transport reordered it.
+	newer := pingIn(1, "drv-1", 8, there)
+	if _, err := index.Observe(newer); err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+
+	// Sequence 7, genuinely older, turns up afterwards.
+	older := pingIn(1, "drv-1", 7, here)
+	observation, err := index.Observe(older)
+	if err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+	if !observation.Stale {
+		t.Fatal("an older position overwrote a newer one")
+	}
+
+	// And the fresher one after that is still accepted, rather than being
+	// judged against a sequence the index never adopted.
+	next := pingIn(1, "drv-1", 9, here)
+	following, err := index.Observe(next)
+	if err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+	if following.Stale {
+		t.Fatal("the next fresh position was rejected; this is the starvation bug")
+	}
+}
+
+// Two pings stamped in the same millisecond still order by sequence, so a
+// duplicate is a duplicate rather than an accepted rewrite.
+func TestSameMillisecondFallsBackToSequence(t *testing.T) {
+	index := domain.NewIndex()
+	here := geo.Point{Lat: 52.3791, Lng: 4.9003}
+
+	first := wire.DriverPing{
+		DriverID: "drv-1", Epoch: 1, Seq: 5, SentAtMs: 1000,
+		Lat: here.Lat, Lng: here.Lng, Status: wire.StatusIdle,
+	}
+	if _, err := index.Observe(first); err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+
+	repeat := first
+	observation, err := index.Observe(repeat)
+	if err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+	if !observation.Stale || !observation.Duplicate {
+		t.Errorf("an identical ping should be a duplicate, got %+v", observation)
+	}
+
+	later := first
+	later.Seq = 6
+	if next, err := index.Observe(later); err != nil || next.Stale {
+		t.Errorf("a higher sequence in the same millisecond should win, got %+v %v", next, err)
 	}
 }
