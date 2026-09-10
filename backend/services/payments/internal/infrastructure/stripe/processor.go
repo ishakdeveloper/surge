@@ -68,8 +68,17 @@ func (p *Processor) CreateSetupIntent(ctx context.Context, customerID string) (s
 		// Off session: the card is saved to be held later, at booking, which
 		// is what makes the bank expect a merchant-initiated authorization
 		// rather than challenging every one.
-		Usage:                   stripego.String("off_session"),
-		AutomaticPaymentMethods: &stripego.SetupIntentCreateAutomaticPaymentMethodsParams{Enabled: stripego.Bool(true)},
+		Usage: stripego.String("off_session"),
+		// No redirects, as on the hold itself. A method that redirects to be
+		// saved — iDEAL, Bancontact — is saved as a SEPA mandate, and a mandate
+		// cannot place a hold; the rider would save it and then fail every
+		// booking. Refusing redirects here leaves cards and wallets, which are
+		// what can be held. It is also what lets the browser confirm a card
+		// without a return URL to come back to.
+		AutomaticPaymentMethods: &stripego.SetupIntentCreateAutomaticPaymentMethodsParams{
+			Enabled:        stripego.Bool(true),
+			AllowRedirects: stripego.String("never"),
+		},
 	}
 	if p.options.PaymentMethodConfiguration != "" {
 		params.PaymentMethodConfiguration = stripego.String(p.options.PaymentMethodConfiguration)

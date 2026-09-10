@@ -118,16 +118,39 @@ func TestAuthenticationWaitsOnTheRider(t *testing.T) {
 	}
 }
 
-func TestASetupIntentForAGivenCustomer(t *testing.T) {
-	p, _ := processor(t)
+// A card saved the way the browser saves one: the setup intent confirms with
+// a card and no return URL. It once could not — it accepted redirect-based
+// methods, and Stripe refused to confirm it without somewhere to redirect back
+// to — and only a confirm against Stripe shows that.
+func TestASetupIntentConfirmsWithACard(t *testing.T) {
+	p, raw := processor(t)
 	ctx := context.Background()
 	customer, err := p.EnsureCustomer(ctx, "contract-rider", "contract@example.com", run("customer"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	intent, err := p.CreateSetupIntent(ctx, customer)
-	if err != nil || !strings.Contains(intent.ClientSecret, "_secret_") {
-		t.Errorf("setup intent: %+v (%v)", intent, err)
+	if err != nil {
+		t.Fatalf("setup intent: %v", err)
+	}
+	id, _, found := strings.Cut(intent.ClientSecret, "_secret_")
+	if !found {
+		t.Fatalf("client secret %q does not name its setup intent", intent.ClientSecret)
+	}
+
+	confirmed, err := raw.V1SetupIntents.Confirm(ctx, id, &stripego.SetupIntentConfirmParams{
+		PaymentMethod: stripego.String("pm_card_visa"),
+	})
+	if err != nil {
+		t.Fatalf("confirming with a card: %v", err)
+	}
+	if confirmed.Status != stripego.SetupIntentStatusSucceeded || confirmed.PaymentMethod == nil {
+		t.Fatalf("confirmed as %s", confirmed.Status)
+	}
+
+	saved, err := p.SavedCard(ctx, confirmed.PaymentMethod.ID)
+	if err != nil || saved.Card.Last4 != "4242" || saved.Card.Brand != "visa" {
+		t.Errorf("the saved card reads %+v (%v)", saved, err)
 	}
 }
 
