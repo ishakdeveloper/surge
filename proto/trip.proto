@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package surge.trip.v1;
 
-option go_package = "github.com/ishakdeveloper/surge/pkg/proto/trip;trip";
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/trip;trip";
 
 import "google/protobuf/timestamp.proto";
 import "common.proto";

@@ -329,3 +329,48 @@ type TripUnmatchedPayload struct {
 	// Reason is a closed set so it can be a metric label.
 	Reason string `json:"reason"`
 }
+
+// Client-to-server messages on the gateway's WebSocket.
+//
+// Tagged the same way as everything else, so one decoder shape covers every
+// transport in the system.
+const (
+	// TagClientPing is a driver reporting position. The highest-volume inbound
+	// message by far, and the reason the gateway exists as its own service.
+	TagClientPing = "ClientPing"
+	// TagClientOfferReply is a driver answering a dispatched offer.
+	TagClientOfferReply = "ClientOfferReply"
+	// TagClientHeartbeat keeps an otherwise silent connection alive and marks
+	// it as seen, so idle eviction does not remove a rider who is simply
+	// waiting rather than gone.
+	TagClientHeartbeat = "ClientHeartbeat"
+)
+
+// ClientMessage is the inbound envelope.
+type ClientMessage struct {
+	Tag string `json:"_tag"`
+
+	Ping  *DriverPing          `json:"ping,omitempty"`
+	Reply *OfferRepliedPayload `json:"reply,omitempty"`
+	// ReplyCell is where an offer answer must be routed, echoed back from the
+	// offer the driver was shown. The client does not choose it — it returns
+	// what it was given, because only the shard holding the reservation can
+	// resolve it.
+	ReplyCell string `json:"replyCell,omitempty"`
+}
+
+// ServerMessage is the outbound envelope. Offers are the main event; trip
+// updates and errors share the channel.
+type ServerMessage struct {
+	Tag   string `json:"_tag"`
+	Offer *Offer `json:"offer,omitempty"`
+	// Error carries a human-meaningful reason when the gateway refuses
+	// something, so a client can distinguish "your token expired" from "the
+	// network dropped".
+	Error string `json:"error,omitempty"`
+}
+
+const (
+	TagServerError   = "ServerError"
+	TagServerWelcome = "ServerWelcome"
+)

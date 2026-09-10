@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package surge.common.v1;
 
-option go_package = "github.com/ishakdeveloper/surge/pkg/proto/common;common";
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/common;common";
 
 // Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the
 // rest of this codebase — one spelling everywhere is worth more than any

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package surge.driver.v1;
 
-option go_package = "github.com/ishakdeveloper/surge/pkg/proto/driver;driver";
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/driver;driver";
 
 import "common.proto";
 

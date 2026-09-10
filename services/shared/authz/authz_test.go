@@ -164,3 +164,79 @@ func TestVerifyAgainstLiveAuthService(t *testing.T) {
 		}
 	})
 }
+
+// The simulator's own tokens, and the gate on them.
+func TestHMACRoundTrip(t *testing.T) {
+	const secret = "a-secret-long-enough-to-be-worth-something"
+
+	signer, err := authz.NewHMAC(secret, "surge-sim", "surge")
+	if err != nil {
+		t.Fatalf("new hmac: %v", err)
+	}
+
+	token, err := signer.Sign(authz.Identity{
+		UserID: "drv-000042", Email: "drv-000042@sim.surge", Role: authz.RoleDriver,
+	}, time.Minute)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	identity, err := signer.Verify(context.Background(), token)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if identity.UserID != "drv-000042" || identity.Role != authz.RoleDriver {
+		t.Errorf("identity did not survive the round trip: %+v", identity)
+	}
+}
+
+// A short secret on a symmetric signature is the whole attack, so it is refused
+// at construction rather than discovered later.
+func TestHMACRefusesAWeakSecret(t *testing.T) {
+	if _, err := authz.NewHMAC("short", "surge-sim", "surge"); err == nil {
+		t.Error("a five-character signing secret was accepted")
+	}
+}
+
+// A token signed by one issuer must not be accepted by another's verifier —
+// this is what keeps simulated drivers out of a deployment that has not opted
+// into them.
+func TestHMACRejectsAnotherIssuersToken(t *testing.T) {
+	const secret = "a-secret-long-enough-to-be-worth-something"
+
+	mine, _ := authz.NewHMAC(secret, "surge-sim", "surge")
+	theirs, _ := authz.NewHMAC("a-completely-different-secret-of-good-length", "surge-sim", "surge")
+
+	token, err := theirs.Sign(authz.Identity{UserID: "u", Role: authz.RoleOps}, time.Minute)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	if _, err := mine.Verify(context.Background(), token); !errors.Is(err, authz.ErrUnauthenticated) {
+		t.Errorf("a foreign signature was accepted: %v", err)
+	}
+}
+
+// The chain accepts what any member accepts and rejects everything else with
+// one indistinguishable error.
+func TestChain(t *testing.T) {
+	const secret = "a-secret-long-enough-to-be-worth-something"
+	signer, _ := authz.NewHMAC(secret, "surge-sim", "surge")
+
+	chain := authz.Chain{signer}
+
+	token, _ := signer.Sign(authz.Identity{UserID: "drv-1", Role: authz.RoleDriver}, time.Minute)
+	if _, err := chain.Verify(context.Background(), token); err != nil {
+		t.Errorf("the chain rejected a token one of its members signed: %v", err)
+	}
+
+	if _, err := chain.Verify(context.Background(), "not-a-token"); !errors.Is(err, authz.ErrUnauthenticated) {
+		t.Errorf("want ErrUnauthenticated, got %v", err)
+	}
+
+	// An empty chain accepts nothing, which is the safe default for a
+	// deployment that configured no verifier at all.
+	if _, err := (authz.Chain{}).Verify(context.Background(), token); !errors.Is(err, authz.ErrUnauthenticated) {
+		t.Error("an empty chain accepted a token")
+	}
+}

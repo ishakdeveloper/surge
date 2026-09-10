@@ -763,7 +763,7 @@ const file_trip_proto_rawDesc = "" +
 	"CreateTrip\x12 .surge.trip.v1.CreateTripRequest\x1a!.surge.trip.v1.CreateTripResponse\x12H\n" +
 	"\aGetTrip\x12\x1d.surge.trip.v1.GetTripRequest\x1a\x1e.surge.trip.v1.GetTripResponse\x12Q\n" +
 	"\n" +
-	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponseB5Z3github.com/ishakdeveloper/surge/shared/proto/trip;tripb\x06proto3"
+	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponseB8Z6github.com/ishakdeveloper/surge/shared/proto/trip;tripb\x06proto3"
 
 var (
 	file_trip_proto_rawDescOnce sync.Once

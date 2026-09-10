@@ -152,7 +152,7 @@ const file_common_proto_rawDesc = "" +
 	"\x05Route\x12\x1c\n" +
 	"\tpolyline6\x18\x01 \x01(\tR\tpolyline6\x12\x16\n" +
 	"\x06meters\x18\x02 \x01(\x01R\x06meters\x12\x18\n" +
-	"\aseconds\x18\x03 \x01(\x03R\asecondsB9Z7github.com/ishakdeveloper/surge/shared/proto/common;commonb\x06proto3"
+	"\aseconds\x18\x03 \x01(\x03R\asecondsB<Z:github.com/ishakdeveloper/surge/shared/proto/common;commonb\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once

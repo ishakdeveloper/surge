@@ -508,7 +508,7 @@ const file_driver_proto_rawDesc = "" +
 	"\rDriverService\x12R\n" +
 	"\tGetDriver\x12!.surge.driver.v1.GetDriverRequest\x1a\".surge.driver.v1.GetDriverResponse\x12a\n" +
 	"\x0eRegisterDriver\x12&.surge.driver.v1.RegisterDriverRequest\x1a'.surge.driver.v1.RegisterDriverResponse\x12d\n" +
-	"\x0fSetAvailability\x12'.surge.driver.v1.SetAvailabilityRequest\x1a(.surge.driver.v1.SetAvailabilityResponseB9Z7github.com/ishakdeveloper/surge/shared/proto/driver;driverb\x06proto3"
+	"\x0fSetAvailability\x12'.surge.driver.v1.SetAvailabilityRequest\x1a(.surge.driver.v1.SetAvailabilityResponseB<Z:github.com/ishakdeveloper/surge/shared/proto/driver;driverb\x06proto3"
 
 var (
 	file_driver_proto_rawDescOnce sync.Once

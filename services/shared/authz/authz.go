@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/httprc/v3"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
@@ -143,4 +144,164 @@ func BearerToken(r *http.Request) string {
 		}
 	}
 	return r.URL.Query().Get("token")
+}
+
+// HMAC verifies the simulator's own tokens.
+//
+// Ten thousand simulated drivers cannot each have a better-auth account: signing
+// them up would be ten thousand rows and ten thousand password hashes to
+// generate a load test. So the simulator mints its own tokens with a shared
+// secret, and the gateway accepts them only when explicitly enabled.
+//
+// The gate is the important part. This verifier is constructed only when
+// SIM_ENABLED is true, so a deployment that does not set it cannot be handed a
+// forged driver identity even if the secret leaks.
+type HMAC struct {
+	secret   []byte
+	issuer   string
+	audience string
+}
+
+func NewHMAC(secret, issuer, audience string) (*HMAC, error) {
+	if len(secret) < 32 {
+		// A short secret on a symmetric signature is the whole attack. Refusing
+		// at construction beats discovering it in a log.
+		return nil, fmt.Errorf("authz: sim token secret must be at least 32 characters")
+	}
+	return &HMAC{secret: []byte(secret), issuer: issuer, audience: audience}, nil
+}
+
+func (h *HMAC) Verify(ctx context.Context, token string) (Identity, error) {
+	key, err := jwk.Import(h.secret)
+	if err != nil {
+		return Identity{}, fmt.Errorf("%w: %v", ErrUnauthenticated, err)
+	}
+
+	parsed, err := jwt.ParseString(
+		token,
+		jwt.WithKey(jwa.HS256(), key),
+		jwt.WithValidate(true),
+		jwt.WithIssuer(h.issuer),
+		jwt.WithAudience(h.audience),
+		jwt.WithContext(ctx),
+	)
+	if err != nil {
+		return Identity{}, fmt.Errorf("%w: %v", ErrUnauthenticated, err)
+	}
+
+	return identityFrom(parsed)
+}
+
+// Sign mints a token. Used by the simulator, and by tests.
+func (h *HMAC) Sign(identity Identity, lifetime time.Duration) (string, error) {
+	now := time.Now()
+
+	token, err := jwt.NewBuilder().
+		Issuer(h.issuer).
+		Audience([]string{h.audience}).
+		Subject(identity.UserID).
+		IssuedAt(now).
+		Expiration(now.Add(lifetime)).
+		Claim("userId", identity.UserID).
+		Claim("email", identity.Email).
+		Claim("emailVerified", identity.EmailVerified).
+		Claim("role", string(identity.Role)).
+		Build()
+	if err != nil {
+		return "", fmt.Errorf("authz: build sim token: %w", err)
+	}
+
+	key, err := jwk.Import(h.secret)
+	if err != nil {
+		return "", fmt.Errorf("authz: import secret: %w", err)
+	}
+
+	signed, err := jwt.Sign(token, jwt.WithKey(jwa.HS256(), key))
+	if err != nil {
+		return "", fmt.Errorf("authz: sign sim token: %w", err)
+	}
+	return string(signed), nil
+}
+
+// Chain tries each verifier in turn.
+//
+// Order matters only for cost: real user tokens are the common case and JWKS
+// verification is a local signature check either way. What matters is that a
+// token rejected by all of them is rejected, with one indistinguishable error —
+// telling a caller which issuer nearly accepted their token is free information.
+type Chain []Verifier
+
+func (c Chain) Verify(ctx context.Context, token string) (Identity, error) {
+	for _, verifier := range c {
+		identity, err := verifier.Verify(ctx, token)
+		if err == nil {
+			return identity, nil
+		}
+	}
+	return Identity{}, ErrUnauthenticated
+}
+
+// contextKey is unexported so nothing outside this package can put a forged
+// Identity into a context. That is the whole reason for the type: with a string
+// key, any package could write the value the gateway trusts.
+type contextKey struct{}
+
+// WithIdentity attaches a verified caller to a context.
+func WithIdentity(ctx context.Context, identity Identity) context.Context {
+	return context.WithValue(ctx, contextKey{}, identity)
+}
+
+// FromContext returns the caller a request was authenticated as.
+//
+// The zero Identity when there is none, and that is safe by construction: an
+// empty UserID matches no rider's trips and the zero Role is not one of the
+// three valid ones, so an unauthenticated caller is denied by the same checks
+// that authorise everyone else rather than by a special case.
+func FromContext(ctx context.Context) Identity {
+	identity, _ := ctx.Value(contextKey{}).(Identity)
+	return identity
+}
+
+// Middleware authenticates a request and attaches the caller.
+//
+// Rejects rather than passing anonymous requests through. An endpoint that
+// wants to be public should not be behind this.
+func Middleware(verifier Verifier, onRejected func(reason string)) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := BearerToken(r)
+			if token == "" {
+				if onRejected != nil {
+					onRejected("missing_token")
+				}
+				http.Error(w, `{"error":{"code":"unauthenticated","message":"missing token"}}`, http.StatusUnauthorized)
+				return
+			}
+
+			identity, err := verifier.Verify(r.Context(), token)
+			if err != nil {
+				if onRejected != nil {
+					onRejected("invalid_token")
+				}
+				http.Error(w, `{"error":{"code":"unauthenticated","message":"invalid token"}}`, http.StatusUnauthorized)
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(WithIdentity(r.Context(), identity)))
+		})
+	}
+}
+
+// RequireRole gates an endpoint on a role. Used for the dispatch console, which
+// riders and drivers have no business reading.
+func RequireRole(role Role) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if FromContext(r.Context()).Role != role {
+				http.Error(w, `{"error":{"code":"forbidden","message":"insufficient role"}}`, http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

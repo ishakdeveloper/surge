@@ -50,7 +50,7 @@ proto: ## Regenerate gRPC code from proto/
 		--go_out=services/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		--go-grpc_out=services/shared/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		proto/*.proto
-	cd services && gofmt -w pkg/proto
+	cd services && gofmt -w shared/proto
 
 build: ## Build every Go binary
 	$(GO) build -o bin/simd ./simulator/cmd
@@ -58,6 +58,7 @@ build: ## Build every Go binary
 	$(GO) build -o bin/matcher ./matcher/cmd
 	$(GO) build -o bin/trip ./trip/cmd
 	$(GO) build -o bin/migrate ./migrate/cmd
+	$(GO) build -o bin/gateway ./gateway/cmd
 
 test: ## Run both test suites
 	$(GO) vet ./... && cd services && go test ./...
@@ -80,6 +81,9 @@ dev-ingest: build ## Run location ingest
 dev-matcher: build ## Run a matcher instance (run several; they share the partitions)
 	@set -a; . ./.env; set +a; \
 	MATCHER_METRICS_ADDR=$${MATCHER_METRICS_ADDR:-:9103} $(BIN)/matcher
+
+dev-gateway: build ## Run the API gateway (REST + WebSocket on :8100)
+	@set -a; . ./.env; set +a; $(BIN)/gateway
 
 dev-trip: build ## Run the trip service (gRPC on :8110)
 	@set -a; . ./.env; set +a; $(BIN)/trip
