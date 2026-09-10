@@ -7,6 +7,7 @@ option go_package = "github.com/ishakdeveloper/surge/shared/proto/trip;trip";
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 import "common.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 
 // TripService owns the trip lifecycle and is the only writer of trip state.
 //
@@ -25,6 +26,23 @@ import "common.proto";
 //
 // Paths follow Google's API design guide: plural collections, and custom
 // methods as `:verb` rather than as invented sub-resources.
+// ## How the TypeScript client is named and typed from here
+//
+// `packages/domain/src/api/SurgeApi.ts` is generated from the OpenAPI document
+// this file produces, so everything about the client's shape is decided here
+// rather than restated there:
+//
+// - `tags` becomes the client group and `operation_id` the method, which is why
+//   they are `trips` and `create` rather than the defaults that would give
+//   `api.TripService.TripServiceCreateTrip(...)`.
+// - `format` carries the semantic type of a string. OpenAPI leaves `format` open
+//   deliberately, and it is the only annotation that survives the whole chain —
+//   proto, document, generated schema — including on path parameters. A field
+//   marked `trip-id` becomes a branded `TripId` in TypeScript; `int64`, which
+//   grpc-gateway sets on its own, becomes a decoded number rather than the
+//   quoted string proto3 puts on the wire.
+// - Every response declares `default` explicitly, because the gateway's error
+//   handler is custom and the generator's assumption would be wrong.
 service TripService {
   // Preview quotes a trip without committing to it. Read-only, so a rider
   // dragging a pin can call it repeatedly.
@@ -36,6 +54,17 @@ service TripService {
     option (google.api.http) = {
       post: "/v1/trips:preview"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "preview"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
     };
   }
 
@@ -49,11 +78,33 @@ service TripService {
       post: "/v1/trips"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "create"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
   }
 
   // Get returns a trip's current state.
   rpc GetTrip(GetTripRequest) returns (GetTripResponse) {
     option (google.api.http) = {get: "/v1/trips/{trip_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "get"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
   }
 
   // Cancel ends a trip before completion.
@@ -77,11 +128,33 @@ service TripService {
         body: "*"
       }
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "cancel"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
   }
 
   // ListTrips is a rider's history, newest first.
   rpc ListTrips(ListTripsRequest) returns (ListTripsResponse) {
     option (google.api.http) = {get: "/v1/trips"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "list"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
   }
 }
 
@@ -103,11 +176,11 @@ message PreviewTripResponse {
 }
 
 message FareQuote {
-  string fare_id = 1;
+  string fare_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "fare-id"}];
   // Sedan, van and so on. A string rather than an enum because the catalogue is
   // operator configuration, not a protocol change.
   string package_slug = 2;
-  int64 total_cents = 3;
+  int64 total_cents = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
   // The multiplier applied for demand in the pickup cell at quote time. Carried
   // explicitly so a rider can be shown why a fare is what it is.
   double surge_multiplier = 4;
@@ -115,10 +188,14 @@ message FareQuote {
 }
 
 message CreateTripRequest {
-  string fare_id = 1;
+  string fare_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "fare-id"}];
   // Generated client-side, so a retry over a flaky connection is recognised
-  // rather than booked twice. Over REST this also arrives as an
-  // `Idempotency-Key` header, which the gateway copies into the field.
+  // rather than booked twice.
+  //
+  // The generated TypeScript client sends it here, in the message. The gateway
+  // also accepts an `Idempotency-Key` header and copies it into this field, for
+  // callers that would rather describe the request than the trip — a proxy can
+  // read a header without parsing a body. The handler prefers the field.
   string idempotency_key = 2;
 }
 
@@ -127,7 +204,7 @@ message CreateTripResponse {
 }
 
 message GetTripRequest {
-  string trip_id = 1;
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
 }
 
 message GetTripResponse {
@@ -135,7 +212,7 @@ message GetTripResponse {
 }
 
 message CancelTripRequest {
-  string trip_id = 1;
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
   string reason = 2;
 }
 
@@ -162,14 +239,16 @@ message ListTripsResponse {
 }
 
 message Trip {
-  string id = 1;
-  string rider_id = 2;
-  string driver_id = 3;
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+  string rider_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "rider-id"}];
+  // Empty until a driver is assigned, not absent: the gateway marshals with
+  // EmitUnpopulated so a client can tell "unassigned" from "the server forgot".
+  string driver_id = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "driver-id"}];
   TripStatus status = 4;
   surge.common.v1.Coordinate pickup = 5;
   surge.common.v1.Coordinate dropoff = 6;
   surge.common.v1.Route route = 7;
-  int64 total_cents = 8;
+  int64 total_cents = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
 }

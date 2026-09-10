@@ -127,7 +127,7 @@ proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 		--grpc-gateway_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		--grpc-gateway_opt=generate_unbound_methods=false \
 		--openapiv2_out=docs/api \
-		--openapiv2_opt=allow_merge=true,merge_file_name=surge \
+		--openapiv2_opt=allow_merge=true,merge_file_name=surge,disable_default_errors=true \
 		proto/trip.proto proto/driver.proto proto/common.proto
 	cd backend && gofmt -w shared/proto
 	# The gateway embeds the document it serves, so a rebuild cannot leave the

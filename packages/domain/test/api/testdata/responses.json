@@ -1,0 +1,95 @@
+{
+  "preview": {
+    "fares": [
+      {
+        "fareId": "deced82b-ee7c-4137-bd72-385eee1c98fe",
+        "packageSlug": "sedan",
+        "totalCents": "1627",
+        "surgeMultiplier": 1,
+        "expiresAt": "2026-09-10T13:20:52.215773Z"
+      },
+      {
+        "fareId": "32581470-b51c-4cf6-ba73-cc63ca86d6d5",
+        "packageSlug": "van",
+        "totalCents": "2215",
+        "surgeMultiplier": 1,
+        "expiresAt": "2026-09-10T13:20:52.215773Z"
+      },
+      {
+        "fareId": "645f3a86-d580-48da-98ec-0bee632ea47b",
+        "packageSlug": "luxury",
+        "totalCents": "3580",
+        "surgeMultiplier": 1,
+        "expiresAt": "2026-09-10T13:20:52.215773Z"
+      }
+    ],
+    "route": {
+      "polyline6": "y|~{bBi{bjH`j@otBvNaj@zFmT~AkGrAkFdCaMn@mEZwBZcBj@eEbDqTh@yEz@aOVeENkC`BgU|B}\\d@kHf@aHpD}h@~A{L`Fes@xBo\\nEqp@d@aKVqGb@eLRaGfBko@LyDrDwkAzAqd@NkDLmCjBu`@zAs^jGynAtEop@f@mGT{ClDal@tCmg@bBcWX{Dz@{Kz@{JpNomBnGg{@LaBRaDh@wGh@yGx@qKR}C~Dci@`F_o@nJimAxQcvBzKegAfE{ZbGcc@v@qEt@iEzCwNfKad@vWe~@|Qwh@rIiT~CoHdDaHbEgInFqJzGcKxGaJtEuF`HeHlFiFpEkEhBcBbA_AjAy@hAw@rA}@bHcEbRgIlHsDdGcCpIwBxMwAvBKdAEnA@jE@hC?pDClBAhx@YjKj@|JnApRvGrMpDzHjBdIjAhG^~BF|ABbCAxB@fCCl@AvDEnK{@nIUzMOpDEdFOb@AxOUrMKzBElXe@xAElA^bB|@jBxD|@lBn@rC\\~C\\xQN`RDzIFnOHlS?vCFbHD`Cd@`^C|Hh@lb@IjOf@jP`A`xApBryAFpBL`Et@|L|A~G`AbCnDbJxP~b@xNf_@j\\vt@hIjOlBhDna@~w@pBlDjE|GxAbCrC~EfDjGlDdH~EnI`CnGt@zBdCpIrBjL~@fKb@bMb@zMbBx`@HnBJtCh@~CNh@Jp@Nb@j@jBl@tBjAjChB|DxKvP`NnRpJ~N~HpTf@nBpCtO`BjNrAxPfA|j@XlPb@x\\r@bMjArJpBxJxDbUVnBnC`OHd@Jh@\\fBrAxH`DbQn@~DrBhMtC`UpBfUZ|Df@fHjBpi@|@|Vp@hJz@fHnAxFbCdItGbQpJlVdE`KzB`I`CpLj@pERnDN|FBhHe@zTM`MF`LRdI^hJ~AzRlE~SlClJlC|HbYzp@fE|JzDvKrClLzDzUpAtJ~A~KhUp|An@lE\\lDT|Bl@vIFtGH|BHrBpHfs@~AdV~BjSNtAj@lEx@fGr@tEhKdh@`Gpf@A~FdEhc@XfCj@nGd@vEFh@Fd@x@`G^tCjE|_@r@zJVnDLbFXvM\\rF{@z`@}MxqGgBr`@a@pNYxK}@`[gAjGYrDYpEUpC_@~FEj@Cb@i@vIUzCo@~IF|A@bEkAhIuC~PmEvV_FdOcCpGqKbUYj@mC`FgFlH{MfOgIvIkMxMyLjPmF|KiBvEgBjEQb@KXm@jA[r@yChC|AxBnAfBtAbBt@x@fFjErCdBjDfAvFn@|Lj@GfDGrB?PMtHV|A^lCWfBg@pB{@vB",
+      "meters": 6840,
+      "seconds": "720"
+    }
+  },
+  "created": {
+    "trip": {
+      "id": "aa789e96-b9fa-463a-9e65-e193086d8d1a",
+      "riderId": "rT02v57DMY1eRGI0gq2gnGE4s8JltxCf",
+      "driverId": "",
+      "status": "TRIP_STATUS_REQUESTED",
+      "pickup": {
+        "lat": 52.3791,
+        "lng": 4.9003
+      },
+      "dropoff": {
+        "lat": 52.36,
+        "lng": 4.8852
+      },
+      "route": {
+        "polyline6": "y|~{bBi{bjH`j@otBvNaj@zFmT~AkGrAkFdCaMn@mEZwBZcBj@eEbDqTh@yEz@aOVeENkC`BgU|B}\\d@kHf@aHpD}h@~A{L`Fes@xBo\\nEqp@d@aKVqGb@eLRaGfBko@LyDrDwkAzAqd@NkDLmCjBu`@zAs^jGynAtEop@f@mGT{ClDal@tCmg@bBcWX{Dz@{Kz@{JpNomBnGg{@LaBRaDh@wGh@yGx@qKR}C~Dci@`F_o@nJimAxQcvBzKegAfE{ZbGcc@v@qEt@iEzCwNfKad@vWe~@|Qwh@rIiT~CoHdDaHbEgInFqJzGcKxGaJtEuF`HeHlFiFpEkEhBcBbA_AjAy@hAw@rA}@bHcEbRgIlHsDdGcCpIwBxMwAvBKdAEnA@jE@hC?pDClBAhx@YjKj@|JnApRvGrMpDzHjBdIjAhG^~BF|ABbCAxB@fCCl@AvDEnK{@nIUzMOpDEdFOb@AxOUrMKzBElXe@xAElA^bB|@jBxD|@lBn@rC\\~C\\xQN`RDzIFnOHlS?vCFbHD`Cd@`^C|Hh@lb@IjOf@jP`A`xApBryAFpBL`Et@|L|A~G`AbCnDbJxP~b@xNf_@j\\vt@hIjOlBhDna@~w@pBlDjE|GxAbCrC~EfDjGlDdH~EnI`CnGt@zBdCpIrBjL~@fKb@bMb@zMbBx`@HnBJtCh@~CNh@Jp@Nb@j@jBl@tBjAjChB|DxKvP`NnRpJ~N~HpTf@nBpCtO`BjNrAxPfA|j@XlPb@x\\r@bMjArJpBxJxDbUVnBnC`OHd@Jh@\\fBrAxH`DbQn@~DrBhMtC`UpBfUZ|Df@fHjBpi@|@|Vp@hJz@fHnAxFbCdItGbQpJlVdE`KzB`I`CpLj@pERnDN|FBhHe@zTM`MF`LRdI^hJ~AzRlE~SlClJlC|HbYzp@fE|JzDvKrClLzDzUpAtJ~A~KhUp|An@lE\\lDT|Bl@vIFtGH|BHrBpHfs@~AdV~BjSNtAj@lEx@fGr@tEhKdh@`Gpf@A~FdEhc@XfCj@nGd@vEFh@Fd@x@`G^tCjE|_@r@zJVnDLbFXvM\\rF{@z`@}MxqGgBr`@a@pNYxK}@`[gAjGYrDYpEUpC_@~FEj@Cb@i@vIUzCo@~IF|A@bEkAhIuC~PmEvV_FdOcCpGqKbUYj@mC`FgFlH{MfOgIvIkMxMyLjPmF|KiBvEgBjEQb@KXm@jA[r@yChC|AxBnAfBtAbBt@x@fFjErCdBjDfAvFn@|Lj@GfDGrB?PMtHV|A^lCWfBg@pB{@vB",
+        "meters": 6840,
+        "seconds": "720"
+      },
+      "totalCents": "1627",
+      "createdAt": "2026-09-10T13:17:53.036661Z",
+      "updatedAt": "2026-09-10T13:17:53.036661Z"
+    }
+  },
+  "listed": {
+    "trips": [
+      {
+        "id": "aa789e96-b9fa-463a-9e65-e193086d8d1a",
+        "riderId": "rT02v57DMY1eRGI0gq2gnGE4s8JltxCf",
+        "driverId": "",
+        "status": "TRIP_STATUS_REQUESTED",
+        "pickup": {
+          "lat": 52.3791,
+          "lng": 4.9003
+        },
+        "dropoff": {
+          "lat": 52.36,
+          "lng": 4.8852
+        },
+        "route": {
+          "polyline6": "y|~{bBi{bjH`j@otBvNaj@zFmT~AkGrAkFdCaMn@mEZwBZcBj@eEbDqTh@yEz@aOVeENkC`BgU|B}\\d@kHf@aHpD}h@~A{L`Fes@xBo\\nEqp@d@aKVqGb@eLRaGfBko@LyDrDwkAzAqd@NkDLmCjBu`@zAs^jGynAtEop@f@mGT{ClDal@tCmg@bBcWX{Dz@{Kz@{JpNomBnGg{@LaBRaDh@wGh@yGx@qKR}C~Dci@`F_o@nJimAxQcvBzKegAfE{ZbGcc@v@qEt@iEzCwNfKad@vWe~@|Qwh@rIiT~CoHdDaHbEgInFqJzGcKxGaJtEuF`HeHlFiFpEkEhBcBbA_AjAy@hAw@rA}@bHcEbRgIlHsDdGcCpIwBxMwAvBKdAEnA@jE@hC?pDClBAhx@YjKj@|JnApRvGrMpDzHjBdIjAhG^~BF|ABbCAxB@fCCl@AvDEnK{@nIUzMOpDEdFOb@AxOUrMKzBElXe@xAElA^bB|@jBxD|@lBn@rC\\~C\\xQN`RDzIFnOHlS?vCFbHD`Cd@`^C|Hh@lb@IjOf@jP`A`xApBryAFpBL`Et@|L|A~G`AbCnDbJxP~b@xNf_@j\\vt@hIjOlBhDna@~w@pBlDjE|GxAbCrC~EfDjGlDdH~EnI`CnGt@zBdCpIrBjL~@fKb@bMb@zMbBx`@HnBJtCh@~CNh@Jp@Nb@j@jBl@tBjAjChB|DxKvP`NnRpJ~N~HpTf@nBpCtO`BjNrAxPfA|j@XlPb@x\\r@bMjArJpBxJxDbUVnBnC`OHd@Jh@\\fBrAxH`DbQn@~DrBhMtC`UpBfUZ|Df@fHjBpi@|@|Vp@hJz@fHnAxFbCdItGbQpJlVdE`KzB`I`CpLj@pERnDN|FBhHe@zTM`MF`LRdI^hJ~AzRlE~SlClJlC|HbYzp@fE|JzDvKrClLzDzUpAtJ~A~KhUp|An@lE\\lDT|Bl@vIFtGH|BHrBpHfs@~AdV~BjSNtAj@lEx@fGr@tEhKdh@`Gpf@A~FdEhc@XfCj@nGd@vEFh@Fd@x@`G^tCjE|_@r@zJVnDLbFXvM\\rF{@z`@}MxqGgBr`@a@pNYxK}@`[gAjGYrDYpEUpC_@~FEj@Cb@i@vIUzCo@~IF|A@bEkAhIuC~PmEvV_FdOcCpGqKbUYj@mC`FgFlH{MfOgIvIkMxMyLjPmF|KiBvEgBjEQb@KXm@jA[r@yChC|AxBnAfBtAbBt@x@fFjErCdBjDfAvFn@|Lj@GfDGrB?PMtHV|A^lCWfBg@pB{@vB",
+          "meters": 6840,
+          "seconds": "720"
+        },
+        "totalCents": "1627",
+        "createdAt": "2026-09-10T13:17:53.036661Z",
+        "updatedAt": "2026-09-10T13:17:53.036661Z"
+      }
+    ],
+    "nextPageToken": ""
+  },
+  "notFound": {
+    "error": {
+      "code": "not_found",
+      "message": "unknown trip"
+    }
+  },
+  "unauth": {
+    "error": {
+      "code": "unauthenticated",
+      "message": "missing token"
+    }
+  }
+}

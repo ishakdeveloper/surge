@@ -1,18 +1,18 @@
 import { AuthToken } from "@/AuthToken.js";
 import { SurgeApi } from "@/SurgeApi.js";
 import { describe, expect, it } from "@effect/vitest";
-import { Coordinate, FareId } from "@surge/domain/trip/Trip";
+import { FareId } from "@surge/domain/api/Primitives";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 /**
  * The typed client against the real Go gateway.
  *
- * The contract test next door proves the declared routes match the generated
- * OpenAPI document. This proves the decoders match the bytes: proto3 JSON emits
- * int64 as a string, enums by name and unpopulated fields as zero values, and a
- * schema that disagrees with any of those fails here rather than three
- * components into a page.
+ * `packages/domain/test/api/Generation.test.ts` decodes captured responses and
+ * proves the generation pipeline still produces schemas that can read them.
+ * This proves the rest of the client around those schemas — that the bearer
+ * token is attached, that the base URL is right, that a retried booking with
+ * one idempotency key is one trip, and that a rider sees only their own.
  *
  * Skips when nothing is running, so `pnpm test` stays useful on a bare machine.
  */
@@ -82,8 +82,8 @@ describe.skipIf(!online)("SurgeApi against the running gateway", () => {
 
       const preview = yield* api.trips.preview({
         payload: {
-          pickup: Coordinate.make({ lat: 52.3791, lng: 4.9003 }),
-          dropoff: Coordinate.make({ lat: 52.36, lng: 4.8852 }),
+          pickup: { lat: 52.3791, lng: 4.9003 },
+          dropoff: { lat: 52.36, lng: 4.8852 },
         },
       });
 
@@ -107,16 +107,20 @@ describe.skipIf(!online)("SurgeApi against the running gateway", () => {
 
       const preview = yield* api.trips.preview({
         payload: {
-          pickup: Coordinate.make({ lat: 52.3791, lng: 4.9003 }),
-          dropoff: Coordinate.make({ lat: 52.36, lng: 4.8852 }),
+          pickup: { lat: 52.3791, lng: 4.9003 },
+          dropoff: { lat: 52.36, lng: 4.8852 },
         },
       });
 
       const key = `client-test-${Date.now()}`;
+      // The key travels in the body, because that is where `CreateTripRequest`
+      // declares it and the handler reads it first. The gateway also accepts an
+      // `Idempotency-Key` header and copies it into the same field, for callers
+      // that would rather describe the request than the trip — but a generated
+      // client follows the message.
       const book = () =>
         api.trips.create({
-          payload: { fareId: FareId.make(preview.fares[0]!.fareId) },
-          headers: { "idempotency-key": key },
+          payload: { fareId: FareId.make(preview.fares[0]!.fareId), idempotencyKey: key },
         });
 
       const first = yield* book();

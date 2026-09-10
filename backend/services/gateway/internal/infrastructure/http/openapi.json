@@ -7,7 +7,7 @@
   "tags": [
     {
       "name": "TripService",
-      "description": "TripService owns the trip lifecycle and is the only writer of trip state.\n\nSynchronous on purpose, and the contrast with the rest of the system is the\npoint. Location and matching are event-driven because they are streams: a\nposition is one of thousands a second and nobody waits for it. A rider\npressing \"request ride\" is waiting, and wants an answer — a fare, a trip id,\nor a reason it cannot happen. Modelling that as an event and correlating a\nreply would be an RPC with extra steps and worse error handling.\nThe HTTP mapping lives here, next to the RPC it maps, and grpc-gateway\ngenerates the REST surface from it. That is the point: hand-written handlers\nmean the REST API and the gRPC contract are two sources of truth, and the\nfirst thing they do is drift — the reference this project borrows from has a\nTypeScript contract file and a Go one that already disagree about which\nevents exist.\n\nPaths follow Google's API design guide: plural collections, and custom\nmethods as `:verb` rather than as invented sub-resources."
+      "description": "TripService owns the trip lifecycle and is the only writer of trip state.\n\nSynchronous on purpose, and the contrast with the rest of the system is the\npoint. Location and matching are event-driven because they are streams: a\nposition is one of thousands a second and nobody waits for it. A rider\npressing \"request ride\" is waiting, and wants an answer — a fare, a trip id,\nor a reason it cannot happen. Modelling that as an event and correlating a\nreply would be an RPC with extra steps and worse error handling.\nThe HTTP mapping lives here, next to the RPC it maps, and grpc-gateway\ngenerates the REST surface from it. That is the point: hand-written handlers\nmean the REST API and the gRPC contract are two sources of truth, and the\nfirst thing they do is drift — the reference this project borrows from has a\nTypeScript contract file and a Go one that already disagree about which\nevents exist.\n\nPaths follow Google's API design guide: plural collections, and custom\nmethods as `:verb` rather than as invented sub-resources.\n## How the TypeScript client is named and typed from here\n\n`packages/domain/src/api/SurgeApi.ts` is generated from the OpenAPI document\nthis file produces, so everything about the client's shape is decided here\nrather than restated there:\n\n- `tags` becomes the client group and `operation_id` the method, which is why\n  they are `trips` and `create` rather than the defaults that would give\n  `api.TripService.TripServiceCreateTrip(...)`.\n- `format` carries the semantic type of a string. OpenAPI leaves `format` open\n  deliberately, and it is the only annotation that survives the whole chain —\n  proto, document, generated schema — including on path parameters. A field\n  marked `trip-id` becomes a branded `TripId` in TypeScript; `int64`, which\n  grpc-gateway sets on its own, becomes a decoded number rather than the\n  quoted string proto3 puts on the wire.\n- Every response declares `default` explicitly, because the gateway's error\n  handler is custom and the generator's assumption would be wrong."
     },
     {
       "name": "DriverService",
@@ -24,7 +24,7 @@
     "/v1/trips": {
       "get": {
         "summary": "ListTrips is a rider's history, newest first.",
-        "operationId": "TripService_ListTrips",
+        "operationId": "list",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -33,9 +33,9 @@
             }
           },
           "default": {
-            "description": "An unexpected error response.",
+            "description": "The gateway's error shape, from its custom error handler.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/v1ErrorBody"
             }
           }
         },
@@ -64,13 +64,13 @@
           }
         ],
         "tags": [
-          "TripService"
+          "trips"
         ]
       },
       "post": {
         "summary": "Create commits a previewed fare to a real trip and starts matching.",
         "description": "Takes an idempotency key because the caller is a browser on a phone\nnetwork: a retried request must return the original trip rather than\nbooking a second one.",
-        "operationId": "TripService_CreateTrip",
+        "operationId": "create",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -79,9 +79,9 @@
             }
           },
           "default": {
-            "description": "An unexpected error response.",
+            "description": "The gateway's error shape, from its custom error handler.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/v1ErrorBody"
             }
           }
         },
@@ -96,14 +96,14 @@
           }
         ],
         "tags": [
-          "TripService"
+          "trips"
         ]
       }
     },
     "/v1/trips/{tripId}": {
       "get": {
         "summary": "Get returns a trip's current state.",
-        "operationId": "TripService_GetTrip",
+        "operationId": "get",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -112,9 +112,9 @@
             }
           },
           "default": {
-            "description": "An unexpected error response.",
+            "description": "The gateway's error shape, from its custom error handler.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/v1ErrorBody"
             }
           }
         },
@@ -123,11 +123,12 @@
             "name": "tripId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "format": "trip-id"
           }
         ],
         "tags": [
-          "TripService"
+          "trips"
         ]
       }
     },
@@ -135,7 +136,7 @@
       "post": {
         "summary": "Cancel ends a trip before completion.",
         "description": "A custom method rather than DELETE: cancelling is a state transition that\nreturns the trip, not a deletion — the row stays, and a rider can still\nread what happened to it.",
-        "operationId": "TripService_CancelTrip2",
+        "operationId": "cancel",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -144,9 +145,9 @@
             }
           },
           "default": {
-            "description": "An unexpected error response.",
+            "description": "The gateway's error shape, from its custom error handler.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/v1ErrorBody"
             }
           }
         },
@@ -155,7 +156,8 @@
             "name": "tripId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "format": "trip-id"
           },
           {
             "name": "body",
@@ -167,7 +169,7 @@
           }
         ],
         "tags": [
-          "TripService"
+          "trips"
         ]
       }
     },
@@ -175,7 +177,7 @@
       "post": {
         "summary": "Cancel ends a trip before completion.",
         "description": "A custom method rather than DELETE: cancelling is a state transition that\nreturns the trip, not a deletion — the row stays, and a rider can still\nread what happened to it.",
-        "operationId": "TripService_CancelTrip",
+        "operationId": "cancel",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -184,9 +186,9 @@
             }
           },
           "default": {
-            "description": "An unexpected error response.",
+            "description": "The gateway's error shape, from its custom error handler.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/v1ErrorBody"
             }
           }
         },
@@ -195,7 +197,8 @@
             "name": "tripId",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "format": "trip-id"
           },
           {
             "name": "body",
@@ -207,7 +210,7 @@
           }
         ],
         "tags": [
-          "TripService"
+          "trips"
         ]
       }
     },
@@ -215,7 +218,7 @@
       "post": {
         "summary": "Preview quotes a trip without committing to it. Read-only, so a rider\ndragging a pin can call it repeatedly.",
         "description": "POST rather than GET despite being read-only: the request carries two\ncoordinate pairs, and a GET would put a rider's exact pickup and dropoff\ninto every access log and browser history along the way.",
-        "operationId": "TripService_PreviewTrip",
+        "operationId": "preview",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -224,9 +227,9 @@
             }
           },
           "default": {
-            "description": "An unexpected error response.",
+            "description": "The gateway's error shape, from its custom error handler.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/v1ErrorBody"
             }
           }
         },
@@ -242,7 +245,7 @@
           }
         ],
         "tags": [
-          "TripService"
+          "trips"
         ]
       }
     }
@@ -253,34 +256,6 @@
       "properties": {
         "reason": {
           "type": "string"
-        }
-      }
-    },
-    "protobufAny": {
-      "type": "object",
-      "properties": {
-        "@type": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": {}
-    },
-    "rpcStatus": {
-      "type": "object",
-      "properties": {
-        "code": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "message": {
-          "type": "string"
-        },
-        "details": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/protobufAny"
-          }
         }
       }
     },
@@ -310,11 +285,12 @@
       "type": "object",
       "properties": {
         "fareId": {
-          "type": "string"
+          "type": "string",
+          "format": "fare-id"
         },
         "idempotencyKey": {
           "type": "string",
-          "description": "Generated client-side, so a retry over a flaky connection is recognised\nrather than booked twice. Over REST this also arrives as an\n`Idempotency-Key` header, which the gateway copies into the field."
+          "description": "Generated client-side, so a retry over a flaky connection is recognised\nrather than booked twice.\n\nThe generated TypeScript client sends it here, in the message. The gateway\nalso accepts an `Idempotency-Key` header and copies it into this field, for\ncallers that would rather describe the request than the trip — a proxy can\nread a header without parsing a body. The handler prefers the field."
         }
       }
     },
@@ -326,11 +302,35 @@
         }
       }
     },
+    "v1Error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "format": "error-code",
+          "description": "A stable string a client may branch on. The set is the gRPC code names, so\nit is closed and mechanical rather than invented per endpoint."
+        },
+        "message": {
+          "type": "string",
+          "description": "For a human reading a log. Deliberately vague for anything internal — the\ndetail stays in the trace rather than travelling to a browser."
+        }
+      }
+    },
+    "v1ErrorBody": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/definitions/v1Error"
+        }
+      },
+      "description": "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends."
+    },
     "v1FareQuote": {
       "type": "object",
       "properties": {
         "fareId": {
-          "type": "string"
+          "type": "string",
+          "format": "fare-id"
         },
         "packageSlug": {
           "type": "string",
@@ -338,7 +338,7 @@
         },
         "totalCents": {
           "type": "string",
-          "format": "int64"
+          "format": "cents"
         },
         "surgeMultiplier": {
           "type": "number",
@@ -425,13 +425,17 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "format": "trip-id"
         },
         "riderId": {
-          "type": "string"
+          "type": "string",
+          "format": "rider-id"
         },
         "driverId": {
-          "type": "string"
+          "type": "string",
+          "format": "driver-id",
+          "description": "Empty until a driver is assigned, not absent: the gateway marshals with\nEmitUnpopulated so a client can tell \"unassigned\" from \"the server forgot\"."
         },
         "status": {
           "$ref": "#/definitions/v1TripStatus"
@@ -447,7 +451,7 @@
         },
         "totalCents": {
           "type": "string",
-          "format": "int64"
+          "format": "cents"
         },
         "createdAt": {
           "type": "string",

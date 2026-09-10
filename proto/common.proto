@@ -4,6 +4,8 @@ package surge.common.v1;
 
 option go_package = "github.com/ishakdeveloper/surge/shared/proto/common;common";
 
+import "protoc-gen-openapiv2/options/annotations.proto";
+
 // Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the
 // rest of this codebase — one spelling everywhere is worth more than any
 // argument about which.
@@ -20,4 +22,25 @@ message Route {
   string polyline6 = 1;
   double meters = 2;
   int64 seconds = 3;
+}
+
+// The one shape every failure takes on the REST edge.
+//
+// Declared here rather than left to grpc-gateway's default because the gateway
+// does not use that default: `rest.go` installs a custom error handler, and for
+// as long as this message was absent the published document described a
+// `rpcStatus` — `{code: int, message, details}` — that nothing has ever
+// returned. A generated client believed it, and would have failed to decode
+// every error the server actually sends.
+message ErrorBody {
+  Error error = 1;
+}
+
+message Error {
+  // A stable string a client may branch on. The set is the gRPC code names, so
+  // it is closed and mechanical rather than invented per endpoint.
+  string code = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "error-code"}];
+  // For a human reading a log. Deliberately vague for anything internal — the
+  // detail stays in the trace rather than travelling to a browser.
+  string message = 2;
 }

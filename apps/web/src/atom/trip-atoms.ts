@@ -1,7 +1,8 @@
 import { Keys } from "@/atom/reactivity-keys.js";
 import { runtime } from "@/atom/runtime.js";
 import { SurgeApi } from "@surge/client/SurgeApi";
-import { type Coordinate, type FareId, isFinished, type TripId } from "@surge/domain/trip/Trip";
+import type { FareId, TripId } from "@surge/domain/api/Primitives";
+import { type Coordinate, isFinished } from "@surge/domain/trip/Trip";
 import { Effect, Schedule, Stream } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -46,8 +47,7 @@ export const bookTrip = runtime.fn(
   }) {
     const api = yield* SurgeApi;
     return yield* api.trips.create({
-      payload: { fareId: booking.fareId },
-      headers: { "idempotency-key": booking.idempotencyKey },
+      payload: { fareId: booking.fareId, idempotencyKey: booking.idempotencyKey },
     });
   }),
   { reactivityKeys: [Keys.trips] },

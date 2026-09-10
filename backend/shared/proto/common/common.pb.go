@@ -7,6 +7,7 @@
 package common
 
 import (
+	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -140,11 +141,119 @@ func (x *Route) GetSeconds() int64 {
 	return 0
 }
 
+// The one shape every failure takes on the REST edge.
+//
+// Declared here rather than left to grpc-gateway's default because the gateway
+// does not use that default: `rest.go` installs a custom error handler, and for
+// as long as this message was absent the published document described a
+// `rpcStatus` — `{code: int, message, details}` — that nothing has ever
+// returned. A generated client believed it, and would have failed to decode
+// every error the server actually sends.
+type ErrorBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Error         *Error                 `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ErrorBody) Reset() {
+	*x = ErrorBody{}
+	mi := &file_common_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ErrorBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ErrorBody) ProtoMessage() {}
+
+func (x *ErrorBody) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ErrorBody.ProtoReflect.Descriptor instead.
+func (*ErrorBody) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ErrorBody) GetError() *Error {
+	if x != nil {
+		return x.Error
+	}
+	return nil
+}
+
+type Error struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A stable string a client may branch on. The set is the gRPC code names, so
+	// it is closed and mechanical rather than invented per endpoint.
+	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	// For a human reading a log. Deliberately vague for anything internal — the
+	// detail stays in the trace rather than travelling to a browser.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Error) Reset() {
+	*x = Error{}
+	mi := &file_common_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Error) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Error) ProtoMessage() {}
+
+func (x *Error) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Error.ProtoReflect.Descriptor instead.
+func (*Error) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Error) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *Error) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_common_proto protoreflect.FileDescriptor
 
 const file_common_proto_rawDesc = "" +
 	"\n" +
-	"\fcommon.proto\x12\x0fsurge.common.v1\"0\n" +
+	"\fcommon.proto\x12\x0fsurge.common.v1\x1a.protoc-gen-openapiv2/options/annotations.proto\"0\n" +
 	"\n" +
 	"Coordinate\x12\x10\n" +
 	"\x03lat\x18\x01 \x01(\x01R\x03lat\x12\x10\n" +
@@ -152,7 +261,13 @@ const file_common_proto_rawDesc = "" +
 	"\x05Route\x12\x1c\n" +
 	"\tpolyline6\x18\x01 \x01(\tR\tpolyline6\x12\x16\n" +
 	"\x06meters\x18\x02 \x01(\x01R\x06meters\x12\x18\n" +
-	"\aseconds\x18\x03 \x01(\x03R\asecondsB<Z:github.com/ishakdeveloper/surge/shared/proto/common;commonb\x06proto3"
+	"\aseconds\x18\x03 \x01(\x03R\aseconds\"9\n" +
+	"\tErrorBody\x12,\n" +
+	"\x05error\x18\x01 \x01(\v2\x16.surge.common.v1.ErrorR\x05error\"G\n" +
+	"\x05Error\x12$\n" +
+	"\x04code\x18\x01 \x01(\tB\x10\x92A\r\xa2\x02\n" +
+	"error-codeR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessageB<Z:github.com/ishakdeveloper/surge/shared/proto/common;commonb\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
@@ -166,17 +281,20 @@ func file_common_proto_rawDescGZIP() []byte {
 	return file_common_proto_rawDescData
 }
 
-var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_common_proto_goTypes = []any{
 	(*Coordinate)(nil), // 0: surge.common.v1.Coordinate
 	(*Route)(nil),      // 1: surge.common.v1.Route
+	(*ErrorBody)(nil),  // 2: surge.common.v1.ErrorBody
+	(*Error)(nil),      // 3: surge.common.v1.Error
 }
 var file_common_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	3, // 0: surge.common.v1.ErrorBody.error:type_name -> surge.common.v1.Error
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_common_proto_init() }
@@ -190,7 +308,7 @@ func file_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

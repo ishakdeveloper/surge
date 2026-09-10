@@ -17,14 +17,15 @@
     "check": "tsc -b tsconfig.json && tsc -p tsconfig.tools.json",
     "check:watch": "tsc -b tsconfig.json --watch",
     "format": "dprint fmt",
-    "generate:api": "node scripts/generate-api-reference.mjs",
+    "generate:api": "node scripts/generate-api-client.mjs",
     "format:check": "dprint check",
     "lint": "oxlint --disable-nested-config",
     "lint:fix": "oxlint --disable-nested-config --fix",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "clean": "rm -rf apps/*/build apps/*/.tsbuildinfo packages/*/build packages/*/.tsbuildinfo apps/web/dist apps/web/.output apps/web/.tanstack coverage",
-    "sync:skills": "node scripts/sync-effect-skills.mjs"
+    "sync:skills": "node scripts/sync-effect-skills.mjs",
+    "capture:api-fixtures": "node scripts/capture-api-fixtures.mjs"
   },
   "devDependencies": {
     "@effect/openapi-generator": "catalog:",

@@ -16,7 +16,7 @@ apps/web             TanStack Start — console, rider, driver
 packages/domain      the contract both languages compile against
 packages/client      platform-free Effect services over the Go API
 packages/database    the connection and better-auth's schema
-proto/               the gRPC contracts
+proto/               the API contract — gRPC, REST, OpenAPI, and the TS client
 backend/             the Go module
   services/          one directory per microservice
   shared/            the only thing services may import
@@ -67,6 +67,38 @@ cell and the Kafka key** (ownership), **res 9 is the driver index bucket**
 (search). `geo.ShardCell` derives from `geo.IndexCell` rather than computing
 independently, because H3 is not hierarchically consistent under `LatLngToCell`
 and two answers would mean two matchers each believing they own one driver.
+
+## The API client is generated, never written
+
+`proto/trip.proto` is the only place the REST API is declared. `make proto`
+turns it into the Go gRPC service, the grpc-gateway reverse proxy,
+`docs/api/surge.swagger.json`, and — through `@effect/openapi-generator` —
+`packages/domain/src/api/SurgeApi.ts`. Adding or changing an endpoint is an edit
+to the proto and a `make proto`. Declaring endpoints by hand in TypeScript is
+the drift this arrangement exists to prevent.
+
+What the document cannot say for itself is said once, in the proto and in
+`scripts/generate-api-client.mjs`:
+
+- `openapiv2_operation` `tags` and `operation_id` name the client:
+  `api.trips.create(...)`, not `api.TripService.TripServiceCreateTrip(...)`.
+- `format` on a field names its TypeScript type — `trip-id` becomes a branded
+  `TripId`, `cents` becomes `CentsFromString`, grpc-gateway's own `int64`
+  becomes `Int64FromString`. The mapping is a table in the script; the schemas
+  live in `packages/domain/src/api/Primitives.ts`. A new branded id is one
+  `format` in the proto and one line in each.
+- Every field is required, because the gateway marshals with `EmitUnpopulated`
+  and an unassigned driver is `""`, not absent.
+- Errors are `surge.common.v1.ErrorBody`, which the gateway's custom handler
+  emits. grpc-gateway's default `rpcStatus` is disabled because nothing returns
+  it.
+
+`packages/domain/src/trip/Trip.ts` names the inlined shapes (`Trip`,
+`FareQuote`, …) by deriving them from the generated types, never restating
+them. `packages/domain/test/api/Generation.test.ts` decodes responses captured
+from the running gateway (`pnpm capture:api-fixtures`) and fails if the pipeline
+stops producing branded ids, decoded numbers or required fields — the way it
+would break silently if the generator changed its output.
 
 ## Read the vendored Effect source before writing Effect code
 

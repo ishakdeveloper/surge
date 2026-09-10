@@ -13,31 +13,17 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/ishakdeveloper/surge/shared/authz"
+	commonpb "github.com/ishakdeveloper/surge/shared/proto/common"
 	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-// Error is the one shape every failure takes.
-//
-// Consistent enough that a client writes one handler for all of them. `code` is
-// a stable string a client may branch on; `message` is for a human reading a
-// log, and is deliberately vague for anything internal.
-type Error struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
-
-type errorBody struct {
-	Error Error `json:"error"`
-}
 
 // NewMux builds the REST surface over a gRPC connection.
 func NewMux(ctx context.Context, conn *grpc.ClientConn) (*runtime.ServeMux, error) {
@@ -76,6 +62,12 @@ func NewMux(ctx context.Context, conn *grpc.ClientConn) (*runtime.ServeMux, erro
 // Explicit rather than defaulting to 500: the difference between "your fare
 // expired, get a new quote" and "we are broken" is the difference between a
 // client that recovers and one that retries into a wall.
+// EmitUnpopulated for the same reason the response marshaler uses it: a client
+// decoding `{"error":{"code":...}}` with no `message` key has to treat the field
+// as optional, and then every error handler carries a branch for a case that
+// only exists because of an encoder setting.
+var errorMarshaler = protojson.MarshalOptions{EmitUnpopulated: true}
+
 var httpStatus = map[codes.Code]int{
 	codes.InvalidArgument:    http.StatusBadRequest,
 	codes.NotFound:           http.StatusNotFound,
@@ -104,12 +96,21 @@ func writeError(_ context.Context, _ *runtime.ServeMux, marshaler runtime.Marsha
 		message = "something went wrong"
 	}
 
+	// commonpb.ErrorBody rather than a struct declared here, because the shape
+	// is part of the contract: proto/common.proto declares it, the published
+	// document describes it from that declaration, and the TypeScript client is
+	// generated from the document. A hand-written struct beside all three would
+	// be the fourth place to change and the first to be forgotten.
+	body, err := errorMarshaler.Marshal(&commonpb.ErrorBody{
+		Error: &commonpb.Error{Code: codeName(state.Code()), Message: message},
+	})
+	if err != nil {
+		body = []byte(`{"error":{"code":"internal","message":"something went wrong"}}`)
+	}
+
 	w.Header().Set("Content-Type", marshaler.ContentType(nil))
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(errorBody{Error: Error{
-		Code:    codeName(state.Code()),
-		Message: message,
-	}})
+	_, _ = w.Write(body)
 }
 
 // codeName is the stable string clients branch on. Derived from the gRPC code

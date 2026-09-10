@@ -1,3 +1,4 @@
+import { DriverId, TripId } from "@surge/domain/api/Primitives";
 import {
   CellId,
   ClientMessageFromJson,
@@ -5,7 +6,6 @@ import {
   OfferReply,
   ServerMessageFromJson,
 } from "@surge/domain/realtime/Wire";
-import { DriverId, TripId } from "@surge/domain/trip/Trip";
 import { Effect, Schema } from "effect";
 import * as fs from "node:fs";
 import * as path from "node:path";

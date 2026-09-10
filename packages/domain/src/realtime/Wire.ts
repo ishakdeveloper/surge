@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { DriverId, TripId } from "../trip/Trip.js";
+import { DriverId, TripId } from "../api/Primitives.js";
 
 /**
  * The gateway's WebSocket protocol, mirroring `backend/shared/wire`.

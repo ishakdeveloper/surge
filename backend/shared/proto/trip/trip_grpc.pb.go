@@ -47,6 +47,23 @@ const (
 //
 // Paths follow Google's API design guide: plural collections, and custom
 // methods as `:verb` rather than as invented sub-resources.
+// ## How the TypeScript client is named and typed from here
+//
+// `packages/domain/src/api/SurgeApi.ts` is generated from the OpenAPI document
+// this file produces, so everything about the client's shape is decided here
+// rather than restated there:
+//
+//   - `tags` becomes the client group and `operation_id` the method, which is why
+//     they are `trips` and `create` rather than the defaults that would give
+//     `api.TripService.TripServiceCreateTrip(...)`.
+//   - `format` carries the semantic type of a string. OpenAPI leaves `format` open
+//     deliberately, and it is the only annotation that survives the whole chain —
+//     proto, document, generated schema — including on path parameters. A field
+//     marked `trip-id` becomes a branded `TripId` in TypeScript; `int64`, which
+//     grpc-gateway sets on its own, becomes a decoded number rather than the
+//     quoted string proto3 puts on the wire.
+//   - Every response declares `default` explicitly, because the gateway's error
+//     handler is custom and the generator's assumption would be wrong.
 type TripServiceClient interface {
 	// Preview quotes a trip without committing to it. Read-only, so a rider
 	// dragging a pin can call it repeatedly.
@@ -152,6 +169,23 @@ func (c *tripServiceClient) ListTrips(ctx context.Context, in *ListTripsRequest,
 //
 // Paths follow Google's API design guide: plural collections, and custom
 // methods as `:verb` rather than as invented sub-resources.
+// ## How the TypeScript client is named and typed from here
+//
+// `packages/domain/src/api/SurgeApi.ts` is generated from the OpenAPI document
+// this file produces, so everything about the client's shape is decided here
+// rather than restated there:
+//
+//   - `tags` becomes the client group and `operation_id` the method, which is why
+//     they are `trips` and `create` rather than the defaults that would give
+//     `api.TripService.TripServiceCreateTrip(...)`.
+//   - `format` carries the semantic type of a string. OpenAPI leaves `format` open
+//     deliberately, and it is the only annotation that survives the whole chain —
+//     proto, document, generated schema — including on path parameters. A field
+//     marked `trip-id` becomes a branded `TripId` in TypeScript; `int64`, which
+//     grpc-gateway sets on its own, becomes a decoded number rather than the
+//     quoted string proto3 puts on the wire.
+//   - Every response declares `default` explicitly, because the gateway's error
+//     handler is custom and the generator's assumption would be wrong.
 type TripServiceServer interface {
 	// Preview quotes a trip without committing to it. Read-only, so a rider
 	// dragging a pin can call it repeatedly.

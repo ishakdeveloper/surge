@@ -7,6 +7,7 @@
 package trip
 
 import (
+	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options"
 	common "github.com/ishakdeveloper/surge/shared/proto/common"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -292,8 +293,12 @@ type CreateTripRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	FareId string                 `protobuf:"bytes,1,opt,name=fare_id,json=fareId,proto3" json:"fare_id,omitempty"`
 	// Generated client-side, so a retry over a flaky connection is recognised
-	// rather than booked twice. Over REST this also arrives as an
-	// `Idempotency-Key` header, which the gateway copies into the field.
+	// rather than booked twice.
+	//
+	// The generated TypeScript client sends it here, in the message. The gateway
+	// also accepts an `Idempotency-Key` header and copies it into this field, for
+	// callers that would rather describe the request than the trip — a proxy can
+	// read a header without parsing a body. The handler prefers the field.
 	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -691,9 +696,11 @@ func (x *ListTripsResponse) GetNextPageToken() string {
 }
 
 type Trip struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	RiderId       string                 `protobuf:"bytes,2,opt,name=rider_id,json=riderId,proto3" json:"rider_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RiderId string                 `protobuf:"bytes,2,opt,name=rider_id,json=riderId,proto3" json:"rider_id,omitempty"`
+	// Empty until a driver is assigned, not absent: the gateway marshals with
+	// EmitUnpopulated so a client can tell "unassigned" from "the server forgot".
 	DriverId      string                 `protobuf:"bytes,3,opt,name=driver_id,json=driverId,proto3" json:"driver_id,omitempty"`
 	Status        TripStatus             `protobuf:"varint,4,opt,name=status,proto3,enum=surge.trip.v1.TripStatus" json:"status,omitempty"`
 	Pickup        *common.Coordinate     `protobuf:"bytes,5,opt,name=pickup,proto3" json:"pickup,omitempty"`
@@ -811,32 +818,36 @@ var File_trip_proto protoreflect.FileDescriptor
 const file_trip_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"trip.proto\x12\rsurge.trip.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\x80\x01\n" +
+	"trip.proto\x12\rsurge.trip.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\x80\x01\n" +
 	"\x12PreviewTripRequest\x123\n" +
 	"\x06pickup\x18\x01 \x01(\v2\x1b.surge.common.v1.CoordinateR\x06pickup\x125\n" +
 	"\adropoff\x18\x02 \x01(\v2\x1b.surge.common.v1.CoordinateR\adropoff\"s\n" +
 	"\x13PreviewTripResponse\x12.\n" +
 	"\x05fares\x18\x01 \x03(\v2\x18.surge.trip.v1.FareQuoteR\x05fares\x12,\n" +
-	"\x05route\x18\x02 \x01(\v2\x16.surge.common.v1.RouteR\x05route\"\xce\x01\n" +
-	"\tFareQuote\x12\x17\n" +
-	"\afare_id\x18\x01 \x01(\tR\x06fareId\x12!\n" +
-	"\fpackage_slug\x18\x02 \x01(\tR\vpackageSlug\x12\x1f\n" +
-	"\vtotal_cents\x18\x03 \x01(\x03R\n" +
+	"\x05route\x18\x02 \x01(\v2\x16.surge.common.v1.RouteR\x05route\"\xea\x01\n" +
+	"\tFareQuote\x12&\n" +
+	"\afare_id\x18\x01 \x01(\tB\r\x92A\n" +
+	"\xa2\x02\afare-idR\x06fareId\x12!\n" +
+	"\fpackage_slug\x18\x02 \x01(\tR\vpackageSlug\x12,\n" +
+	"\vtotal_cents\x18\x03 \x01(\x03B\v\x92A\b\xa2\x02\x05centsR\n" +
 	"totalCents\x12)\n" +
 	"\x10surge_multiplier\x18\x04 \x01(\x01R\x0fsurgeMultiplier\x129\n" +
 	"\n" +
-	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"U\n" +
-	"\x11CreateTripRequest\x12\x17\n" +
-	"\afare_id\x18\x01 \x01(\tR\x06fareId\x12'\n" +
+	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"d\n" +
+	"\x11CreateTripRequest\x12&\n" +
+	"\afare_id\x18\x01 \x01(\tB\r\x92A\n" +
+	"\xa2\x02\afare-idR\x06fareId\x12'\n" +
 	"\x0fidempotency_key\x18\x02 \x01(\tR\x0eidempotencyKey\"=\n" +
 	"\x12CreateTripResponse\x12'\n" +
-	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\")\n" +
-	"\x0eGetTripRequest\x12\x17\n" +
-	"\atrip_id\x18\x01 \x01(\tR\x06tripId\":\n" +
+	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\"8\n" +
+	"\x0eGetTripRequest\x12&\n" +
+	"\atrip_id\x18\x01 \x01(\tB\r\x92A\n" +
+	"\xa2\x02\atrip-idR\x06tripId\":\n" +
 	"\x0fGetTripResponse\x12'\n" +
-	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\"D\n" +
-	"\x11CancelTripRequest\x12\x17\n" +
-	"\atrip_id\x18\x01 \x01(\tR\x06tripId\x12\x16\n" +
+	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\"S\n" +
+	"\x11CancelTripRequest\x12&\n" +
+	"\atrip_id\x18\x01 \x01(\tB\r\x92A\n" +
+	"\xa2\x02\atrip-idR\x06tripId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"=\n" +
 	"\x12CancelTripResponse\x12'\n" +
 	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\"f\n" +
@@ -847,16 +858,17 @@ const file_trip_proto_rawDesc = "" +
 	"\x06status\x18\x03 \x01(\tR\x06status\"f\n" +
 	"\x11ListTripsResponse\x12)\n" +
 	"\x05trips\x18\x01 \x03(\v2\x13.surge.trip.v1.TripR\x05trips\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xb2\x03\n" +
-	"\x04Trip\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\brider_id\x18\x02 \x01(\tR\ariderId\x12\x1b\n" +
-	"\tdriver_id\x18\x03 \x01(\tR\bdriverId\x121\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xef\x03\n" +
+	"\x04Trip\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tB\r\x92A\n" +
+	"\xa2\x02\atrip-idR\x02id\x12)\n" +
+	"\brider_id\x18\x02 \x01(\tB\x0e\x92A\v\xa2\x02\brider-idR\ariderId\x12,\n" +
+	"\tdriver_id\x18\x03 \x01(\tB\x0f\x92A\f\xa2\x02\tdriver-idR\bdriverId\x121\n" +
 	"\x06status\x18\x04 \x01(\x0e2\x19.surge.trip.v1.TripStatusR\x06status\x123\n" +
 	"\x06pickup\x18\x05 \x01(\v2\x1b.surge.common.v1.CoordinateR\x06pickup\x125\n" +
 	"\adropoff\x18\x06 \x01(\v2\x1b.surge.common.v1.CoordinateR\adropoff\x12,\n" +
-	"\x05route\x18\a \x01(\v2\x16.surge.common.v1.RouteR\x05route\x12\x1f\n" +
-	"\vtotal_cents\x18\b \x01(\x03R\n" +
+	"\x05route\x18\a \x01(\v2\x16.surge.common.v1.RouteR\x05route\x12,\n" +
+	"\vtotal_cents\x18\b \x01(\x03B\v\x92A\b\xa2\x02\x05centsR\n" +
 	"totalCents\x129\n" +
 	"\n" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
@@ -873,15 +885,35 @@ const file_trip_proto_rawDesc = "" +
 	"\x17TRIP_STATUS_IN_PROGRESS\x10\x05\x12\x19\n" +
 	"\x15TRIP_STATUS_COMPLETED\x10\x06\x12\x19\n" +
 	"\x15TRIP_STATUS_CANCELLED\x10\a\x12\x19\n" +
-	"\x15TRIP_STATUS_UNMATCHED\x10\b2\xd0\x04\n" +
-	"\vTripService\x12r\n" +
-	"\vPreviewTrip\x12!.surge.trip.v1.PreviewTripRequest\x1a\".surge.trip.v1.PreviewTripResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/trips:preview\x12g\n" +
+	"\x15TRIP_STATUS_UNMATCHED\x10\b2\xb7\t\n" +
+	"\vTripService\x12\xee\x01\n" +
+	"\vPreviewTrip\x12!.surge.trip.v1.PreviewTripRequest\x1a\".surge.trip.v1.PreviewTripResponse\"\x97\x01\x92Ax\n" +
+	"\x05trips*\apreviewJf\n" +
+	"\adefault\x12[\n" +
+	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/trips:preview\x12\xe2\x01\n" +
 	"\n" +
-	"CreateTrip\x12 .surge.trip.v1.CreateTripRequest\x1a!.surge.trip.v1.CreateTripResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/trips\x12e\n" +
-	"\aGetTrip\x12\x1d.surge.trip.v1.GetTripRequest\x1a\x1e.surge.trip.v1.GetTripResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/trips/{trip_id}\x12\x99\x01\n" +
+	"CreateTrip\x12 .surge.trip.v1.CreateTripRequest\x1a!.surge.trip.v1.CreateTripResponse\"\x8e\x01\x92Aw\n" +
+	"\x05trips*\x06createJf\n" +
+	"\adefault\x12[\n" +
+	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/trips\x12\xdd\x01\n" +
+	"\aGetTrip\x12\x1d.surge.trip.v1.GetTripRequest\x1a\x1e.surge.trip.v1.GetTripResponse\"\x92\x01\x92At\n" +
+	"\x05trips*\x03getJf\n" +
+	"\adefault\x12[\n" +
+	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/trips/{trip_id}\x12\x94\x02\n" +
 	"\n" +
-	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponse\"F\x82\xd3\xe4\x93\x02@:\x01*Z\x1f:\x01*\"\x1a/v1/trips/{trip_id}/cancel\"\x1a/v1/trips/{trip_id}:cancel\x12a\n" +
-	"\tListTrips\x12\x1f.surge.trip.v1.ListTripsRequest\x1a .surge.trip.v1.ListTripsResponse\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/tripsB8Z6github.com/ishakdeveloper/surge/shared/proto/trip;tripb\x06proto3"
+	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponse\"\xc0\x01\x92Aw\n" +
+	"\x05trips*\x06cancelJf\n" +
+	"\adefault\x12[\n" +
+	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02@:\x01*Z\x1f:\x01*\"\x1a/v1/trips/{trip_id}/cancel\"\x1a/v1/trips/{trip_id}:cancel\x12\xda\x01\n" +
+	"\tListTrips\x12\x1f.surge.trip.v1.ListTripsRequest\x1a .surge.trip.v1.ListTripsResponse\"\x89\x01\x92Au\n" +
+	"\x05trips*\x04listJf\n" +
+	"\adefault\x12[\n" +
+	"9The gateway's error shape, from its custom error handler.\x12\x1e\n" +
+	"\x1c\x1a\x1a.surge.common.v1.ErrorBody\x82\xd3\xe4\x93\x02\v\x12\t/v1/tripsB8Z6github.com/ishakdeveloper/surge/shared/proto/trip;tripb\x06proto3"
 
 var (
 	file_trip_proto_rawDescOnce sync.Once
