@@ -19,6 +19,14 @@ export const FleetStats = () => {
     ["Open offers", stats.offers.toLocaleString()],
     ["Matched", rate(stats.matchedPerSecond)],
     ["Unmatched", rate(stats.abandonedPerSecond)],
+    [
+      "Surge",
+      stats.maxMultiplier > 1
+        ? `up to ×${stats.maxMultiplier.toFixed(1)}, ${stats.surgingCells} ${
+          stats.surgingCells === 1 ? "cell" : "cells"
+        }`
+        : "none",
+    ],
   ];
 
   return (

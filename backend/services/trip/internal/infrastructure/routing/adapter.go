@@ -32,12 +32,9 @@ func (v *Valhalla) Route(ctx context.Context, from, to geo.Point) (service.Route
 	}, nil
 }
 
-// FlatSurge is the honest placeholder: no demand signal yet, so no multiplier.
-//
-// It exists rather than being a nil check in the service because the seam is
-// the point — Phase 5 computes this per resolution-7 cell from the ratio of
-// open requests to idle drivers, and swapping the implementation is the whole
-// change.
+// FlatSurge is base price everywhere: for tests, and for a trip service run
+// without matchers. The real one is events.SurgeBook, which reads each cell's
+// multiplier from surge.cells.
 type FlatSurge struct{}
 
 func (FlatSurge) MultiplierAt(context.Context, geo.Point) float64 { return 1.0 }

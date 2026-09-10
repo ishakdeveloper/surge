@@ -9,6 +9,9 @@
 #
 #   make bench-matching DRIVERS=300 RPS=20 MINUTES=4
 #
+# Long enough that it should not run inside anything that can be killed for
+# memory: start it detached (nohup ... &) and watch its output.
+#
 # A run is only reported as valid if the matcher kept up and kept its
 # partitions: an earlier attempt compared a batched run against a greedy run
 # whose matcher had lost its partitions and saw demand for 100 of 240 seconds.
@@ -30,7 +33,23 @@ WINDOW="${MINUTES}m"
 
 cd "$ROOT/backend"
 set -a; . ../.env; set +a
-export MATCHER_GROUP=matcher-bench
+# A fresh group for every invocation, shared by its two runs. The second run
+# resumes where the first stopped; the first starts at the end of the topic.
+# A fixed name once made the first run resume from the previous invocation,
+# hours earlier, and replay every request since — thousands of phantom trips
+# offered to a fleet that was meant to be measured.
+export MATCHER_GROUP=matcher-bench-$(date +%s)
+
+# Memory. What the benchmark does not read is stopped for its length and started
+# again on the way out, however it exits: the dashboards — Grafana, Jaeger,
+# Redpanda Console — are a third of a gigabyte on a laptop where the memory
+# guard once killed a run halfway through. Prometheus stays; the results are
+# read from it. BENCH_KEEP_DASHBOARDS=1 leaves them running.
+compose="docker compose -f $ROOT/deploy/compose/docker-compose.yml --profile observability"
+if [ -z "${BENCH_KEEP_DASHBOARDS:-}" ]; then
+  $compose stop grafana jaeger redpanda-console >/dev/null 2>&1 || true
+  trap '$compose start grafana jaeger redpanda-console >/dev/null 2>&1 || true' EXIT
+fi
 
 stop() {
   pkill -f "\./bin/$1" 2>/dev/null || true
@@ -52,9 +71,11 @@ wait_for() { # file pattern count timeout
 }
 
 # Indexed, not associative: macOS ships bash 3.2, which has no declare -A.
-strategies=(greedy batched)
+# STRATEGIES=batched runs one strategy alone, for when two runs back to back
+# will not fit — the memory guard once killed a run halfway through its second.
+strategies=(${STRATEGIES:-greedy batched})
 started=() ended=() valid=() rows=()
-for i in 0 1; do
+for i in "${!strategies[@]}"; do
   strategy=${strategies[$i]}
   stop simd
   stop matcher
@@ -89,9 +110,11 @@ for i in 0 1; do
 
   rows[$i]="$handled | $(query "histogram_quantile(0.5, sum by (le) (increase(surge_matcher_match_latency_seconds_bucket{$s}[$WINDOW])))" "$end") | $(query "histogram_quantile(0.95, sum by (le) (increase(surge_matcher_match_latency_seconds_bucket{$s}[$WINDOW])))" "$end") | $(query "histogram_quantile(0.99, sum by (le) (increase(surge_matcher_match_latency_seconds_bucket{$s}[$WINDOW])))" "$end") | $(query "sum(increase(surge_matcher_abandoned_total{$s}[$WINDOW])) / $((MINUTES * 60))" "$end") | $(query "sum(increase(surge_matcher_rejections_total{reason=\"busy\"}[$WINDOW]))" "$end")"
   if [ "$strategy" = batched ]; then
-    rows[$i]+=" | $(query "sum(increase(surge_matcher_batch_requests_sum[$WINDOW])) / sum(increase(surge_matcher_batch_requests_count[$WINDOW]))" "$end") | $(query "sum(increase(surge_matcher_batch_fetch_seconds_count{fetched=\"no_travel_times\"}[$WINDOW])) / sum(increase(surge_matcher_batch_fetch_seconds_count[$WINDOW]))" "$end")"
+    # Only batches contested enough to need travel times are counted here;
+    # uncontested windows are dispatched without a solve and never reach it.
+    rows[$i]+=" | $(query "sum(increase(surge_matcher_batch_requests_count[$WINDOW]))" "$end") | $(query "sum(increase(surge_matcher_batch_requests_sum[$WINDOW])) / sum(increase(surge_matcher_batch_requests_count[$WINDOW]))" "$end") | $(query "sum(increase(surge_matcher_batch_fetch_seconds_count{fetched=\"no_travel_times\"}[$WINDOW])) / sum(increase(surge_matcher_batch_fetch_seconds_count[$WINDOW]))" "$end")"
   else
-    rows[$i]+=" | - | -"
+    rows[$i]+=" | - | - | -"
   fi
   echo "[$strategy] done (valid: ${valid[$i]})"
 done
@@ -101,7 +124,7 @@ stop matcher
 
 # Priced now, with Valhalla idle: the same sample size for both strategies.
 priced=()
-for i in 0 1; do
+for i in "${!strategies[@]}"; do
   strategy=${strategies[$i]}
   priced[$i]=$(python3 "$ROOT/scripts/price-dispatches.py" "/private/tmp/bench-dispatch-$strategy.jsonl" \
     "$((started[$i] * 1000))" "$((ended[$i] * 1000))" --valhalla "$VALHALLA" |
@@ -117,16 +140,16 @@ consume=$!
 for _ in $(seq 60); do kill -0 "$consume" 2>/dev/null || break; sleep 1; done
 kill "$consume" 2>/dev/null || true
 doubles=()
-for i in 0 1; do
+for i in "${!strategies[@]}"; do
   doubles[$i]=$(python3 "$ROOT/scripts/count-double-matches.py" "$events" "$((started[$i] * 1000))" "$((ended[$i] * 1000 + 60000))")
 done
 
 echo
 echo "$DRIVERS drivers, $RPS requests/s, ${MINUTES} min measured per strategy after ${WARMUP}s of demand"
 echo
-echo "| strategy | valid | double dispatches | redelivered matches | handled/s | road pickup mean s | road p50 s | road p95 s | straight-line mean m | priced | latency p50 s | latency p95 s | latency p99 s | unmatched/s | busy refusals | riders/batch | solves without travel times |"
-echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
-for i in 0 1; do
+echo "| strategy | valid | double dispatches | redelivered matches | handled/s | road pickup mean s | road p50 s | road p95 s | straight-line mean m | priced | latency p50 s | latency p95 s | latency p99 s | unmatched/s | busy refusals | contested solves | riders per solve | solves without travel times |"
+echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+for i in "${!strategies[@]}"; do
   IFS='|' read -r handled rest <<<"${rows[$i]}"
   read -r dispatched redelivered <<<"${doubles[$i]}"
   echo "| ${strategies[$i]} | ${valid[$i]} | $dispatched | $redelivered | $handled | ${priced[$i]} | $rest |"

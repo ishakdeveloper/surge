@@ -53,6 +53,8 @@ type FleetFrame struct {
 	// its map, with no second system in the path.
 	MatchLatenciesMs []int64 `json:"matchLatenciesMs"`
 	Abandoned        int     `json:"abandoned"`
+	// Surge is every cell this partition owns that is priced above 1.0.
+	Surge []CellSurge `json:"surge"`
 }
 
 // FleetDriver is one driver as the console draws them.
@@ -94,6 +96,8 @@ type FleetCell struct {
 	Cell    string `json:"cell"`
 	Drivers int    `json:"drivers"`
 	Idle    int    `json:"idle"`
+	// Multiplier is the cell's surge, 1.0 when it has none.
+	Multiplier float64 `json:"multiplier"`
 	// Boundary is the hexagon, as [lng, lat] pairs in order. Computed by the
 	// gateway, once per cell, so the browser draws a polygon without needing
 	// an H3 library of its own.
@@ -123,6 +127,10 @@ type FleetStats struct {
 	P50Ms              int64   `json:"p50Ms"`
 	P95Ms              int64   `json:"p95Ms"`
 	P99Ms              int64   `json:"p99Ms"`
+	// MaxMultiplier is the highest surge anywhere, 1.0 when nowhere surges;
+	// SurgingCells is how many cells are above 1.0.
+	MaxMultiplier float64 `json:"maxMultiplier"`
+	SurgingCells  int     `json:"surgingCells"`
 }
 
 // DriverPosition is where a rider's driver is.
@@ -133,4 +141,8 @@ type DriverPosition struct {
 	Lng      float64 `json:"lng"`
 	Heading  float64 `json:"heading"`
 	AtMs     int64   `json:"atMs"`
+	// EtaSeconds is the predicted wait until the driver reaches the pickup:
+	// 0 when there is none — before any pickup has been observed, or once the
+	// rider is in the car.
+	EtaSeconds float64 `json:"etaSeconds"`
 }

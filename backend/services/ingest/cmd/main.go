@@ -91,8 +91,16 @@ func run() error {
 	}
 	defer client.Close()
 
+	pickupSeconds := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "surge_ingest_pickup_seconds",
+		Help:    "Observed pickups: from a driver setting off to the rider getting in.",
+		Buckets: []float64{30, 60, 90, 120, 180, 240, 300, 420, 600, 900},
+	})
+	registry.MustRegister(pickupSeconds)
+
 	errs := make(chan error, 2)
 	consumer := events.NewConsumer(client, producer, index, events.Hooks{
+		OnPickup:   func(seconds, _ float64) { pickupSeconds.Observe(seconds) },
 		OnIndexed:  func() { metrics.consumed.Inc() },
 		OnRejected: func(reason string) { metrics.rejected.WithLabelValues(reason).Inc() },
 		OnStale: func(duplicate bool) {

@@ -57,9 +57,24 @@ type Config struct {
 	// matrix is drivers × requests, and the solver is cubic.
 	BatchMaxRequests int
 	BatchMaxDrivers  int
-	// BatchTimeout gives up on travel times that never came back, and solves
-	// that batch over straight-line distance instead.
+	// BatchFetchTimeout is how long the runner waits for Valhalla's travel
+	// times. Short on purpose: a batch that waits seconds for a router has
+	// already cost the rider more than the better assignment could save.
+	BatchFetchTimeout time.Duration
+	// BatchTimeout is the shard's own limit on an answer that never arrives,
+	// after which it solves over straight-line distance instead.
 	BatchTimeout time.Duration
+
+	// SurgeWindow is the time constant demand and supply are smoothed over. A
+	// burst of requests should move the price over a minute, not in a second.
+	SurgeWindow time.Duration
+	// SurgeStep is how much each extra waiting rider per idle car adds to the
+	// multiplier, and SurgeMax caps it.
+	SurgeStep float64
+	SurgeMax  float64
+	// SurgeHeartbeat republishes a surging cell that has not changed, so the
+	// trip service can tell a steady price from a matcher that stopped.
+	SurgeHeartbeat time.Duration
 }
 
 func DefaultConfig() Config {
@@ -74,7 +89,12 @@ func DefaultConfig() Config {
 		BatchWindow:       2 * time.Second,
 		BatchMaxRequests:  32,
 		BatchMaxDrivers:   64,
-		BatchTimeout:      5 * time.Second,
+		BatchFetchTimeout: 400 * time.Millisecond,
+		BatchTimeout:      time.Second,
+		SurgeWindow:       time.Minute,
+		SurgeStep:         0.5,
+		SurgeMax:          3.0,
+		SurgeHeartbeat:    30 * time.Second,
 	}
 }
 
@@ -209,6 +229,13 @@ type Shard struct {
 	windowOpened time.Time
 	inflight     *batch
 	batchSeq     uint64
+
+	// Surge pricing: smoothed demand and supply per cell, and when they were
+	// last updated. See surge.go.
+	surge   map[string]*surgeCell
+	surgeAt time.Time
+	// arrivals counts requests per pickup cell since the last Surge call.
+	arrivals map[string]int
 }
 
 func NewShard(partition int32, config Config) *Shard {
@@ -224,6 +251,8 @@ func NewShard(partition int32, config Config) *Shard {
 
 		restoredHolds: make(map[string]string),
 		checkpointed:  make(map[string]struct{}),
+		surge:         make(map[string]*surgeCell),
+		arrivals:      make(map[string]int),
 	}
 }
 
@@ -392,6 +421,13 @@ func (s *Shard) matchRequested(event wire.GeoEvent, now time.Time) (Outcome, err
 
 	if _, active := s.pending[payload.TripID]; active {
 		return Outcome{}, nil
+	}
+
+	// Demand for surge pricing: every rider who asks, whether or not a car is
+	// found. A rider turned away for want of a car is the strongest signal
+	// there is, and counting only requests still being matched would miss it.
+	if cell := s.cellOf(*payload); cell != "" {
+		s.arrivals[cell]++
 	}
 
 	if s.config.Strategy == StrategyBatched {

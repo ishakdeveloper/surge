@@ -39,7 +39,22 @@ type RiderConfig struct {
 	// window, and a benchmark reading trip.events counted a thousand trips
 	// "matched twice" that were two runs sharing names.
 	Run uint64
+	// HotspotShare is the fraction of pickups drawn near one of Hotspots
+	// rather than anywhere. Uniform demand spreads riders so thin that no two
+	// ever want the same car — the one case in which how you match matters.
+	HotspotShare float64
 }
+
+// Hotspots are where concentrated demand comes from: a station, a business
+// district, a nightlife square.
+var Hotspots = []geo.Point{
+	{Lat: 52.3791, Lng: 4.9003}, // Centraal
+	{Lat: 52.3389, Lng: 4.8723}, // Zuid
+	{Lat: 52.3643, Lng: 4.8828}, // Leidseplein
+}
+
+// hotspotRadius is how far from a hotspot its pickups fall, in metres.
+const hotspotRadius = 800.0
 
 func DefaultRiderConfig() RiderConfig {
 	return RiderConfig{
@@ -103,6 +118,19 @@ func NewRiders(brokers []string, group string, pool *RoutePool, config RiderConf
 	}, nil
 }
 
+// pickup draws where a rider asks from. The hotspot draw happens only when a
+// share is set, so a run without hotspots consumes the seeded source exactly
+// as it always did and stays comparable with older runs.
+func (r *Riders) pickup(source *rand.Rand) (geo.Point, bool) {
+	if r.config.HotspotShare > 0 && source.Float64() < r.config.HotspotShare {
+		centre := Hotspots[source.IntN(len(Hotspots))]
+		if point, ok := r.pool.PointNear(source, centre, hotspotRadius); ok {
+			return point, true
+		}
+	}
+	return r.pool.RandomPoint(source)
+}
+
 // TripID names a simulated trip: the seed, the run, and its place in the run.
 func TripID(seed, run, sequence uint64) string {
 	return fmt.Sprintf("trip-%d-%s-%d", seed, strconv.FormatUint(run, 36), sequence)
@@ -147,7 +175,7 @@ func (r *Riders) request(ctx context.Context) error {
 		case <-ticker.C:
 		}
 
-		pickup, ok := r.pool.RandomPoint(source)
+		pickup, ok := r.pickup(source)
 		if !ok {
 			continue
 		}

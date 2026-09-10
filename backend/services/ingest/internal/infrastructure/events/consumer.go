@@ -33,6 +33,8 @@ type Hooks struct {
 	OnAge           func(seconds float64)
 	OnProcess       func(seconds float64)
 	OnSnapshot      func(domain.Stats)
+	// OnPickup reports a pickup ingest observed.
+	OnPickup func(seconds, meters float64)
 }
 
 // Consumer runs the ingest loop.
@@ -182,6 +184,10 @@ func (c *Consumer) Run(ctx context.Context) error {
 				})
 			}
 
+			if observation.Pickup != nil {
+				c.pickup(recordCtx, *observation.Pickup)
+			}
+
 			if c.hooks.OnIndexed != nil {
 				c.hooks.OnIndexed()
 			}
@@ -192,5 +198,26 @@ func (c *Consumer) Run(ctx context.Context) error {
 func (c *Consumer) reject(reason string) {
 	if c.hooks.OnRejected != nil {
 		c.hooks.OnRejected(reason)
+	}
+}
+
+// pickup publishes a pickup the fleet made, keyed by the pickup's cell.
+func (c *Consumer) pickup(ctx context.Context, pickup wire.PickupObserved) {
+	payload, err := json.Marshal(pickup)
+	if err != nil {
+		c.reject("unencodable")
+		return
+	}
+	tracing.Produce(ctx, c.producer, &kgo.Record{
+		Topic: kafkax.TopicPickupsObserved,
+		Key:   []byte(pickup.Cell),
+		Value: payload,
+	}, func(_ *kgo.Record, err error) {
+		if err != nil && c.hooks.OnProduceError != nil {
+			c.hooks.OnProduceError()
+		}
+	})
+	if c.hooks.OnPickup != nil {
+		c.hooks.OnPickup(pickup.Seconds, pickup.Meters)
 	}
 }

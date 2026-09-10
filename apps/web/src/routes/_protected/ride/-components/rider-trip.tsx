@@ -56,6 +56,7 @@ export const RiderTrip = () => {
           {trip.status === "TRIP_STATUS_PAYMENT_PENDING" && (
             <HoldStep tripId={trip.id} totalCents={trip.totalCents} />
           )}
+          {isUnderway(trip.status) && trip.driverId !== "" && <DriverEta tripId={trip.id} />}
 
           <dl className="grid grid-cols-[6rem_1fr] gap-1.5 text-sm">
             <dt className="text-muted-foreground">Driver</dt>
@@ -88,6 +89,21 @@ export const RiderTrip = () => {
         ? <FollowedMap trip={trip} route={route} />
         : <SurgeMap markers={stops(trip)} route={route} follow={[trip.pickup, trip.dropoff]} />}
     </SplitView>
+  );
+};
+
+/**
+ * The predicted wait while the driver is on the way, learned from pickups the
+ * fleet has made. Nothing while there is no prediction, or once the rider is
+ * in the car.
+ */
+const DriverEta = (props: { readonly tripId: Trip["id"]; }) => {
+  const position = useAtomValue(driverPositionAtom(props.tripId));
+  if (!AsyncResult.isSuccess(position) || position.value.etaSeconds <= 0) return null;
+  return (
+    <p className="text-sm">
+      Arriving in about {formatDuration(position.value.etaSeconds)}
+    </p>
   );
 };
 

@@ -170,10 +170,34 @@ func (s *Shard) maybeBatch(now time.Time) Outcome {
 		outcome.merge(s.resolve(b, nil, now))
 		return outcome
 	}
+	if !contended(b) {
+		// No car is wanted by two riders, so the joint solve cannot beat each
+		// rider taking their own nearest car — and it would cost a router call
+		// to find that out. One rider alone is the common case of this. The
+		// first benchmark spent most of its latency here: 3.2 riders a batch,
+		// few of them competing, every one of them waiting on Valhalla.
+		outcome.merge(s.resolve(b, nil, now))
+		return outcome
+	}
 
 	s.inflight = b
 	outcome.Batch = &BatchRequest{ID: b.id, Drivers: b.points, Pickups: b.pickups}
 	return outcome
+}
+
+// contended reports whether any car is a candidate for more than one rider in
+// the batch — the only case in which solving together can beat solving apart.
+func contended(b *batch) bool {
+	wanted := map[string]int{}
+	for _, eligible := range b.eligible {
+		for driverID := range eligible {
+			wanted[driverID]++
+			if wanted[driverID] > 1 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Solved takes the travel times a BatchRequest asked for and dispatches the

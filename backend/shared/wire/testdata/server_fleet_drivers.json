@@ -25,7 +25,9 @@
       "abandonedPerSecond": 0,
       "p50Ms": 0,
       "p95Ms": 0,
-      "p99Ms": 0
+      "p99Ms": 0,
+      "maxMultiplier": 1,
+      "surgingCells": 0
     }
   }
 }

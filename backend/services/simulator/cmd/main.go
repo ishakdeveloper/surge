@@ -94,12 +94,20 @@ func run() error {
 	if riderSettings.AcceptLatency, err = config.DurationOr("SIM_ACCEPT_LATENCY", riderSettings.AcceptLatency); err != nil {
 		return err
 	}
+	if riderSettings.HotspotShare, err = floatOr("SIM_HOTSPOT_SHARE", riderSettings.HotspotShare); err != nil {
+		return err
+	}
 
 	settings := sim.DefaultConfig()
 	if settings.Drivers, err = config.IntOr("SIM_DRIVERS", settings.Drivers); err != nil {
 		return err
 	}
 	if settings.PingInterval, err = config.DurationOr("SIM_PING_INTERVAL", settings.PingInterval); err != nil {
+		return err
+	}
+	// Trips: an accepted driver drives to the pickup and carries the rider
+	// about this far. Zero is the fleet that never gets busy.
+	if settings.TripKm, err = floatOr("SIM_TRIP_KM", settings.TripKm); err != nil {
 		return err
 	}
 
@@ -235,11 +243,17 @@ func run() error {
 		return err
 	}
 
+	// Whichever transport answers an offer, the driver who accepted it does the
+	// trip.
+	policy.OnCommitted(fleet.Assign)
+
 	if err := fleet.Scale(ctx, settings); err != nil {
 		return err
 	}
 	slog.Info("fleet started",
 		"drivers", settings.Drivers,
+		"tripKm", settings.TripKm,
+		"hotspotShare", riderSettings.HotspotShare,
 		"pingInterval", settings.PingInterval,
 		"pingsPerSecond", float64(settings.Drivers)/settings.PingInterval.Seconds(),
 	)

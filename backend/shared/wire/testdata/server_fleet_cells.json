@@ -8,6 +8,7 @@
         "cell": "871f1d492ffffff",
         "drivers": 12,
         "idle": 9,
+        "multiplier": 1.4,
         "boundary": [
           [
             4.8943,
@@ -56,7 +57,9 @@
       "abandonedPerSecond": 0,
       "p50Ms": 2100,
       "p95Ms": 3900,
-      "p99Ms": 4400
+      "p99Ms": 4400,
+      "maxMultiplier": 1.4,
+      "surgingCells": 1
     }
   }
 }

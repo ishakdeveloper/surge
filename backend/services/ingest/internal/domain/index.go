@@ -26,6 +26,11 @@ type Entry struct {
 	// latency stays measurable across the re-keying hop rather than restarting
 	// its clock here.
 	SentAtMs int64
+
+	// EnRouteSinceMs and EnRouteFrom are when and where the driver set off for
+	// a pickup, carried from ping to ping while they stay enroute_pickup.
+	EnRouteSinceMs int64
+	EnRouteFrom    geo.Point
 }
 
 // Index is the in-memory geospatial state.
@@ -80,6 +85,10 @@ type Observation struct {
 
 	PreviousIndex geo.Cell
 	PreviousShard geo.Cell
+
+	// Pickup is a pickup this ping completed: the driver was enroute_pickup
+	// and is now on_trip.
+	Pickup *wire.PickupObserved
 }
 
 // Observe records a ping.
@@ -158,9 +167,35 @@ func (i *Index) Observe(ping wire.DriverPing) (Observation, error) {
 		Shard:    shard,
 		SentAtMs: ping.SentAtMs,
 	}
+	// Pickups, read from the driver's own status: setting off is the first
+	// enroute_pickup ping, arriving the next on_trip one. Ingest is the one
+	// place that sees every ping of every driver in order, which is what it
+	// takes to see both ends of a pickup.
+	var pickup *wire.PickupObserved
+	switch {
+	case ping.Status == wire.StatusEnRoutePickup && existed && previous.Status == wire.StatusEnRoutePickup:
+		entry.EnRouteSinceMs, entry.EnRouteFrom = previous.EnRouteSinceMs, previous.EnRouteFrom
+	case ping.Status == wire.StatusEnRoutePickup:
+		entry.EnRouteSinceMs, entry.EnRouteFrom = ping.SentAtMs, point
+	case ping.Status == wire.StatusOnTrip && existed &&
+		previous.Status == wire.StatusEnRoutePickup && previous.EnRouteSinceMs > 0:
+		pickup = &wire.PickupObserved{
+			Tag:      wire.TagPickupObserved,
+			DriverID: ping.DriverID,
+			Cell:     shard.String(),
+			FromLat:  previous.EnRouteFrom.Lat,
+			FromLng:  previous.EnRouteFrom.Lng,
+			Lat:      point.Lat,
+			Lng:      point.Lng,
+			Meters:   geo.DistanceMeters(previous.EnRouteFrom, point),
+			Seconds:  float64(ping.SentAtMs-previous.EnRouteSinceMs) / 1000,
+			AtMs:     ping.SentAtMs,
+		}
+	}
+
 	i.drivers[ping.DriverID] = entry
 
-	observation := Observation{Entry: entry, New: !existed}
+	observation := Observation{Entry: entry, New: !existed, Pickup: pickup}
 
 	if existed {
 		observation.PreviousIndex = previous.Index

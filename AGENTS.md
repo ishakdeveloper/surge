@@ -193,6 +193,7 @@ Everything routine is a make target; `make help` lists them.
 | `make up` / `make down`            | infrastructure in Docker            |
 | `make up-core`                     | without the dashboards              |
 | `make bench-matching RPS=20`       | greedy vs batched matching, A/B     |
+| `make check-handover`              | a clean matcher stop leaves no lag  |
 | `make migrate`                     | apply database migrations           |
 | `make dev-auth`                    | the auth service                    |
 | `make dev-ingest` / `make dev-sim` | the Go services, on the host        |

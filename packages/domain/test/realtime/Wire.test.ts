@@ -106,6 +106,8 @@ describe("server messages", () => {
       ageMs: 340,
     });
     expect(message.fleet.stats.p99Ms).toBe(4400);
+    expect(message.fleet.cells[0]?.multiplier).toBe(1.4);
+    expect(message.fleet.stats).toMatchObject({ maxMultiplier: 1.4, surgingCells: 1 });
   });
 
   it("decodes a fleet update in driver mode", async () => {
@@ -133,6 +135,7 @@ describe("server messages", () => {
     expect(message.position.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
     expect(message.position.driverId).toBe("drv-000123");
     expect(message.position.lat).toBeCloseTo(52.3711, 4);
+    expect(message.position.etaSeconds).toBe(240);
   });
 
   /**

@@ -166,6 +166,31 @@ func (p *RoutePool) Random(source *rand.Rand) *routing.Route {
 	return p.routes[source.IntN(len(p.routes))]
 }
 
+// PointNear returns a point on the road network within radius metres of
+// centre, found by walking a few random routes, or false if they never pass
+// close — so a hotspot beside the water cannot stall the rider generator.
+func (p *RoutePool) PointNear(source *rand.Rand, centre geo.Point, radius float64) (geo.Point, bool) {
+	var near []geo.Point
+	for range 40 {
+		route := p.Random(source)
+		if route == nil {
+			break
+		}
+		for along := 0.0; along < route.Path.Length(); along += 50 {
+			if point, _ := route.Path.At(along); geo.DistanceMeters(point, centre) <= radius {
+				near = append(near, point)
+			}
+		}
+		if len(near) >= 20 {
+			break
+		}
+	}
+	if len(near) == 0 {
+		return geo.Point{}, false
+	}
+	return near[source.IntN(len(near))], true
+}
+
 // RandomPoint returns a point somewhere along a random route.
 //
 // Used for rider pickups. Better than a random point in the bounding box for

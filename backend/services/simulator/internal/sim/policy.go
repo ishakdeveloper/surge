@@ -26,6 +26,10 @@ type OfferPolicy struct {
 	// what a decline produces. What must never happen is two drivers holding
 	// live offers for the same trip, because both could accept.
 	accepted map[string]string
+
+	// onCommitted is told about every acceptance that sticks, so the driver
+	// who accepted can go and do the trip.
+	onCommitted func(wire.Offer)
 }
 
 func NewOfferPolicy(config RiderConfig) *OfferPolicy {
@@ -76,11 +80,26 @@ func (p *OfferPolicy) Decide(offer wire.Offer) Decision {
 // detecting.
 func (p *OfferPolicy) Commit(offer wire.Offer) (ok bool) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if holder, taken := p.accepted[offer.TripID]; taken && holder != offer.DriverID {
+		p.mu.Unlock()
 		return false
 	}
 	p.accepted[offer.TripID] = offer.DriverID
+	committed := p.onCommitted
+	p.mu.Unlock()
+
+	// Outside the lock: the callback hands the trip to a driver goroutine, and
+	// holding the policy's mutex across that would serialise every answer in
+	// the fleet behind it.
+	if committed != nil {
+		committed(offer)
+	}
 	return true
+}
+
+// OnCommitted sets what happens when an acceptance sticks.
+func (p *OfferPolicy) OnCommitted(f func(wire.Offer)) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.onCommitted = f
 }

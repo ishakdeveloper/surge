@@ -124,19 +124,122 @@ What would have to change before batching can win, and what to measure next:
 
 `MATCH_STRATEGY` stays `greedy` by default.
 
-### Open: redelivered matches at a handover
+### Found afterwards: a clean handover replayed its last seconds
 
-Greedy's four redelivered matches are one event, not four. Each trip was offered
-once and matched to one driver; the second `TripMatched` for all four came from
-the _batched_ run's matcher in the millisecond it restored its partitions,
-19:46:39.176, three seconds after greedy's matcher revoked them cleanly. So the
-restore brought back offers that had already been accepted, and the accept
-replies were replayed because their offsets had not been committed. The revoke
-path does flush its checkpoint before handing over, so the gap is elsewhere —
-in which offsets get committed on revoke, or which cells a checkpoint
-supersedes. It is harmless downstream, since the trip service applies a match
-once, but a clean handover should not replay anything, and this is the next
-thing to chase in the matcher.
+Greedy's four redelivered matches were one event, not four. Each trip was
+offered once and matched to one driver; the second `TripMatched` for all four
+came from the _batched_ run's matcher in the millisecond it restored its
+partitions, three seconds after greedy's matcher revoked them cleanly.
+
+The cause was in the matcher's consumer, not its matching. franz-go's default
+`OnPartitionsRevoked` is a blocking commit of processed offsets; the runner
+replaces it with its own callback to write checkpoints, and that callback never
+committed. Whatever a shard had processed since the last 5s autocommit was
+replayed by the next owner: the rider's `MatchRequested` recreated the pending
+request, and the other shard's `ReserveResult: OK` matched it again, to the same
+driver. The poll loop also marked records for commit as it _queued_ them for a
+worker rather than once the worker had handled them, which could commit records
+nobody processed and lose them at a handover.
+
+Workers now mark a batch only after handling it, and revoke and shutdown commit
+synchronously after the checkpoint is flushed. `make check-handover` measures
+it: a fleet and a trickle of riders, then a clean stop the moment `geo.events`
+goes quiet, then the group's committed offsets.
+
+|        | partitions lagging | records processed but not committed |
+| ------ | -----------------: | ----------------------------------: |
+| before |   31 / 32, 27 / 32 |                            280, 277 |
+| after  |     0 / 32, 0 / 32 |                                0, 0 |
+
+The trip service applies a match once however often it hears of it, so nobody
+was ever sent two cars — but every handover was doing seconds of work twice.
+
+## Round two: cheaper batches, and cars that are actually scarce
+
+The first valid run gave batching two handicaps. It waited on Valhalla for every
+window, contested or not, and it ran against a fleet that never got busy. Both
+changed:
+
+- **An uncontested window skips the solve.** If no car is a candidate for more
+  than one rider, a joint assignment cannot beat each rider's nearest car, so
+  the window dispatches at once without asking the router. One rider alone is
+  the common case of this.
+- **The router has 400 ms, not three seconds**, and a shard gives up on an
+  answer after one second.
+- **Drivers do their trips** (`SIM_TRIP_KM=1.5`): an accepted driver drives to
+  the pickup and carries the rider about 1.5 km before cruising again, so supply
+  drains the way a real fleet's does.
+- **Demand has hotspots** (`SIM_HOTSPOT_SHARE=0.7`): seven pickups in ten land
+  within 800 m of Centraal, Zuid or Leidseplein, so riders compete for the same
+  cars.
+- **Warm-up is three minutes**, long enough for a fleet whose trips take three
+  and a half to settle into being busy.
+
+300 drivers, 2 requests/s, 4 minutes measured per strategy. Both valid; neither
+matcher lost a partition.
+
+|                             |  greedy |    batched |
+| --------------------------- | ------: | ---------: |
+| **double dispatches**       |   **0** |      **0** |
+| redelivered matches         |       0 |          0 |
+| riders matched / s          |    0.50 |       0.50 |
+| riders unmatched / s        |    1.51 |       1.51 |
+| road pickup, mean           | 229.1 s |    254.1 s |
+| road pickup, p50            | 181.2 s |    239.7 s |
+| road pickup, p95            | 640.4 s |    564.2 s |
+| straight-line pickup, mean  |   683 m |      680 m |
+| match latency p50           |  1.56 s |     4.04 s |
+| match latency p99           |  4.80 s |     7.95 s |
+| contested solves            |       – | 7 in 4 min |
+| riders per contested solve  |       – |       2.14 |
+| solves without travel times |       – |          0 |
+
+**Batching is now cheap, and still not better.** Median latency fell from 9.5 s
+to 4.0 s and no solve waited out a router. But in four minutes only seven
+windows held two riders wanting the same car; every other decision was
+greedy's, taken two seconds later. The match rate is identical, and the pickup
+times sit within noise of each other — 162 priced pickups a side, a standard
+error around 12 s, the median favouring greedy and the p95 batching. The wait
+is paid on every request; the benefit arrives only on the rare contested one.
+
+For batching to win, a shard's window has to hold riders who compete: far more
+demand per shard than one laptop's fleet produces, or a longer window, which
+costs latency again. At this scale greedy is the right default, and the batch
+path stays for the day the numbers change.
+
+The table above ran as two invocations: the memory guard killed the
+paired run halfway through its second half, so `STRATEGIES=batched` now runs
+one alone, with the same settings. Getting here also took one more harness fix.
+A second attempt reused the consumer group `matcher-bench` from an earlier
+invocation, so its greedy run resumed hours back and replayed every request
+since — 806 matches and 3,544 unmatched in a window that had seen about 850
+real requests. Each invocation now gets a fresh group.
+
+### Run again, in one piece
+
+Launched detached — so nothing that can be killed for memory owns it — and with
+the dashboards stopped for its length, the paired run finished, same settings:
+
+|                            |  greedy | batched |
+| -------------------------- | ------: | ------: |
+| **double dispatches**      |   **0** |   **0** |
+| redelivered matches        |       0 |       0 |
+| riders unmatched / s       |    1.51 |    1.53 |
+| road pickup, mean          | 261.2 s | 244.1 s |
+| road pickup, p50           | 249.6 s | 196.7 s |
+| road pickup, p95           | 616.1 s | 575.2 s |
+| straight-line pickup, mean |   644 m |   768 m |
+| match latency p50          |  1.65 s |  4.12 s |
+| match latency p99          |  4.97 s |  7.77 s |
+| contested solves           |       – |       0 |
+
+This time batching's mean pickup is the shorter one. Across the two runs of the
+same settings, greedy's mean went from 229 s to 261 s and batching's from 254 s
+to 244 s: the run-to-run swing is as large as the gap between the strategies, so
+neither direction means anything. And this run solved no contested window at
+all. What does not move between runs is the cost — batching offers about two
+and a half seconds later and matches the same riders. The conclusion stands on
+two runs rather than one.
 
 ## The first attempt, and why it does not count
 
