@@ -105,3 +105,79 @@ func nullable(value string) *string {
 	}
 	return &value
 }
+
+func (r *Postgres) List(ctx context.Context, filter domain.ListFilter) (domain.Page, error) {
+	// One row more than asked for, which is how the presence of a next page is
+	// discovered without a second COUNT over the whole history.
+	limit := filter.Limit + 1
+
+	// Keyset pagination over (created_at, id), matching the
+	// trip_rider_created_at index. An OFFSET would make page 40 scan 40 pages
+	// of rows to throw them away, and would shift under a trip created in
+	// between.
+	query := `
+		select ` + columns + ` from trip
+		where rider_id = $1
+		  and ($2 = '' or status = $2)
+		  and ($3 = '' or (created_at, id) < (
+		      select created_at, id from trip where id = $3
+		  ))
+		order by created_at desc, id desc
+		limit $4`
+
+	rows, err := r.pool.Query(ctx, query, filter.RiderID, string(filter.Status), filter.Cursor, limit)
+	if err != nil {
+		return domain.Page{}, fmt.Errorf("repository: list trips: %w", err)
+	}
+	defer rows.Close()
+
+	var trips []domain.Trip
+	for rows.Next() {
+		trip, err := scanTrip(rows)
+		if err != nil {
+			return domain.Page{}, err
+		}
+		trips = append(trips, *trip)
+	}
+	if err := rows.Err(); err != nil {
+		return domain.Page{}, fmt.Errorf("repository: list trips: %w", err)
+	}
+
+	page := domain.Page{}
+	if len(trips) == limit {
+		trips = trips[:filter.Limit]
+		page.NextCursor = trips[len(trips)-1].ID
+	}
+	page.Trips = trips
+
+	return page, nil
+}
+
+// scanner is satisfied by both pgx.Row and pgx.Rows, so one scan function
+// serves the single-row reads and the listing.
+type scanner interface{ Scan(dest ...any) error }
+
+func scanTrip(row scanner) (*domain.Trip, error) {
+	var (
+		trip     domain.Trip
+		driverID *string
+		status   string
+	)
+
+	err := row.Scan(
+		&trip.ID, &trip.RiderID, &driverID, &status,
+		&trip.Pickup.Lat, &trip.Pickup.Lng, &trip.Dropoff.Lat, &trip.Dropoff.Lng,
+		&trip.Polyline6, &trip.Meters, &trip.Seconds,
+		&trip.TotalCents, &trip.SurgeMultiplier, &trip.PackageSlug,
+		&trip.IdempotencyKey, &trip.CreatedAt, &trip.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	trip.Status = domain.Status(status)
+	if driverID != nil {
+		trip.DriverID = *driverID
+	}
+	return &trip, nil
+}

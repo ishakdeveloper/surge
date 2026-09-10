@@ -56,6 +56,13 @@ func Dial(tripAddr string) (*Clients, error) {
 	return &Clients{Trip: trippb.NewTripServiceClient(conn), conns: []*grpc.ClientConn{conn}}, nil
 }
 
+// Conn is the connection the generated REST gateway proxies onto.
+//
+// grpc-gateway registers against a ClientConn rather than a typed client,
+// because it dispatches by method name from the annotations rather than by
+// calling Go methods.
+func (c *Clients) Conn() *grpc.ClientConn { return c.conns[0] }
+
 func (c *Clients) Close() {
 	for _, conn := range c.conns {
 		_ = conn.Close()

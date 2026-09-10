@@ -1,0 +1,439 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "trip.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "TripService",
+      "description": "TripService owns the trip lifecycle and is the only writer of trip state.\n\nSynchronous on purpose, and the contrast with the rest of the system is the\npoint. Location and matching are event-driven because they are streams: a\nposition is one of thousands a second and nobody waits for it. A rider\npressing \"request ride\" is waiting, and wants an answer — a fare, a trip id,\nor a reason it cannot happen. Modelling that as an event and correlating a\nreply would be an RPC with extra steps and worse error handling.\nThe HTTP mapping lives here, next to the RPC it maps, and grpc-gateway\ngenerates the REST surface from it. That is the point: hand-written handlers\nmean the REST API and the gRPC contract are two sources of truth, and the\nfirst thing they do is drift — the reference this project borrows from has a\nTypeScript contract file and a Go one that already disagree about which\nevents exist.\n\nPaths follow Google's API design guide: plural collections, and custom\nmethods as `:verb` rather than as invented sub-resources."
+    },
+    {
+      "name": "DriverService",
+      "description": "DriverService owns driver profiles and vehicles — the slow-moving facts.\n\nDeliberately NOT where driver location lives. Positions arrive ten thousand\ntimes a second and are answered from the matcher's in-memory index; putting\nthem behind an RPC would be a synchronous call per ping, which is the thing\nthis whole architecture exists to avoid."
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/trips": {
+      "get": {
+        "summary": "ListTrips is a rider's history, newest first.",
+        "operationId": "TripService_ListTrips",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListTripsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "description": "Page size. Clamped by the server; a client asking for everything gets a\npage, because \"return the whole table\" is not a request a public API\nshould honour.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageToken",
+            "description": "Opaque cursor from a previous response. Opaque on purpose: a client that\ndecodes it is a client that breaks when the ordering changes.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "description": "Optional status filter, e.g. \"completed\".",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "TripService"
+        ]
+      },
+      "post": {
+        "summary": "Create commits a previewed fare to a real trip and starts matching.",
+        "description": "Takes an idempotency key because the caller is a browser on a phone\nnetwork: a retried request must return the original trip rather than\nbooking a second one.",
+        "operationId": "TripService_CreateTrip",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateTripResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateTripRequest"
+            }
+          }
+        ],
+        "tags": [
+          "TripService"
+        ]
+      }
+    },
+    "/v1/trips/{tripId}": {
+      "get": {
+        "summary": "Get returns a trip's current state.",
+        "operationId": "TripService_GetTrip",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetTripResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "TripService"
+        ]
+      }
+    },
+    "/v1/trips/{tripId}:cancel": {
+      "post": {
+        "summary": "Cancel ends a trip before completion.",
+        "description": "A custom method rather than DELETE: cancelling is a state transition that\nreturns the trip, not a deletion — the row stays, and a rider can still\nread what happened to it.",
+        "operationId": "TripService_CancelTrip",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CancelTripResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TripServiceCancelTripBody"
+            }
+          }
+        ],
+        "tags": [
+          "TripService"
+        ]
+      }
+    },
+    "/v1/trips:preview": {
+      "post": {
+        "summary": "Preview quotes a trip without committing to it. Read-only, so a rider\ndragging a pin can call it repeatedly.",
+        "description": "POST rather than GET despite being read-only: the request carries two\ncoordinate pairs, and a GET would put a rider's exact pickup and dropoff\ninto every access log and browser history along the way.",
+        "operationId": "TripService_PreviewTrip",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1PreviewTripResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "The caller is NOT a field on any request.\n\nIt arrives as gRPC metadata, put there by the gateway from a verified token.\nThis matters more now that the REST body maps straight onto the message: a\n`rider_id` field would be client-supplied, and a client that can name the\nrider can quote, book and read rides as somebody else.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1PreviewTripRequest"
+            }
+          }
+        ],
+        "tags": [
+          "TripService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "TripServiceCancelTripBody": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v1CancelTripResponse": {
+      "type": "object",
+      "properties": {
+        "trip": {
+          "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1Coordinate": {
+      "type": "object",
+      "properties": {
+        "lat": {
+          "type": "number",
+          "format": "double"
+        },
+        "lng": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "description": "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which."
+    },
+    "v1CreateTripRequest": {
+      "type": "object",
+      "properties": {
+        "fareId": {
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "description": "Generated client-side, so a retry over a flaky connection is recognised\nrather than booked twice. Over REST this also arrives as an\n`Idempotency-Key` header, which the gateway copies into the field."
+        }
+      }
+    },
+    "v1CreateTripResponse": {
+      "type": "object",
+      "properties": {
+        "trip": {
+          "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1FareQuote": {
+      "type": "object",
+      "properties": {
+        "fareId": {
+          "type": "string"
+        },
+        "packageSlug": {
+          "type": "string",
+          "description": "Sedan, van and so on. A string rather than an enum because the catalogue is\noperator configuration, not a protocol change."
+        },
+        "totalCents": {
+          "type": "string",
+          "format": "int64"
+        },
+        "surgeMultiplier": {
+          "type": "number",
+          "format": "double",
+          "description": "The multiplier applied for demand in the pickup cell at quote time. Carried\nexplicitly so a rider can be shown why a fare is what it is."
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1GetTripResponse": {
+      "type": "object",
+      "properties": {
+        "trip": {
+          "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1ListTripsResponse": {
+      "type": "object",
+      "properties": {
+        "trips": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Trip"
+          }
+        },
+        "nextPageToken": {
+          "type": "string",
+          "description": "Empty when there are no more."
+        }
+      }
+    },
+    "v1PreviewTripRequest": {
+      "type": "object",
+      "properties": {
+        "pickup": {
+          "$ref": "#/definitions/v1Coordinate"
+        },
+        "dropoff": {
+          "$ref": "#/definitions/v1Coordinate"
+        }
+      },
+      "description": "The caller is NOT a field on any request.\n\nIt arrives as gRPC metadata, put there by the gateway from a verified token.\nThis matters more now that the REST body maps straight onto the message: a\n`rider_id` field would be client-supplied, and a client that can name the\nrider can quote, book and read rides as somebody else."
+    },
+    "v1PreviewTripResponse": {
+      "type": "object",
+      "properties": {
+        "fares": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1FareQuote"
+          },
+          "description": "Quotes for each vehicle class, priced from the same route."
+        },
+        "route": {
+          "$ref": "#/definitions/v1Route"
+        }
+      }
+    },
+    "v1Route": {
+      "type": "object",
+      "properties": {
+        "polyline6": {
+          "type": "string",
+          "description": "Polyline encoded at precision 6, as Valhalla emits it. Not a repeated\nCoordinate: a city route is hundreds of points, and the encoded form is\nroughly a tenth the size on a connection a phone is paying for."
+        },
+        "meters": {
+          "type": "number",
+          "format": "double"
+        },
+        "seconds": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "description": "Route is a driveable path with its cost."
+    },
+    "v1Trip": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "riderId": {
+          "type": "string"
+        },
+        "driverId": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1TripStatus"
+        },
+        "pickup": {
+          "$ref": "#/definitions/v1Coordinate"
+        },
+        "dropoff": {
+          "$ref": "#/definitions/v1Coordinate"
+        },
+        "route": {
+          "$ref": "#/definitions/v1Route"
+        },
+        "totalCents": {
+          "type": "string",
+          "format": "int64"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1TripStatus": {
+      "type": "string",
+      "enum": [
+        "TRIP_STATUS_UNSPECIFIED",
+        "TRIP_STATUS_REQUESTED",
+        "TRIP_STATUS_OFFERED",
+        "TRIP_STATUS_ACCEPTED",
+        "TRIP_STATUS_ARRIVED",
+        "TRIP_STATUS_IN_PROGRESS",
+        "TRIP_STATUS_COMPLETED",
+        "TRIP_STATUS_CANCELLED",
+        "TRIP_STATUS_UNMATCHED"
+      ],
+      "default": "TRIP_STATUS_UNSPECIFIED",
+      "description": "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology."
+    }
+  }
+}

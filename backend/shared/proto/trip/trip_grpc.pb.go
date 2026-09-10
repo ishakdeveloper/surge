@@ -23,6 +23,7 @@ const (
 	TripService_CreateTrip_FullMethodName  = "/surge.trip.v1.TripService/CreateTrip"
 	TripService_GetTrip_FullMethodName     = "/surge.trip.v1.TripService/GetTrip"
 	TripService_CancelTrip_FullMethodName  = "/surge.trip.v1.TripService/CancelTrip"
+	TripService_ListTrips_FullMethodName   = "/surge.trip.v1.TripService/ListTrips"
 )
 
 // TripServiceClient is the client API for TripService service.
@@ -37,9 +38,22 @@ const (
 // pressing "request ride" is waiting, and wants an answer — a fare, a trip id,
 // or a reason it cannot happen. Modelling that as an event and correlating a
 // reply would be an RPC with extra steps and worse error handling.
+// The HTTP mapping lives here, next to the RPC it maps, and grpc-gateway
+// generates the REST surface from it. That is the point: hand-written handlers
+// mean the REST API and the gRPC contract are two sources of truth, and the
+// first thing they do is drift — the reference this project borrows from has a
+// TypeScript contract file and a Go one that already disagree about which
+// events exist.
+//
+// Paths follow Google's API design guide: plural collections, and custom
+// methods as `:verb` rather than as invented sub-resources.
 type TripServiceClient interface {
 	// Preview quotes a trip without committing to it. Read-only, so a rider
 	// dragging a pin can call it repeatedly.
+	//
+	// POST rather than GET despite being read-only: the request carries two
+	// coordinate pairs, and a GET would put a rider's exact pickup and dropoff
+	// into every access log and browser history along the way.
 	PreviewTrip(ctx context.Context, in *PreviewTripRequest, opts ...grpc.CallOption) (*PreviewTripResponse, error)
 	// Create commits a previewed fare to a real trip and starts matching.
 	//
@@ -50,7 +64,13 @@ type TripServiceClient interface {
 	// Get returns a trip's current state.
 	GetTrip(ctx context.Context, in *GetTripRequest, opts ...grpc.CallOption) (*GetTripResponse, error)
 	// Cancel ends a trip before completion.
+	//
+	// A custom method rather than DELETE: cancelling is a state transition that
+	// returns the trip, not a deletion — the row stays, and a rider can still
+	// read what happened to it.
 	CancelTrip(ctx context.Context, in *CancelTripRequest, opts ...grpc.CallOption) (*CancelTripResponse, error)
+	// ListTrips is a rider's history, newest first.
+	ListTrips(ctx context.Context, in *ListTripsRequest, opts ...grpc.CallOption) (*ListTripsResponse, error)
 }
 
 type tripServiceClient struct {
@@ -101,6 +121,16 @@ func (c *tripServiceClient) CancelTrip(ctx context.Context, in *CancelTripReques
 	return out, nil
 }
 
+func (c *tripServiceClient) ListTrips(ctx context.Context, in *ListTripsRequest, opts ...grpc.CallOption) (*ListTripsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTripsResponse)
+	err := c.cc.Invoke(ctx, TripService_ListTrips_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TripServiceServer is the server API for TripService service.
 // All implementations must embed UnimplementedTripServiceServer
 // for forward compatibility.
@@ -113,9 +143,22 @@ func (c *tripServiceClient) CancelTrip(ctx context.Context, in *CancelTripReques
 // pressing "request ride" is waiting, and wants an answer — a fare, a trip id,
 // or a reason it cannot happen. Modelling that as an event and correlating a
 // reply would be an RPC with extra steps and worse error handling.
+// The HTTP mapping lives here, next to the RPC it maps, and grpc-gateway
+// generates the REST surface from it. That is the point: hand-written handlers
+// mean the REST API and the gRPC contract are two sources of truth, and the
+// first thing they do is drift — the reference this project borrows from has a
+// TypeScript contract file and a Go one that already disagree about which
+// events exist.
+//
+// Paths follow Google's API design guide: plural collections, and custom
+// methods as `:verb` rather than as invented sub-resources.
 type TripServiceServer interface {
 	// Preview quotes a trip without committing to it. Read-only, so a rider
 	// dragging a pin can call it repeatedly.
+	//
+	// POST rather than GET despite being read-only: the request carries two
+	// coordinate pairs, and a GET would put a rider's exact pickup and dropoff
+	// into every access log and browser history along the way.
 	PreviewTrip(context.Context, *PreviewTripRequest) (*PreviewTripResponse, error)
 	// Create commits a previewed fare to a real trip and starts matching.
 	//
@@ -126,7 +169,13 @@ type TripServiceServer interface {
 	// Get returns a trip's current state.
 	GetTrip(context.Context, *GetTripRequest) (*GetTripResponse, error)
 	// Cancel ends a trip before completion.
+	//
+	// A custom method rather than DELETE: cancelling is a state transition that
+	// returns the trip, not a deletion — the row stays, and a rider can still
+	// read what happened to it.
 	CancelTrip(context.Context, *CancelTripRequest) (*CancelTripResponse, error)
+	// ListTrips is a rider's history, newest first.
+	ListTrips(context.Context, *ListTripsRequest) (*ListTripsResponse, error)
 	mustEmbedUnimplementedTripServiceServer()
 }
 
@@ -148,6 +197,9 @@ func (UnimplementedTripServiceServer) GetTrip(context.Context, *GetTripRequest) 
 }
 func (UnimplementedTripServiceServer) CancelTrip(context.Context, *CancelTripRequest) (*CancelTripResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelTrip not implemented")
+}
+func (UnimplementedTripServiceServer) ListTrips(context.Context, *ListTripsRequest) (*ListTripsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTrips not implemented")
 }
 func (UnimplementedTripServiceServer) mustEmbedUnimplementedTripServiceServer() {}
 func (UnimplementedTripServiceServer) testEmbeddedByValue()                     {}
@@ -242,6 +294,24 @@ func _TripService_CancelTrip_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TripService_ListTrips_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTripsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TripServiceServer).ListTrips(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TripService_ListTrips_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TripServiceServer).ListTrips(ctx, req.(*ListTripsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TripService_ServiceDesc is the grpc.ServiceDesc for TripService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -264,6 +334,10 @@ var TripService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelTrip",
 			Handler:    _TripService_CancelTrip_Handler,
+		},
+		{
+			MethodName: "ListTrips",
+			Handler:    _TripService_ListTrips_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

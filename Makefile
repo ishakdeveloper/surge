@@ -98,15 +98,37 @@ migrate: build ## Apply database migrations (both languages)
 
 # Codegen. The plugins are go-installed rather than vendored, matching how the
 # Go toolchain expects protoc plugins to be found.
-proto: ## Regenerate gRPC code from proto/
+# Codegen. Four plugins from one set of .proto files:
+#
+#   protoc-gen-go          the messages
+#   protoc-gen-go-grpc     the service client and server
+#   protoc-gen-grpc-gateway  the REST reverse proxy, from the google.api.http
+#                            annotations on each RPC
+#   protoc-gen-openapiv2   the OpenAPI document, from the same annotations
+#
+# That is the reason for the annotations: the REST surface, the gRPC contract
+# and the API documentation are one source of truth rather than three that
+# drift.
+proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 	@command -v protoc >/dev/null || { echo "protoc not installed"; exit 1; }
 	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+	@mkdir -p docs/api
 	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=proto \
 		--go_out=backend/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		--go-grpc_out=backend/shared/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/shared/proto \
-		proto/*.proto
+		--grpc-gateway_out=backend/shared/proto \
+		--grpc-gateway_opt=module=github.com/ishakdeveloper/surge/shared/proto \
+		--grpc-gateway_opt=generate_unbound_methods=false \
+		--openapiv2_out=docs/api \
+		--openapiv2_opt=allow_merge=true,merge_file_name=surge \
+		proto/trip.proto proto/driver.proto proto/common.proto
 	cd backend && gofmt -w shared/proto
+	# The gateway embeds the document it serves, so a rebuild cannot leave the
+	# published spec describing an older API.
+	cp docs/api/surge.swagger.json backend/services/gateway/internal/infrastructure/http/openapi.json
 
 build: ## Build every Go binary
 	$(GO) build -o bin/simd ./services/simulator/cmd

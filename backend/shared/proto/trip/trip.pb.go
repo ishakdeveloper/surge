@@ -8,6 +8,7 @@ package trip
 
 import (
 	common "github.com/ishakdeveloper/surge/shared/proto/common"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -96,11 +97,16 @@ func (TripStatus) EnumDescriptor() ([]byte, []int) {
 	return file_trip_proto_rawDescGZIP(), []int{0}
 }
 
+// The caller is NOT a field on any request.
+//
+// It arrives as gRPC metadata, put there by the gateway from a verified token.
+// This matters more now that the REST body maps straight onto the message: a
+// `rider_id` field would be client-supplied, and a client that can name the
+// rider can quote, book and read rides as somebody else.
 type PreviewTripRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	RiderId       string                 `protobuf:"bytes,1,opt,name=rider_id,json=riderId,proto3" json:"rider_id,omitempty"`
-	Pickup        *common.Coordinate     `protobuf:"bytes,2,opt,name=pickup,proto3" json:"pickup,omitempty"`
-	Dropoff       *common.Coordinate     `protobuf:"bytes,3,opt,name=dropoff,proto3" json:"dropoff,omitempty"`
+	Pickup        *common.Coordinate     `protobuf:"bytes,1,opt,name=pickup,proto3" json:"pickup,omitempty"`
+	Dropoff       *common.Coordinate     `protobuf:"bytes,2,opt,name=dropoff,proto3" json:"dropoff,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -133,13 +139,6 @@ func (x *PreviewTripRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PreviewTripRequest.ProtoReflect.Descriptor instead.
 func (*PreviewTripRequest) Descriptor() ([]byte, []int) {
 	return file_trip_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *PreviewTripRequest) GetRiderId() string {
-	if x != nil {
-		return x.RiderId
-	}
-	return ""
 }
 
 func (x *PreviewTripRequest) GetPickup() *common.Coordinate {
@@ -290,12 +289,12 @@ func (x *FareQuote) GetExpiresAt() *timestamppb.Timestamp {
 }
 
 type CreateTripRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	RiderId string                 `protobuf:"bytes,1,opt,name=rider_id,json=riderId,proto3" json:"rider_id,omitempty"`
-	FareId  string                 `protobuf:"bytes,2,opt,name=fare_id,json=fareId,proto3" json:"fare_id,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	FareId string                 `protobuf:"bytes,1,opt,name=fare_id,json=fareId,proto3" json:"fare_id,omitempty"`
 	// Generated client-side, so a retry over a flaky connection is recognised
-	// rather than booked twice.
-	IdempotencyKey string `protobuf:"bytes,3,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	// rather than booked twice. Over REST this also arrives as an
+	// `Idempotency-Key` header, which the gateway copies into the field.
+	IdempotencyKey string `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -328,13 +327,6 @@ func (x *CreateTripRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use CreateTripRequest.ProtoReflect.Descriptor instead.
 func (*CreateTripRequest) Descriptor() ([]byte, []int) {
 	return file_trip_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *CreateTripRequest) GetRiderId() string {
-	if x != nil {
-		return x.RiderId
-	}
-	return ""
 }
 
 func (x *CreateTripRequest) GetFareId() string {
@@ -579,6 +571,125 @@ func (x *CancelTripResponse) GetTrip() *Trip {
 	return nil
 }
 
+type ListTripsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Page size. Clamped by the server; a client asking for everything gets a
+	// page, because "return the whole table" is not a request a public API
+	// should honour.
+	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque cursor from a previous response. Opaque on purpose: a client that
+	// decodes it is a client that breaks when the ordering changes.
+	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// Optional status filter, e.g. "completed".
+	Status        string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTripsRequest) Reset() {
+	*x = ListTripsRequest{}
+	mi := &file_trip_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTripsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTripsRequest) ProtoMessage() {}
+
+func (x *ListTripsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_trip_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTripsRequest.ProtoReflect.Descriptor instead.
+func (*ListTripsRequest) Descriptor() ([]byte, []int) {
+	return file_trip_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListTripsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListTripsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListTripsRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type ListTripsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Trips []*Trip                `protobuf:"bytes,1,rep,name=trips,proto3" json:"trips,omitempty"`
+	// Empty when there are no more.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTripsResponse) Reset() {
+	*x = ListTripsResponse{}
+	mi := &file_trip_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTripsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTripsResponse) ProtoMessage() {}
+
+func (x *ListTripsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_trip_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTripsResponse.ProtoReflect.Descriptor instead.
+func (*ListTripsResponse) Descriptor() ([]byte, []int) {
+	return file_trip_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListTripsResponse) GetTrips() []*Trip {
+	if x != nil {
+		return x.Trips
+	}
+	return nil
+}
+
+func (x *ListTripsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
 type Trip struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -597,7 +708,7 @@ type Trip struct {
 
 func (x *Trip) Reset() {
 	*x = Trip{}
-	mi := &file_trip_proto_msgTypes[9]
+	mi := &file_trip_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -609,7 +720,7 @@ func (x *Trip) String() string {
 func (*Trip) ProtoMessage() {}
 
 func (x *Trip) ProtoReflect() protoreflect.Message {
-	mi := &file_trip_proto_msgTypes[9]
+	mi := &file_trip_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -622,7 +733,7 @@ func (x *Trip) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Trip.ProtoReflect.Descriptor instead.
 func (*Trip) Descriptor() ([]byte, []int) {
-	return file_trip_proto_rawDescGZIP(), []int{9}
+	return file_trip_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Trip) GetId() string {
@@ -700,11 +811,10 @@ var File_trip_proto protoreflect.FileDescriptor
 const file_trip_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"trip.proto\x12\rsurge.trip.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\x9b\x01\n" +
-	"\x12PreviewTripRequest\x12\x19\n" +
-	"\brider_id\x18\x01 \x01(\tR\ariderId\x123\n" +
-	"\x06pickup\x18\x02 \x01(\v2\x1b.surge.common.v1.CoordinateR\x06pickup\x125\n" +
-	"\adropoff\x18\x03 \x01(\v2\x1b.surge.common.v1.CoordinateR\adropoff\"s\n" +
+	"trip.proto\x12\rsurge.trip.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\fcommon.proto\"\x80\x01\n" +
+	"\x12PreviewTripRequest\x123\n" +
+	"\x06pickup\x18\x01 \x01(\v2\x1b.surge.common.v1.CoordinateR\x06pickup\x125\n" +
+	"\adropoff\x18\x02 \x01(\v2\x1b.surge.common.v1.CoordinateR\adropoff\"s\n" +
 	"\x13PreviewTripResponse\x12.\n" +
 	"\x05fares\x18\x01 \x03(\v2\x18.surge.trip.v1.FareQuoteR\x05fares\x12,\n" +
 	"\x05route\x18\x02 \x01(\v2\x16.surge.common.v1.RouteR\x05route\"\xce\x01\n" +
@@ -715,11 +825,10 @@ const file_trip_proto_rawDesc = "" +
 	"totalCents\x12)\n" +
 	"\x10surge_multiplier\x18\x04 \x01(\x01R\x0fsurgeMultiplier\x129\n" +
 	"\n" +
-	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"p\n" +
-	"\x11CreateTripRequest\x12\x19\n" +
-	"\brider_id\x18\x01 \x01(\tR\ariderId\x12\x17\n" +
-	"\afare_id\x18\x02 \x01(\tR\x06fareId\x12'\n" +
-	"\x0fidempotency_key\x18\x03 \x01(\tR\x0eidempotencyKey\"=\n" +
+	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"U\n" +
+	"\x11CreateTripRequest\x12\x17\n" +
+	"\afare_id\x18\x01 \x01(\tR\x06fareId\x12'\n" +
+	"\x0fidempotency_key\x18\x02 \x01(\tR\x0eidempotencyKey\"=\n" +
 	"\x12CreateTripResponse\x12'\n" +
 	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\")\n" +
 	"\x0eGetTripRequest\x12\x17\n" +
@@ -730,7 +839,15 @@ const file_trip_proto_rawDesc = "" +
 	"\atrip_id\x18\x01 \x01(\tR\x06tripId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"=\n" +
 	"\x12CancelTripResponse\x12'\n" +
-	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\"\xb2\x03\n" +
+	"\x04trip\x18\x01 \x01(\v2\x13.surge.trip.v1.TripR\x04trip\"f\n" +
+	"\x10ListTripsRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\"f\n" +
+	"\x11ListTripsResponse\x12)\n" +
+	"\x05trips\x18\x01 \x03(\v2\x13.surge.trip.v1.TripR\x05trips\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xb2\x03\n" +
 	"\x04Trip\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\brider_id\x18\x02 \x01(\tR\ariderId\x12\x1b\n" +
@@ -756,14 +873,15 @@ const file_trip_proto_rawDesc = "" +
 	"\x17TRIP_STATUS_IN_PROGRESS\x10\x05\x12\x19\n" +
 	"\x15TRIP_STATUS_COMPLETED\x10\x06\x12\x19\n" +
 	"\x15TRIP_STATUS_CANCELLED\x10\a\x12\x19\n" +
-	"\x15TRIP_STATUS_UNMATCHED\x10\b2\xd3\x02\n" +
-	"\vTripService\x12T\n" +
-	"\vPreviewTrip\x12!.surge.trip.v1.PreviewTripRequest\x1a\".surge.trip.v1.PreviewTripResponse\x12Q\n" +
+	"\x15TRIP_STATUS_UNMATCHED\x10\b2\xae\x04\n" +
+	"\vTripService\x12r\n" +
+	"\vPreviewTrip\x12!.surge.trip.v1.PreviewTripRequest\x1a\".surge.trip.v1.PreviewTripResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/trips:preview\x12g\n" +
 	"\n" +
-	"CreateTrip\x12 .surge.trip.v1.CreateTripRequest\x1a!.surge.trip.v1.CreateTripResponse\x12H\n" +
-	"\aGetTrip\x12\x1d.surge.trip.v1.GetTripRequest\x1a\x1e.surge.trip.v1.GetTripResponse\x12Q\n" +
+	"CreateTrip\x12 .surge.trip.v1.CreateTripRequest\x1a!.surge.trip.v1.CreateTripResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/trips\x12e\n" +
+	"\aGetTrip\x12\x1d.surge.trip.v1.GetTripRequest\x1a\x1e.surge.trip.v1.GetTripResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/trips/{trip_id}\x12x\n" +
 	"\n" +
-	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponseB8Z6github.com/ishakdeveloper/surge/shared/proto/trip;tripb\x06proto3"
+	"CancelTrip\x12 .surge.trip.v1.CancelTripRequest\x1a!.surge.trip.v1.CancelTripResponse\"%\x82\xd3\xe4\x93\x02\x1f:\x01*\"\x1a/v1/trips/{trip_id}:cancel\x12a\n" +
+	"\tListTrips\x12\x1f.surge.trip.v1.ListTripsRequest\x1a .surge.trip.v1.ListTripsResponse\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/tripsB8Z6github.com/ishakdeveloper/surge/shared/proto/trip;tripb\x06proto3"
 
 var (
 	file_trip_proto_rawDescOnce sync.Once
@@ -778,7 +896,7 @@ func file_trip_proto_rawDescGZIP() []byte {
 }
 
 var file_trip_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_trip_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_trip_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_trip_proto_goTypes = []any{
 	(TripStatus)(0),               // 0: surge.trip.v1.TripStatus
 	(*PreviewTripRequest)(nil),    // 1: surge.trip.v1.PreviewTripRequest
@@ -790,39 +908,44 @@ var file_trip_proto_goTypes = []any{
 	(*GetTripResponse)(nil),       // 7: surge.trip.v1.GetTripResponse
 	(*CancelTripRequest)(nil),     // 8: surge.trip.v1.CancelTripRequest
 	(*CancelTripResponse)(nil),    // 9: surge.trip.v1.CancelTripResponse
-	(*Trip)(nil),                  // 10: surge.trip.v1.Trip
-	(*common.Coordinate)(nil),     // 11: surge.common.v1.Coordinate
-	(*common.Route)(nil),          // 12: surge.common.v1.Route
-	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
+	(*ListTripsRequest)(nil),      // 10: surge.trip.v1.ListTripsRequest
+	(*ListTripsResponse)(nil),     // 11: surge.trip.v1.ListTripsResponse
+	(*Trip)(nil),                  // 12: surge.trip.v1.Trip
+	(*common.Coordinate)(nil),     // 13: surge.common.v1.Coordinate
+	(*common.Route)(nil),          // 14: surge.common.v1.Route
+	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
 }
 var file_trip_proto_depIdxs = []int32{
-	11, // 0: surge.trip.v1.PreviewTripRequest.pickup:type_name -> surge.common.v1.Coordinate
-	11, // 1: surge.trip.v1.PreviewTripRequest.dropoff:type_name -> surge.common.v1.Coordinate
+	13, // 0: surge.trip.v1.PreviewTripRequest.pickup:type_name -> surge.common.v1.Coordinate
+	13, // 1: surge.trip.v1.PreviewTripRequest.dropoff:type_name -> surge.common.v1.Coordinate
 	3,  // 2: surge.trip.v1.PreviewTripResponse.fares:type_name -> surge.trip.v1.FareQuote
-	12, // 3: surge.trip.v1.PreviewTripResponse.route:type_name -> surge.common.v1.Route
-	13, // 4: surge.trip.v1.FareQuote.expires_at:type_name -> google.protobuf.Timestamp
-	10, // 5: surge.trip.v1.CreateTripResponse.trip:type_name -> surge.trip.v1.Trip
-	10, // 6: surge.trip.v1.GetTripResponse.trip:type_name -> surge.trip.v1.Trip
-	10, // 7: surge.trip.v1.CancelTripResponse.trip:type_name -> surge.trip.v1.Trip
-	0,  // 8: surge.trip.v1.Trip.status:type_name -> surge.trip.v1.TripStatus
-	11, // 9: surge.trip.v1.Trip.pickup:type_name -> surge.common.v1.Coordinate
-	11, // 10: surge.trip.v1.Trip.dropoff:type_name -> surge.common.v1.Coordinate
-	12, // 11: surge.trip.v1.Trip.route:type_name -> surge.common.v1.Route
-	13, // 12: surge.trip.v1.Trip.created_at:type_name -> google.protobuf.Timestamp
-	13, // 13: surge.trip.v1.Trip.updated_at:type_name -> google.protobuf.Timestamp
-	1,  // 14: surge.trip.v1.TripService.PreviewTrip:input_type -> surge.trip.v1.PreviewTripRequest
-	4,  // 15: surge.trip.v1.TripService.CreateTrip:input_type -> surge.trip.v1.CreateTripRequest
-	6,  // 16: surge.trip.v1.TripService.GetTrip:input_type -> surge.trip.v1.GetTripRequest
-	8,  // 17: surge.trip.v1.TripService.CancelTrip:input_type -> surge.trip.v1.CancelTripRequest
-	2,  // 18: surge.trip.v1.TripService.PreviewTrip:output_type -> surge.trip.v1.PreviewTripResponse
-	5,  // 19: surge.trip.v1.TripService.CreateTrip:output_type -> surge.trip.v1.CreateTripResponse
-	7,  // 20: surge.trip.v1.TripService.GetTrip:output_type -> surge.trip.v1.GetTripResponse
-	9,  // 21: surge.trip.v1.TripService.CancelTrip:output_type -> surge.trip.v1.CancelTripResponse
-	18, // [18:22] is the sub-list for method output_type
-	14, // [14:18] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	14, // 3: surge.trip.v1.PreviewTripResponse.route:type_name -> surge.common.v1.Route
+	15, // 4: surge.trip.v1.FareQuote.expires_at:type_name -> google.protobuf.Timestamp
+	12, // 5: surge.trip.v1.CreateTripResponse.trip:type_name -> surge.trip.v1.Trip
+	12, // 6: surge.trip.v1.GetTripResponse.trip:type_name -> surge.trip.v1.Trip
+	12, // 7: surge.trip.v1.CancelTripResponse.trip:type_name -> surge.trip.v1.Trip
+	12, // 8: surge.trip.v1.ListTripsResponse.trips:type_name -> surge.trip.v1.Trip
+	0,  // 9: surge.trip.v1.Trip.status:type_name -> surge.trip.v1.TripStatus
+	13, // 10: surge.trip.v1.Trip.pickup:type_name -> surge.common.v1.Coordinate
+	13, // 11: surge.trip.v1.Trip.dropoff:type_name -> surge.common.v1.Coordinate
+	14, // 12: surge.trip.v1.Trip.route:type_name -> surge.common.v1.Route
+	15, // 13: surge.trip.v1.Trip.created_at:type_name -> google.protobuf.Timestamp
+	15, // 14: surge.trip.v1.Trip.updated_at:type_name -> google.protobuf.Timestamp
+	1,  // 15: surge.trip.v1.TripService.PreviewTrip:input_type -> surge.trip.v1.PreviewTripRequest
+	4,  // 16: surge.trip.v1.TripService.CreateTrip:input_type -> surge.trip.v1.CreateTripRequest
+	6,  // 17: surge.trip.v1.TripService.GetTrip:input_type -> surge.trip.v1.GetTripRequest
+	8,  // 18: surge.trip.v1.TripService.CancelTrip:input_type -> surge.trip.v1.CancelTripRequest
+	10, // 19: surge.trip.v1.TripService.ListTrips:input_type -> surge.trip.v1.ListTripsRequest
+	2,  // 20: surge.trip.v1.TripService.PreviewTrip:output_type -> surge.trip.v1.PreviewTripResponse
+	5,  // 21: surge.trip.v1.TripService.CreateTrip:output_type -> surge.trip.v1.CreateTripResponse
+	7,  // 22: surge.trip.v1.TripService.GetTrip:output_type -> surge.trip.v1.GetTripResponse
+	9,  // 23: surge.trip.v1.TripService.CancelTrip:output_type -> surge.trip.v1.CancelTripResponse
+	11, // 24: surge.trip.v1.TripService.ListTrips:output_type -> surge.trip.v1.ListTripsResponse
+	20, // [20:25] is the sub-list for method output_type
+	15, // [15:20] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_trip_proto_init() }
@@ -836,7 +959,7 @@ func file_trip_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_trip_proto_rawDesc), len(file_trip_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

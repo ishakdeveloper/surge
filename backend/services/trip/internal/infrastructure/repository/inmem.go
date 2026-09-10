@@ -10,6 +10,7 @@ package repository
 import (
 	"context"
 	"maps"
+	"sort"
 	"sync"
 
 	"github.com/ishakdeveloper/surge/services/trip/internal/domain"
@@ -81,4 +82,48 @@ func (r *InMemory) Snapshot() map[string]domain.Trip {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return maps.Clone(r.trips)
+}
+
+func (r *InMemory) List(_ context.Context, filter domain.ListFilter) (domain.Page, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var found []domain.Trip
+	for _, trip := range r.trips {
+		if trip.RiderID != filter.RiderID {
+			continue
+		}
+		if filter.Status != "" && trip.Status != filter.Status {
+			continue
+		}
+		found = append(found, trip)
+	}
+
+	// Newest first, and the id breaks ties so the order is total. Without the
+	// tie-break two trips created in the same millisecond could swap places
+	// between requests, which is exactly what a cursor cannot survive.
+	sort.Slice(found, func(a, b int) bool {
+		if !found[a].CreatedAt.Equal(found[b].CreatedAt) {
+			return found[a].CreatedAt.After(found[b].CreatedAt)
+		}
+		return found[a].ID > found[b].ID
+	})
+
+	if filter.Cursor != "" {
+		for i, trip := range found {
+			if trip.ID == filter.Cursor {
+				found = found[i+1:]
+				break
+			}
+		}
+	}
+
+	page := domain.Page{}
+	if len(found) > filter.Limit {
+		page.NextCursor = found[filter.Limit-1].ID
+		found = found[:filter.Limit]
+	}
+	page.Trips = found
+
+	return page, nil
 }

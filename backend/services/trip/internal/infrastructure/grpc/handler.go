@@ -12,6 +12,7 @@ import (
 
 	"github.com/ishakdeveloper/surge/services/trip/internal/domain"
 	"github.com/ishakdeveloper/surge/services/trip/internal/service"
+	"github.com/ishakdeveloper/surge/shared/authz"
 	"github.com/ishakdeveloper/surge/shared/geo"
 	commonpb "github.com/ishakdeveloper/surge/shared/proto/common"
 	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
@@ -28,11 +29,20 @@ type Handler struct {
 func NewHandler(trips *service.Service) *Handler { return &Handler{service: trips} }
 
 func (h *Handler) PreviewTrip(ctx context.Context, request *trippb.PreviewTripRequest) (*trippb.PreviewTripResponse, error) {
+	// The caller comes from metadata the gateway forwarded, never from the
+	// request. With the REST body mapping straight onto this message, a
+	// rider_id field would be client-supplied — and a client that can name the
+	// rider can quote and book as somebody else.
+	caller, err := authz.RequireCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if request.GetPickup() == nil || request.GetDropoff() == nil {
 		return nil, status.Error(codes.InvalidArgument, "pickup and dropoff are required")
 	}
 
-	fares, route, err := h.service.Preview(ctx, request.GetRiderId(),
+	fares, route, err := h.service.Preview(ctx, caller.UserID,
 		point(request.GetPickup()), point(request.GetDropoff()))
 	if err != nil {
 		// A pickup in the IJ is the caller's problem, not an outage. Mapping it
@@ -63,7 +73,24 @@ func (h *Handler) PreviewTrip(ctx context.Context, request *trippb.PreviewTripRe
 }
 
 func (h *Handler) CreateTrip(ctx context.Context, request *trippb.CreateTripRequest) (*trippb.CreateTripResponse, error) {
-	trip, err := h.service.Create(ctx, request.GetRiderId(), request.GetFareId(), request.GetIdempotencyKey())
+	caller, err := authz.RequireCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Over REST the key arrives as an Idempotency-Key header, which the gateway
+	// forwards as metadata; a direct gRPC caller sets the field. Either is
+	// fine, neither is optional.
+	key := request.GetIdempotencyKey()
+	if key == "" {
+		key = authz.IdempotencyKeyFromMetadata(ctx)
+	}
+	if key == "" {
+		return nil, status.Error(codes.InvalidArgument,
+			"an Idempotency-Key is required so a retry cannot book twice")
+	}
+
+	trip, err := h.service.Create(ctx, caller.UserID, request.GetFareId(), key)
 
 	switch {
 	case errors.Is(err, service.ErrFareExpired):
@@ -81,6 +108,11 @@ func (h *Handler) CreateTrip(ctx context.Context, request *trippb.CreateTripRequ
 }
 
 func (h *Handler) GetTrip(ctx context.Context, request *trippb.GetTripRequest) (*trippb.GetTripResponse, error) {
+	caller, err := authz.RequireCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	trip, err := h.service.Get(ctx, request.GetTripId())
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil, status.Error(codes.NotFound, "unknown trip")
@@ -88,10 +120,66 @@ func (h *Handler) GetTrip(ctx context.Context, request *trippb.GetTripRequest) (
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not read trip: %v", err)
 	}
+
+	// Ownership is enforced here rather than at the gateway. The gateway knows
+	// who is asking; only this service knows whose trip it is, and putting the
+	// check where the data is means a second caller — the console, a mobile
+	// app, a direct gRPC client — cannot skip it by not being the gateway.
+	if trip.RiderID != caller.UserID && caller.Role != authz.RoleOps {
+		// NotFound, not PermissionDenied: confirming that a trip exists to
+		// someone who may not see it is itself a disclosure.
+		return nil, status.Error(codes.NotFound, "unknown trip")
+	}
+
 	return &trippb.GetTripResponse{Trip: toProto(trip)}, nil
 }
 
+func (h *Handler) ListTrips(ctx context.Context, request *trippb.ListTripsRequest) (*trippb.ListTripsResponse, error) {
+	caller, err := authz.RequireCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	page, err := h.service.List(ctx, domain.ListFilter{
+		// A rider lists their own trips and nobody else's. There is no
+		// parameter for whose history to read, which is the simplest way to
+		// ensure there is no way to ask for someone else's.
+		RiderID: caller.UserID,
+		Status:  domain.Status(request.GetStatus()),
+		Limit:   int(request.GetPageSize()),
+		Cursor:  request.GetPageToken(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not list trips: %v", err)
+	}
+
+	trips := make([]*trippb.Trip, 0, len(page.Trips))
+	for i := range page.Trips {
+		trips = append(trips, toProto(&page.Trips[i]))
+	}
+
+	return &trippb.ListTripsResponse{Trips: trips, NextPageToken: page.NextCursor}, nil
+}
+
 func (h *Handler) CancelTrip(ctx context.Context, request *trippb.CancelTripRequest) (*trippb.CancelTripResponse, error) {
+	caller, err := authz.RequireCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read before cancelling, so a rider cannot cancel a stranger's ride by
+	// guessing an id.
+	existing, err := h.service.Get(ctx, request.GetTripId())
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil, status.Error(codes.NotFound, "unknown trip")
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not read trip: %v", err)
+	}
+	if existing.RiderID != caller.UserID && caller.Role != authz.RoleOps {
+		return nil, status.Error(codes.NotFound, "unknown trip")
+	}
+
 	trip, err := h.service.Cancel(ctx, request.GetTripId(), request.GetReason())
 
 	switch {

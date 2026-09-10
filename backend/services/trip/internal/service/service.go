@@ -213,6 +213,28 @@ func (s *Service) Get(ctx context.Context, id string) (*domain.Trip, error) {
 	return s.trips.Get(ctx, id)
 }
 
+// DefaultPageSize and MaxPageSize bound a listing.
+//
+// A client asking for everything gets a page. "Return the whole table" is not a
+// request a public API should honour, and the cap is the server's job because
+// the client has no idea how much history a rider has.
+const (
+	DefaultPageSize = 20
+	MaxPageSize     = 100
+)
+
+// List returns a rider's trips, newest first.
+func (s *Service) List(ctx context.Context, filter domain.ListFilter) (domain.Page, error) {
+	switch {
+	case filter.Limit <= 0:
+		filter.Limit = DefaultPageSize
+	case filter.Limit > MaxPageSize:
+		filter.Limit = MaxPageSize
+	}
+
+	return s.trips.List(ctx, filter)
+}
+
 // Cancel ends a trip early.
 func (s *Service) Cancel(ctx context.Context, id, reason string) (*domain.Trip, error) {
 	trip, err := s.trips.Get(ctx, id)

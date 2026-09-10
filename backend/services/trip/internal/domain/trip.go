@@ -125,9 +125,31 @@ func (t *Trip) Terminal() bool { return len(transitions[t.Status]) == 0 }
 // depends on this, and Postgres depends on the service's needs rather than the
 // other way round. It is also what lets the whole service be tested against an
 // in-memory implementation with no container.
+// Page is a cursor-paginated slice of trips.
+//
+// A cursor rather than an offset. Offsets shift under you: a trip completed
+// between page one and page two moves everything down, and the rider sees a
+// duplicate or misses one entirely. A cursor over (created_at, id) is stable
+// whatever happens in between.
+type Page struct {
+	Trips []Trip
+	// NextCursor is empty when there are no more.
+	NextCursor string
+}
+
+// ListFilter narrows a rider's history.
+type ListFilter struct {
+	RiderID string
+	// Status is optional; empty means every status.
+	Status Status
+	Limit  int
+	Cursor string
+}
+
 type Repository interface {
 	Create(ctx context.Context, trip *Trip) error
 	Get(ctx context.Context, id string) (*Trip, error)
+	List(ctx context.Context, filter ListFilter) (Page, error)
 	// FindByIdempotencyKey returns the trip a key already created, or
 	// ErrNotFound. This is what makes CreateTrip safe to retry.
 	FindByIdempotencyKey(ctx context.Context, riderID, key string) (*Trip, error)

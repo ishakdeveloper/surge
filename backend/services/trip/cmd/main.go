@@ -24,6 +24,7 @@ import (
 	"github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/repository"
 	triprouting "github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/routing"
 	"github.com/ishakdeveloper/surge/services/trip/internal/service"
+	"github.com/ishakdeveloper/surge/shared/authz"
 	"github.com/ishakdeveloper/surge/shared/config"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	"github.com/ishakdeveloper/surge/shared/obs"
@@ -131,6 +132,10 @@ func run() error {
 		// ecosystem standardises on, so a gRPC call joins the trace that a
 		// Kafka record started rather than beginning a new one.
 		opentelemetry.ServerOption(opentelemetry.Options{}),
+		// Turns the metadata the gateway forwarded back into an Identity, so a
+		// handler reads the caller from context exactly as an HTTP handler
+		// does and never thinks about metadata at all.
+		grpc.UnaryInterceptor(authz.UnaryServerInterceptor()),
 	)
 	trippb.RegisterTripServiceServer(server, triphandler.NewHandler(trip))
 

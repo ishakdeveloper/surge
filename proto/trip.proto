@@ -4,6 +4,7 @@ package surge.trip.v1;
 
 option go_package = "github.com/ishakdeveloper/surge/shared/proto/trip;trip";
 
+import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 import "common.proto";
 
@@ -15,29 +16,73 @@ import "common.proto";
 // pressing "request ride" is waiting, and wants an answer — a fare, a trip id,
 // or a reason it cannot happen. Modelling that as an event and correlating a
 // reply would be an RPC with extra steps and worse error handling.
+// The HTTP mapping lives here, next to the RPC it maps, and grpc-gateway
+// generates the REST surface from it. That is the point: hand-written handlers
+// mean the REST API and the gRPC contract are two sources of truth, and the
+// first thing they do is drift — the reference this project borrows from has a
+// TypeScript contract file and a Go one that already disagree about which
+// events exist.
+//
+// Paths follow Google's API design guide: plural collections, and custom
+// methods as `:verb` rather than as invented sub-resources.
 service TripService {
   // Preview quotes a trip without committing to it. Read-only, so a rider
   // dragging a pin can call it repeatedly.
-  rpc PreviewTrip(PreviewTripRequest) returns (PreviewTripResponse);
+  //
+  // POST rather than GET despite being read-only: the request carries two
+  // coordinate pairs, and a GET would put a rider's exact pickup and dropoff
+  // into every access log and browser history along the way.
+  rpc PreviewTrip(PreviewTripRequest) returns (PreviewTripResponse) {
+    option (google.api.http) = {
+      post: "/v1/trips:preview"
+      body: "*"
+    };
+  }
 
   // Create commits a previewed fare to a real trip and starts matching.
   //
   // Takes an idempotency key because the caller is a browser on a phone
   // network: a retried request must return the original trip rather than
   // booking a second one.
-  rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
+  rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse) {
+    option (google.api.http) = {
+      post: "/v1/trips"
+      body: "*"
+    };
+  }
 
   // Get returns a trip's current state.
-  rpc GetTrip(GetTripRequest) returns (GetTripResponse);
+  rpc GetTrip(GetTripRequest) returns (GetTripResponse) {
+    option (google.api.http) = {get: "/v1/trips/{trip_id}"};
+  }
 
   // Cancel ends a trip before completion.
-  rpc CancelTrip(CancelTripRequest) returns (CancelTripResponse);
+  //
+  // A custom method rather than DELETE: cancelling is a state transition that
+  // returns the trip, not a deletion — the row stays, and a rider can still
+  // read what happened to it.
+  rpc CancelTrip(CancelTripRequest) returns (CancelTripResponse) {
+    option (google.api.http) = {
+      post: "/v1/trips/{trip_id}:cancel"
+      body: "*"
+    };
+  }
+
+  // ListTrips is a rider's history, newest first.
+  rpc ListTrips(ListTripsRequest) returns (ListTripsResponse) {
+    option (google.api.http) = {get: "/v1/trips"};
+  }
 }
 
+// The caller is NOT a field on any request.
+//
+// It arrives as gRPC metadata, put there by the gateway from a verified token.
+// This matters more now that the REST body maps straight onto the message: a
+// `rider_id` field would be client-supplied, and a client that can name the
+// rider can quote, book and read rides as somebody else.
 message PreviewTripRequest {
-  string rider_id = 1;
-  surge.common.v1.Coordinate pickup = 2;
-  surge.common.v1.Coordinate dropoff = 3;
+  surge.common.v1.Coordinate pickup = 1;
+  surge.common.v1.Coordinate dropoff = 2;
 }
 
 message PreviewTripResponse {
@@ -59,11 +104,11 @@ message FareQuote {
 }
 
 message CreateTripRequest {
-  string rider_id = 1;
-  string fare_id = 2;
+  string fare_id = 1;
   // Generated client-side, so a retry over a flaky connection is recognised
-  // rather than booked twice.
-  string idempotency_key = 3;
+  // rather than booked twice. Over REST this also arrives as an
+  // `Idempotency-Key` header, which the gateway copies into the field.
+  string idempotency_key = 2;
 }
 
 message CreateTripResponse {
@@ -85,6 +130,24 @@ message CancelTripRequest {
 
 message CancelTripResponse {
   Trip trip = 1;
+}
+
+message ListTripsRequest {
+  // Page size. Clamped by the server; a client asking for everything gets a
+  // page, because "return the whole table" is not a request a public API
+  // should honour.
+  int32 page_size = 1;
+  // Opaque cursor from a previous response. Opaque on purpose: a client that
+  // decodes it is a client that breaks when the ordering changes.
+  string page_token = 2;
+  // Optional status filter, e.g. "completed".
+  string status = 3;
+}
+
+message ListTripsResponse {
+  repeated Trip trips = 1;
+  // Empty when there are no more.
+  string next_page_token = 2;
 }
 
 message Trip {

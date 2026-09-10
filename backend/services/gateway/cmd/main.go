@@ -128,8 +128,23 @@ func run() error {
 		metrics.rejected.WithLabelValues(reason).Inc()
 	})
 
+	// The REST surface, generated from the proto annotations.
+	rest, err := gatewayhttp.NewMux(ctx, clients.Conn())
+	if err != nil {
+		return err
+	}
+
 	mux := http.NewServeMux()
-	gatewayhttp.NewAPI(clients).Routes(mux, guard)
+
+	// Behind the auth guard, which is what puts a verified caller in the
+	// request context for the metadata annotator to forward. Everything under
+	// /v1 needs a caller; nothing under it is public.
+	mux.Handle("/v1/", guard(rest))
+
+	// The API document, generated from the same annotations. Served rather
+	// than published separately, so what a client reads and what the gateway
+	// does cannot disagree.
+	mux.Handle("GET /openapi.json", gatewayhttp.OpenAPI())
 
 	// Unauthenticated on purpose: an orchestrator probing liveness has no
 	// token, and requiring one would make the gateway look dead to it.
