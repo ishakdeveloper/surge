@@ -67,6 +67,14 @@ func run() error {
 	// recovery strategy is to wait four seconds rather than to replay. This is
 	// the same reasoning that keeps driver positions out of the matcher's
 	// compacted checkpoint in Phase 2.
+	// The re-keying hop: pings arrive keyed by driver, geo events leave keyed by
+	// shard cell.
+	producer, err := kafkax.NewProducer(brokers)
+	if err != nil {
+		return err
+	}
+	defer producer.Close()
+
 	client, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicLocPing},
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))
 	if err != nil {
@@ -78,7 +86,7 @@ func run() error {
 	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
 	go func() { errs <- serveDebug(ctx, debugAddr, index) }()
 
-	go func() { errs <- consume(ctx, client, index, metrics) }()
+	go func() { errs <- consume(ctx, client, producer, index, metrics) }()
 
 	select {
 	case <-ctx.Done():
@@ -88,7 +96,7 @@ func run() error {
 	}
 }
 
-func consume(ctx context.Context, client *kgo.Client, index *ingest.Index, metrics *metrics) error {
+func consume(ctx context.Context, client *kgo.Client, producer *kgo.Client, index *ingest.Index, metrics *metrics) error {
 	// Offsets are committed on a timer rather than per record. Per-record
 	// commits at 10k/sec would be 10k commit requests a second — more traffic
 	// than the pings themselves — and the cost of a crash here is replaying a
@@ -169,11 +177,39 @@ func consume(ctx context.Context, client *kgo.Client, index *ingest.Index, metri
 				return
 			}
 
-			switch {
-			case observation.Stale:
+			if observation.Stale {
 				metrics.stale.Inc()
-			case observation.Transition:
+				return
+			}
+
+			if observation.IndexChanged {
 				metrics.transitions.Inc()
+			}
+			if observation.ShardChanged {
+				metrics.handovers.Inc()
+			}
+
+			for _, event := range ingest.Translate(observation, time.Now()) {
+				payload, err := json.Marshal(event)
+				if err != nil {
+					metrics.rejected.WithLabelValues("unencodable").Inc()
+					continue
+				}
+
+				// Keyed by shard cell. This single line is the sharding: the
+				// broker's partitioner turns a place into an owner, and every
+				// event for that place lands in the same partition in order.
+				producer.Produce(ctx, &kgo.Record{
+					Topic: kafkax.TopicGeoEvents,
+					Key:   []byte(event.Cell),
+					Value: payload,
+				}, func(_ *kgo.Record, err error) {
+					if err != nil {
+						metrics.produceErrors.Inc()
+						return
+					}
+					metrics.produced.WithLabelValues(event.Tag).Inc()
+				})
 			}
 
 			metrics.consumed.Inc()
@@ -182,15 +218,18 @@ func consume(ctx context.Context, client *kgo.Client, index *ingest.Index, metri
 }
 
 type metrics struct {
-	consumed    prometheus.Counter
-	rejected    *prometheus.CounterVec
-	stale       prometheus.Counter
-	transitions prometheus.Counter
-	drivers     prometheus.Gauge
-	cells       prometheus.Gauge
-	shards      prometheus.Gauge
-	age         prometheus.Histogram
-	process     prometheus.Histogram
+	consumed      prometheus.Counter
+	rejected      *prometheus.CounterVec
+	stale         prometheus.Counter
+	transitions   prometheus.Counter
+	handovers     prometheus.Counter
+	produced      *prometheus.CounterVec
+	produceErrors prometheus.Counter
+	drivers       prometheus.Gauge
+	cells         prometheus.Gauge
+	shards        prometheus.Gauge
+	age           prometheus.Histogram
+	process       prometheus.Histogram
 }
 
 func newMetrics(registry *obs.Registry) *metrics {
@@ -206,7 +245,19 @@ func newMetrics(registry *obs.Registry) *metrics {
 		}),
 		transitions: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "surge_ingest_cell_transitions_total",
-			Help: "Drivers crossing an index cell boundary — the rate at which shards will hand drivers over.",
+			Help: "Drivers crossing a resolution-9 index cell boundary.",
+		}),
+		handovers: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "surge_ingest_shard_handovers_total",
+			Help: "Drivers crossing a resolution-7 shard boundary — each one is a leave and an entry on two different partitions.",
+		}),
+		produced: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "surge_ingest_geo_events_total",
+			Help: "Events produced to geo.events, by tag.",
+		}, []string{"tag"}),
+		produceErrors: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "surge_ingest_produce_errors_total",
+			Help: "Geo events that failed to reach the broker.",
 		}),
 		drivers: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "surge_ingest_drivers", Help: "Drivers held in the index.",
@@ -232,8 +283,8 @@ func newMetrics(registry *obs.Registry) *metrics {
 		}),
 	}
 
-	registry.MustRegister(m.consumed, m.rejected, m.stale, m.transitions,
-		m.drivers, m.cells, m.shards, m.age, m.process)
+	registry.MustRegister(m.consumed, m.rejected, m.stale, m.transitions, m.handovers,
+		m.produced, m.produceErrors, m.drivers, m.cells, m.shards, m.age, m.process)
 	return m
 }
 

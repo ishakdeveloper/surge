@@ -21,6 +21,10 @@ type Entry struct {
 	Seq      uint64
 	Index    geo.Cell
 	Shard    geo.Cell
+	// SentAtMs is carried through from the original ping so that end-to-end
+	// latency stays measurable across the re-keying hop rather than restarting
+	// its clock here.
+	SentAtMs int64
 }
 
 // Index is the in-memory geospatial state.
@@ -48,13 +52,27 @@ func NewIndex() *Index {
 	}
 }
 
-// Observation reports what changed, so the caller can emit metrics or, from
-// Phase 2, the cell-transition events the matcher shards consume.
+// Observation reports what changed, so the caller can emit the cell-transition
+// events the matcher shards consume.
+//
+// Index and shard transitions are reported separately because they mean
+// different things. Crossing a resolution-9 index cell is bookkeeping inside
+// one shard. Crossing a resolution-7 shard cell is a handover between two
+// matcher instances, and it is the only case that produces a pair of messages
+// on two different Kafka partitions.
 type Observation struct {
-	Moved      bool
-	Transition bool
-	From, To   geo.Cell
-	Stale      bool
+	Stale bool
+	// New means this driver was not in the index at all — a cold start or a
+	// driver coming online. Treated as an entry, since some shard has to learn
+	// about them.
+	New   bool
+	Entry Entry
+
+	IndexChanged bool
+	ShardChanged bool
+
+	PreviousIndex geo.Cell
+	PreviousShard geo.Cell
 }
 
 // Observe records a ping.
@@ -93,14 +111,20 @@ func (i *Index) Observe(ping wire.DriverPing) (Observation, error) {
 		Seq:      ping.Seq,
 		Index:    index,
 		Shard:    shard,
+		SentAtMs: ping.SentAtMs,
 	}
 	i.drivers[ping.DriverID] = entry
 
-	observation := Observation{Moved: true, To: index}
+	observation := Observation{Entry: entry, New: !existed}
 
-	if existed && previous.Index != index {
-		observation.Transition = true
-		observation.From = previous.Index
+	if existed {
+		observation.PreviousIndex = previous.Index
+		observation.PreviousShard = previous.Shard
+		observation.IndexChanged = previous.Index != index
+		observation.ShardChanged = previous.Shard != shard
+	}
+
+	if observation.IndexChanged {
 		i.transitions++
 
 		if bucket, ok := i.cells[previous.Index]; ok {
@@ -114,7 +138,7 @@ func (i *Index) Observe(ping wire.DriverPing) (Observation, error) {
 		}
 	}
 
-	if !existed || observation.Transition {
+	if observation.New || observation.IndexChanged {
 		bucket, ok := i.cells[index]
 		if !ok {
 			bucket = make(map[string]struct{})
