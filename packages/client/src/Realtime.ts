@@ -7,6 +7,7 @@ import {
   OfferReply,
   type ServerMessage,
   ServerMessageFromJson,
+  type TripUpdate,
 } from "@surge/domain/realtime/Wire";
 import {
   Clock,
@@ -64,6 +65,11 @@ export interface RealtimeService {
   readonly messages: Stream.Stream<ServerMessage>;
   /** Just the dispatched offers — what `/drive` listens to. */
   readonly offers: Stream.Stream<Offer>;
+  /**
+   * Trips the caller is on, changing state — what `/ride` watches instead of
+   * polling, and how `/drive` learns an accepted offer became its trip.
+   */
+  readonly tripUpdates: Stream.Stream<TripUpdate>;
   /** For the reconnecting banner. Emits the current value on subscribe. */
   readonly status: Stream.Stream<ConnectionStatus>;
 
@@ -241,6 +247,11 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
             messages,
             (message) =>
               message._tag === "Offer" ? Result.succeed(message.offer) : Result.fail(message),
+          ),
+          tripUpdates: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "TripUpdated" ? Result.succeed(message.trip) : Result.fail(message),
           ),
           status: SubscriptionRef.changes(connection),
           send,

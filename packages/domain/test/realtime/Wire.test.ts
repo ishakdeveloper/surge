@@ -65,6 +65,30 @@ describe("server messages", () => {
     expect(message.offer.requestedAtMs).toBe(1757512329412);
   });
 
+  it("decodes a trip update", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_trip_updated.json")));
+
+    if (message._tag !== "TripUpdated") {
+      throw new Error(`expected a trip update, got ${message._tag}`);
+    }
+    expect(message.trip.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
+    expect(message.trip.driverId).toBe("drv-000123");
+    expect(message.trip.status).toBe("TRIP_STATUS_ACCEPTED");
+  });
+
+  /**
+   * The status on a push is decoded by the same schema as the status on a REST
+   * response — lifted out of the generated client, not restated — so a value the
+   * API would reject is rejected here too, rather than rendered.
+   */
+  it("rejects a trip status the API does not have", async () => {
+    const bogus = JSON.parse(fixture("server_trip_updated.json"));
+    bogus.trip.status = "TRIP_STATUS_TELEPORTED";
+
+    const result = await Effect.runPromise(Effect.result(decodeServer(JSON.stringify(bogus))));
+    expect(result._tag).toBe("Failure");
+  });
+
   it("decodes an error frame", async () => {
     const message = await Effect.runPromise(decodeServer(fixture("server_error.json")));
 

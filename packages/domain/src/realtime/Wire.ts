@@ -1,5 +1,6 @@
 import { Schema } from "effect";
-import { DriverId, TripId } from "../api/Primitives.js";
+import { DriverId, RiderId, TripId } from "../api/Primitives.js";
+import { TripStatus } from "../trip/Trip.js";
 
 /**
  * The gateway's WebSocket protocol, mirroring `backend/shared/wire`.
@@ -128,6 +129,22 @@ export class Offer extends Schema.Class<Offer>("Offer")({
   requestedAtMs: Schema.Number,
 }) {}
 
+/**
+ * A trip changed state. Pushed to its rider and its driver.
+ *
+ * The notification, not the trip: enough to render a status and to know which
+ * trip to fetch. The full trip is one REST call away and already has a decoder;
+ * a pushed copy of it would be a second shape to keep in step with the proto.
+ */
+export class TripUpdate extends Schema.Class<TripUpdate>("TripUpdate")({
+  tripId: TripId,
+  riderId: RiderId,
+  /** `""` until a driver accepts, not absent — the same rule the REST API follows. */
+  driverId: Schema.String,
+  status: TripStatus,
+  atMs: Schema.Number,
+}) {}
+
 /** A driver's answer to a dispatched offer. `driverId` is absent for the same reason it is on {@link DriverPing}. */
 export class OfferReply extends Schema.Class<OfferReply>("OfferReply")({
   tripId: TripId,
@@ -166,6 +183,7 @@ export type ClientMessage = typeof ClientMessage.Type;
 export const ServerMessage = Schema.Union([
   Schema.TaggedStruct("ServerWelcome", {}).annotate({ identifier: "ServerWelcome" }),
   Schema.TaggedStruct("Offer", { offer: Offer }).annotate({ identifier: "OfferMessage" }),
+  Schema.TaggedStruct("TripUpdated", { trip: TripUpdate }).annotate({ identifier: "TripUpdated" }),
   Schema.TaggedStruct("ServerError", { error: Schema.String }).annotate({
     identifier: "ServerError",
   }),

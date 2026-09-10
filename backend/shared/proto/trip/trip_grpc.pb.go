@@ -19,11 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TripService_PreviewTrip_FullMethodName = "/surge.trip.v1.TripService/PreviewTrip"
-	TripService_CreateTrip_FullMethodName  = "/surge.trip.v1.TripService/CreateTrip"
-	TripService_GetTrip_FullMethodName     = "/surge.trip.v1.TripService/GetTrip"
-	TripService_CancelTrip_FullMethodName  = "/surge.trip.v1.TripService/CancelTrip"
-	TripService_ListTrips_FullMethodName   = "/surge.trip.v1.TripService/ListTrips"
+	TripService_PreviewTrip_FullMethodName  = "/surge.trip.v1.TripService/PreviewTrip"
+	TripService_CreateTrip_FullMethodName   = "/surge.trip.v1.TripService/CreateTrip"
+	TripService_GetTrip_FullMethodName      = "/surge.trip.v1.TripService/GetTrip"
+	TripService_CancelTrip_FullMethodName   = "/surge.trip.v1.TripService/CancelTrip"
+	TripService_ListTrips_FullMethodName    = "/surge.trip.v1.TripService/ListTrips"
+	TripService_ArriveTrip_FullMethodName   = "/surge.trip.v1.TripService/ArriveTrip"
+	TripService_StartTrip_FullMethodName    = "/surge.trip.v1.TripService/StartTrip"
+	TripService_CompleteTrip_FullMethodName = "/surge.trip.v1.TripService/CompleteTrip"
 )
 
 // TripServiceClient is the client API for TripService service.
@@ -86,8 +89,26 @@ type TripServiceClient interface {
 	// returns the trip, not a deletion — the row stays, and a rider can still
 	// read what happened to it.
 	CancelTrip(ctx context.Context, in *CancelTripRequest, opts ...grpc.CallOption) (*CancelTripResponse, error)
-	// ListTrips is a rider's history, newest first.
+	// ListTrips is the caller's history, newest first — the rides a rider booked,
+	// or the rides a driver was assigned. The token decides which.
 	ListTrips(ctx context.Context, in *ListTripsRequest, opts ...grpc.CallOption) (*ListTripsResponse, error)
+	// ArriveTrip, StartTrip and CompleteTrip are the driver's half of the
+	// lifecycle: accepted → arrived → in progress → completed.
+	//
+	// Only the driver the trip is assigned to may call them, and the trip service
+	// enforces that rather than the gateway, for the same reason ownership is
+	// enforced there on reads: only the service knows whose trip it is. A caller
+	// who is not the assigned driver gets NotFound, because confirming a trip
+	// exists to someone who may not touch it is itself a disclosure.
+	//
+	// No body: the trip id in the path is the whole request, and the caller is
+	// metadata like everywhere else.
+	// Arrive: the driver is at the pickup.
+	ArriveTrip(ctx context.Context, in *ArriveTripRequest, opts ...grpc.CallOption) (*ArriveTripResponse, error)
+	// Start: the rider is in the car.
+	StartTrip(ctx context.Context, in *StartTripRequest, opts ...grpc.CallOption) (*StartTripResponse, error)
+	// Complete: the rider has been dropped off.
+	CompleteTrip(ctx context.Context, in *CompleteTripRequest, opts ...grpc.CallOption) (*CompleteTripResponse, error)
 }
 
 type tripServiceClient struct {
@@ -142,6 +163,36 @@ func (c *tripServiceClient) ListTrips(ctx context.Context, in *ListTripsRequest,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListTripsResponse)
 	err := c.cc.Invoke(ctx, TripService_ListTrips_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tripServiceClient) ArriveTrip(ctx context.Context, in *ArriveTripRequest, opts ...grpc.CallOption) (*ArriveTripResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ArriveTripResponse)
+	err := c.cc.Invoke(ctx, TripService_ArriveTrip_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tripServiceClient) StartTrip(ctx context.Context, in *StartTripRequest, opts ...grpc.CallOption) (*StartTripResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartTripResponse)
+	err := c.cc.Invoke(ctx, TripService_StartTrip_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tripServiceClient) CompleteTrip(ctx context.Context, in *CompleteTripRequest, opts ...grpc.CallOption) (*CompleteTripResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompleteTripResponse)
+	err := c.cc.Invoke(ctx, TripService_CompleteTrip_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +259,26 @@ type TripServiceServer interface {
 	// returns the trip, not a deletion — the row stays, and a rider can still
 	// read what happened to it.
 	CancelTrip(context.Context, *CancelTripRequest) (*CancelTripResponse, error)
-	// ListTrips is a rider's history, newest first.
+	// ListTrips is the caller's history, newest first — the rides a rider booked,
+	// or the rides a driver was assigned. The token decides which.
 	ListTrips(context.Context, *ListTripsRequest) (*ListTripsResponse, error)
+	// ArriveTrip, StartTrip and CompleteTrip are the driver's half of the
+	// lifecycle: accepted → arrived → in progress → completed.
+	//
+	// Only the driver the trip is assigned to may call them, and the trip service
+	// enforces that rather than the gateway, for the same reason ownership is
+	// enforced there on reads: only the service knows whose trip it is. A caller
+	// who is not the assigned driver gets NotFound, because confirming a trip
+	// exists to someone who may not touch it is itself a disclosure.
+	//
+	// No body: the trip id in the path is the whole request, and the caller is
+	// metadata like everywhere else.
+	// Arrive: the driver is at the pickup.
+	ArriveTrip(context.Context, *ArriveTripRequest) (*ArriveTripResponse, error)
+	// Start: the rider is in the car.
+	StartTrip(context.Context, *StartTripRequest) (*StartTripResponse, error)
+	// Complete: the rider has been dropped off.
+	CompleteTrip(context.Context, *CompleteTripRequest) (*CompleteTripResponse, error)
 	mustEmbedUnimplementedTripServiceServer()
 }
 
@@ -234,6 +303,15 @@ func (UnimplementedTripServiceServer) CancelTrip(context.Context, *CancelTripReq
 }
 func (UnimplementedTripServiceServer) ListTrips(context.Context, *ListTripsRequest) (*ListTripsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTrips not implemented")
+}
+func (UnimplementedTripServiceServer) ArriveTrip(context.Context, *ArriveTripRequest) (*ArriveTripResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ArriveTrip not implemented")
+}
+func (UnimplementedTripServiceServer) StartTrip(context.Context, *StartTripRequest) (*StartTripResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartTrip not implemented")
+}
+func (UnimplementedTripServiceServer) CompleteTrip(context.Context, *CompleteTripRequest) (*CompleteTripResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteTrip not implemented")
 }
 func (UnimplementedTripServiceServer) mustEmbedUnimplementedTripServiceServer() {}
 func (UnimplementedTripServiceServer) testEmbeddedByValue()                     {}
@@ -346,6 +424,60 @@ func _TripService_ListTrips_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TripService_ArriveTrip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArriveTripRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TripServiceServer).ArriveTrip(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TripService_ArriveTrip_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TripServiceServer).ArriveTrip(ctx, req.(*ArriveTripRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TripService_StartTrip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartTripRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TripServiceServer).StartTrip(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TripService_StartTrip_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TripServiceServer).StartTrip(ctx, req.(*StartTripRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TripService_CompleteTrip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteTripRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TripServiceServer).CompleteTrip(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TripService_CompleteTrip_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TripServiceServer).CompleteTrip(ctx, req.(*CompleteTripRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TripService_ServiceDesc is the grpc.ServiceDesc for TripService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -372,6 +504,18 @@ var TripService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTrips",
 			Handler:    _TripService_ListTrips_Handler,
+		},
+		{
+			MethodName: "ArriveTrip",
+			Handler:    _TripService_ArriveTrip_Handler,
+		},
+		{
+			MethodName: "StartTrip",
+			Handler:    _TripService_StartTrip_Handler,
+		},
+		{
+			MethodName: "CompleteTrip",
+			Handler:    _TripService_CompleteTrip_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

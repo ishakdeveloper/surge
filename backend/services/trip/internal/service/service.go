@@ -42,6 +42,19 @@ type Matcher interface {
 	RequestMatch(ctx context.Context, trip *domain.Trip) error
 }
 
+// Notifier tells the people on a trip that it changed.
+//
+// Called after a change is stored, never before, and it returns nothing: a push
+// that fails must not undo a transition that has already been committed, so
+// there is nothing a caller could do with an error from it.
+type Notifier interface {
+	TripChanged(ctx context.Context, trip *domain.Trip)
+}
+
+type silent struct{}
+
+func (silent) TripChanged(context.Context, *domain.Trip) {}
+
 // FareStore holds quotes between preview and booking.
 //
 // Separate from the trip repository because a fare is not a trip: most quotes
@@ -55,15 +68,20 @@ type FareStore interface {
 var (
 	ErrFareExpired  = errors.New("service: fare has expired")
 	ErrFareNotFound = errors.New("service: fare not found")
+	// ErrNotAssigned is a driver acting on a trip that is not theirs. The
+	// handler reports it as NotFound: telling someone a trip exists that they
+	// may not touch is itself a disclosure.
+	ErrNotAssigned = errors.New("service: trip is not assigned to this driver")
 )
 
 type Service struct {
-	trips   domain.Repository
-	fares   FareStore
-	router  Router
-	surge   Surge
-	matcher Matcher
-	now     func() time.Time
+	trips    domain.Repository
+	fares    FareStore
+	router   Router
+	surge    Surge
+	matcher  Matcher
+	notifier Notifier
+	now      func() time.Time
 }
 
 type Options struct {
@@ -72,6 +90,8 @@ type Options struct {
 	Router  Router
 	Surge   Surge
 	Matcher Matcher
+	// Notifier is optional; without one, changes are simply not pushed.
+	Notifier Notifier
 	// Now is injectable so time-dependent behaviour — fare expiry above all —
 	// is tested by moving a variable rather than by sleeping.
 	Now func() time.Time
@@ -82,9 +102,13 @@ func New(options Options) *Service {
 	if now == nil {
 		now = time.Now
 	}
+	notifier := options.Notifier
+	if notifier == nil {
+		notifier = silent{}
+	}
 	return &Service{
 		trips: options.Trips, fares: options.Fares, router: options.Router,
-		surge: options.Surge, matcher: options.Matcher, now: now,
+		surge: options.Surge, matcher: options.Matcher, notifier: notifier, now: now,
 	}
 }
 
@@ -206,6 +230,7 @@ func (s *Service) Create(ctx context.Context, riderID, fareID, idempotencyKey st
 		return nil, fmt.Errorf("service: request match: %w", err)
 	}
 
+	s.notifier.TripChanged(ctx, trip)
 	return trip, nil
 }
 
@@ -237,18 +262,7 @@ func (s *Service) List(ctx context.Context, filter domain.ListFilter) (domain.Pa
 
 // Cancel ends a trip early.
 func (s *Service) Cancel(ctx context.Context, id, reason string) (*domain.Trip, error) {
-	trip, err := s.trips.Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := trip.Transition(domain.StatusCancelled, s.now()); err != nil {
-		return nil, err
-	}
-	if err := s.trips.Update(ctx, trip); err != nil {
-		return nil, err
-	}
-	return trip, nil
+	return s.transition(ctx, id, domain.StatusCancelled, nil)
 }
 
 // Matched records that the matcher found a driver.
@@ -263,12 +277,59 @@ func (s *Service) Unmatched(ctx context.Context, tripID string) (*domain.Trip, e
 	return s.transition(ctx, tripID, domain.StatusUnmatched, nil)
 }
 
+// Arrive records that the driver is at the pickup.
+func (s *Service) Arrive(ctx context.Context, tripID, driverID string) (*domain.Trip, error) {
+	return s.driverTransition(ctx, tripID, driverID, domain.StatusArrived)
+}
+
+// Start records that the rider is in the car.
+func (s *Service) Start(ctx context.Context, tripID, driverID string) (*domain.Trip, error) {
+	return s.driverTransition(ctx, tripID, driverID, domain.StatusInProgress)
+}
+
+// Complete records that the rider has been dropped off.
+func (s *Service) Complete(ctx context.Context, tripID, driverID string) (*domain.Trip, error) {
+	return s.driverTransition(ctx, tripID, driverID, domain.StatusCompleted)
+}
+
+// driverTransition is the driver's half of the lifecycle, and the rule that
+// only the assigned driver may move a trip forward.
+//
+// Here rather than in the handler because it is a business rule about trips,
+// not a fact about who is calling: any transport that reached this service
+// would need the same check, and putting it where the data is means none can
+// skip it.
+func (s *Service) driverTransition(ctx context.Context, id, driverID string, to domain.Status) (*domain.Trip, error) {
+	return s.transitionIf(ctx, id, to, func(trip *domain.Trip) error {
+		if trip.DriverID == "" || trip.DriverID != driverID {
+			return ErrNotAssigned
+		}
+		return nil
+	}, nil)
+}
+
 func (s *Service) transition(ctx context.Context, id string, to domain.Status, mutate func(*domain.Trip)) (*domain.Trip, error) {
+	return s.transitionIf(ctx, id, to, nil, mutate)
+}
+
+// transitionIf is every state change: read, check, move, store, tell people.
+//
+// One path, so there is no transition that forgets to notify — which is the bug
+// a separate Cancel method with its own copy of these five steps had waiting.
+func (s *Service) transitionIf(
+	ctx context.Context, id string, to domain.Status,
+	guard func(*domain.Trip) error, mutate func(*domain.Trip),
+) (*domain.Trip, error) {
 	trip, err := s.trips.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
+	if guard != nil {
+		if err := guard(trip); err != nil {
+			return nil, err
+		}
+	}
 	if mutate != nil {
 		mutate(trip)
 	}
@@ -278,5 +339,7 @@ func (s *Service) transition(ctx context.Context, id string, to domain.Status, m
 	if err := s.trips.Update(ctx, trip); err != nil {
 		return nil, err
 	}
+
+	s.notifier.TripChanged(ctx, trip)
 	return trip, nil
 }

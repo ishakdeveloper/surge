@@ -68,12 +68,22 @@ func (f *fareStore) Get(_ context.Context, id string) (domain.Fare, error) {
 	return fare, nil
 }
 
+// fakeNotifier records every change it is told about, in order.
+type fakeNotifier struct {
+	changes []domain.Status
+}
+
+func (f *fakeNotifier) TripChanged(_ context.Context, trip *domain.Trip) {
+	f.changes = append(f.changes, trip.Status)
+}
+
 type rig struct {
-	service *service.Service
-	router  *fakeRouter
-	matcher *fakeMatcher
-	trips   *repository.InMemory
-	now     *time.Time
+	service  *service.Service
+	router   *fakeRouter
+	matcher  *fakeMatcher
+	notifier *fakeNotifier
+	trips    *repository.InMemory
+	now      *time.Time
 }
 
 func newRig(t *testing.T, surge float64) *rig {
@@ -82,21 +92,24 @@ func newRig(t *testing.T, surge float64) *rig {
 	clock := start
 	router := &fakeRouter{}
 	matcher := &fakeMatcher{}
+	notifier := &fakeNotifier{}
 	trips := repository.NewInMemory()
 
 	return &rig{
 		service: service.New(service.Options{
-			Trips:   trips,
-			Fares:   newFareStore(),
-			Router:  router,
-			Surge:   fakeSurge{multiplier: surge},
-			Matcher: matcher,
-			Now:     func() time.Time { return clock },
+			Trips:    trips,
+			Fares:    newFareStore(),
+			Router:   router,
+			Surge:    fakeSurge{multiplier: surge},
+			Matcher:  matcher,
+			Notifier: notifier,
+			Now:      func() time.Time { return clock },
 		}),
-		router:  router,
-		matcher: matcher,
-		trips:   trips,
-		now:     &clock,
+		router:   router,
+		matcher:  matcher,
+		notifier: notifier,
+		trips:    trips,
+		now:      &clock,
 	}
 }
 
@@ -288,5 +301,142 @@ func TestCancel(t *testing.T) {
 
 	if _, err := rig.service.Cancel(ctx, finished.ID, "too late"); !errors.Is(err, domain.ErrInvalidTransition) {
 		t.Errorf("cancelling a completed trip should be refused, got %v", err)
+	}
+}
+
+// Only the driver a trip is assigned to may move it forward, and only through
+// the states in order.
+func TestDriverLifecycle(t *testing.T) {
+	rig := newRig(t, 1.0)
+	ctx := context.Background()
+	trip := mustCreate(t, rig, "key-lifecycle")
+
+	// Unassigned, nobody may drive it — including a caller with no id, which
+	// is the case an unguarded equality check between two empty strings lets
+	// through.
+	for _, driver := range []string{"drv-1", ""} {
+		if _, err := rig.service.Arrive(ctx, trip.ID, driver); !errors.Is(err, service.ErrNotAssigned) {
+			t.Errorf("arrive on an unassigned trip as %q: want ErrNotAssigned, got %v", driver, err)
+		}
+	}
+
+	if _, err := rig.service.Matched(ctx, trip.ID, "drv-1"); err != nil {
+		t.Fatalf("matched: %v", err)
+	}
+
+	if _, err := rig.service.Arrive(ctx, trip.ID, "drv-2"); !errors.Is(err, service.ErrNotAssigned) {
+		t.Errorf("another driver arriving: want ErrNotAssigned, got %v", err)
+	}
+
+	// Out of order is refused, not skipped ahead: a rider cannot be "in the
+	// car" before the car has reached them.
+	if _, err := rig.service.Start(ctx, trip.ID, "drv-1"); !errors.Is(err, domain.ErrInvalidTransition) {
+		t.Errorf("start before arrive: want ErrInvalidTransition, got %v", err)
+	}
+
+	steps := []struct {
+		name string
+		do   func(context.Context, string, string) (*domain.Trip, error)
+		want domain.Status
+	}{
+		{"arrive", rig.service.Arrive, domain.StatusArrived},
+		{"start", rig.service.Start, domain.StatusInProgress},
+		{"complete", rig.service.Complete, domain.StatusCompleted},
+	}
+	for _, step := range steps {
+		got, err := step.do(ctx, trip.ID, "drv-1")
+		if err != nil {
+			t.Fatalf("%s: %v", step.name, err)
+		}
+		if got.Status != step.want {
+			t.Fatalf("%s: status %s, want %s", step.name, got.Status, step.want)
+		}
+	}
+
+	// A retried "complete" — the tap that went out twice on a bad connection —
+	// returns the same answer rather than a failure the app has to interpret.
+	again, err := rig.service.Complete(ctx, trip.ID, "drv-1")
+	if err != nil || again.Status != domain.StatusCompleted {
+		t.Errorf("a repeated complete should be idempotent: %v, %+v", err, again)
+	}
+}
+
+// Every change reaches the notifier — cancellation included, which was a
+// separate code path with its own copy of read-move-store and no push.
+func TestEveryTransitionNotifies(t *testing.T) {
+	rig := newRig(t, 1.0)
+	ctx := context.Background()
+	trip := mustCreate(t, rig, "key-notify")
+
+	if _, err := rig.service.Matched(ctx, trip.ID, "drv-1"); err != nil {
+		t.Fatalf("matched: %v", err)
+	}
+	if _, err := rig.service.Arrive(ctx, trip.ID, "drv-1"); err != nil {
+		t.Fatalf("arrive: %v", err)
+	}
+	if _, err := rig.service.Cancel(ctx, trip.ID, "rider did not show"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	want := []domain.Status{
+		domain.StatusRequested, domain.StatusAccepted, domain.StatusArrived, domain.StatusCancelled,
+	}
+	if len(rig.notifier.changes) != len(want) {
+		t.Fatalf("notified %v, want %v", rig.notifier.changes, want)
+	}
+	for i := range want {
+		if rig.notifier.changes[i] != want[i] {
+			t.Errorf("notification %d: %s, want %s", i, rig.notifier.changes[i], want[i])
+		}
+	}
+}
+
+// A refused change is not news, and pushing it would tell a rider their trip
+// moved when it did not.
+func TestRefusedTransitionIsNotNotified(t *testing.T) {
+	rig := newRig(t, 1.0)
+	ctx := context.Background()
+	trip := mustCreate(t, rig, "key-refused")
+	before := len(rig.notifier.changes)
+
+	if _, err := rig.service.Arrive(ctx, trip.ID, "drv-9"); err == nil {
+		t.Fatal("an unassigned driver arrived")
+	}
+	if len(rig.notifier.changes) != before {
+		t.Errorf("a refused transition was pushed: %v", rig.notifier.changes)
+	}
+}
+
+// A driver reloading mid-ride finds the trip they are on, and nobody else's.
+func TestDriverListsTheirOwnTrips(t *testing.T) {
+	rig := newRig(t, 1.0)
+	ctx := context.Background()
+
+	mine := mustCreate(t, rig, "key-mine")
+	if _, err := rig.service.Matched(ctx, mine.ID, "drv-1"); err != nil {
+		t.Fatalf("matched: %v", err)
+	}
+	theirs := mustCreate(t, rig, "key-theirs")
+	if _, err := rig.service.Matched(ctx, theirs.ID, "drv-2"); err != nil {
+		t.Fatalf("matched: %v", err)
+	}
+	mustCreate(t, rig, "key-open")
+
+	page, err := rig.service.List(ctx, domain.ListFilter{DriverID: "drv-1"})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(page.Trips) != 1 || page.Trips[0].ID != mine.ID {
+		t.Errorf("drv-1 listed %d trips, want only %s", len(page.Trips), mine.ID)
+	}
+
+	// A filter built wrongly — no owner at all — lists nothing rather than
+	// everything. That is the only acceptable way for that bug to fail.
+	empty, err := rig.service.List(ctx, domain.ListFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(empty.Trips) != 0 {
+		t.Errorf("an ownerless filter listed %d trips", len(empty.Trips))
 	}
 }

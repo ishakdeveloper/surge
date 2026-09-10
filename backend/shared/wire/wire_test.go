@@ -67,6 +67,14 @@ func TestServerMessagesMatchFixtures(t *testing.T) {
 
 	assertMarshalsTo(t, wire.ServerMessage{Tag: wire.TagServerError, Error: "token expired"}, "server_error.json")
 
+	assertMarshalsTo(t, wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{
+		TripID:   "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+		RiderID:  "rider-000456",
+		DriverID: "drv-000123",
+		Status:   "TRIP_STATUS_ACCEPTED",
+		AtMs:     1757512331000,
+	}}, "server_trip_updated.json")
+
 	assertMarshalsTo(t, wire.ServerMessage{Tag: wire.TagOffer, Offer: &wire.Offer{
 		Tag:            wire.TagOffer,
 		TripID:         "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
@@ -150,5 +158,28 @@ func TestClientMessagesDecodeFromFixtures(t *testing.T) {
 	// reservation can resolve an offer, and this is how it is addressed.
 	if reply.ReplyCell != "871f1d492ffffff" {
 		t.Errorf("replyCell = %q", reply.ReplyCell)
+	}
+}
+
+// The gateway forwards ws.push records verbatim, so a tag without its payload
+// must be caught before it reaches a client whose decoder would reject it.
+func TestServerMessageValid(t *testing.T) {
+	cases := []struct {
+		name    string
+		message wire.ServerMessage
+		want    bool
+	}{
+		{"offer", wire.ServerMessage{Tag: wire.TagOffer, Offer: &wire.Offer{}}, true},
+		{"offer without payload", wire.ServerMessage{Tag: wire.TagOffer}, false},
+		{"trip", wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{TripID: "t"}}, true},
+		{"trip without id", wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{}}, false},
+		{"trip without payload", wire.ServerMessage{Tag: wire.TagTripUpdated}, false},
+		{"welcome", wire.ServerMessage{Tag: wire.TagServerWelcome}, true},
+		{"unknown", wire.ServerMessage{Tag: "SurgeUpdated"}, false},
+	}
+	for _, c := range cases {
+		if got := c.message.Valid(); got != c.want {
+			t.Errorf("%s: Valid() = %v, want %v", c.name, got, c.want)
+		}
 	}
 }

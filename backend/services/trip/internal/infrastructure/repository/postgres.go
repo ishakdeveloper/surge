@@ -117,7 +117,7 @@ func (r *Postgres) List(ctx context.Context, filter domain.ListFilter) (domain.P
 	// between.
 	query := `
 		select ` + columns + ` from trip
-		where rider_id = $1
+		where (($1 <> '' and rider_id = $1) or ($5 <> '' and driver_id = $5))
 		  and ($2 = '' or status = $2)
 		  and ($3 = '' or (created_at, id) < (
 		      select created_at, id from trip where id = $3
@@ -125,7 +125,10 @@ func (r *Postgres) List(ctx context.Context, filter domain.ListFilter) (domain.P
 		order by created_at desc, id desc
 		limit $4`
 
-	rows, err := r.pool.Query(ctx, query, filter.RiderID, string(filter.Status), filter.Cursor, limit)
+	// The owner clause matches nothing when both ids are empty, rather than
+	// everything: a filter built wrongly must list no trips, not every trip.
+	rows, err := r.pool.Query(ctx, query,
+		filter.RiderID, string(filter.Status), filter.Cursor, limit, filter.DriverID)
 	if err != nil {
 		return domain.Page{}, fmt.Errorf("repository: list trips: %w", err)
 	}

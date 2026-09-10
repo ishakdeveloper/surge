@@ -73,24 +73,26 @@ func (c *Consumer) Run(ctx context.Context) error {
 			_, span := tracing.Consume(ctx, record, "gateway.push")
 			defer span.End()
 
-			var offer wire.Offer
-			if err := json.Unmarshal(record.Value, &offer); err != nil {
-				tracing.Fail(span, err)
+			// A push is a finished ServerMessage keyed by its recipient. The
+			// gateway decides who receives it and nothing about what it says,
+			// which is what lets a new kind of push — trip updates, and
+			// whatever follows — reach clients without a change here.
+			//
+			// Decoded only to be checked, then forwarded as the original bytes:
+			// a record whose tag and payload disagree is dropped here rather
+			// than delivered to a client whose decoder would reject it.
+			var message wire.ServerMessage
+			if err := json.Unmarshal(record.Value, &message); err != nil || !message.Valid() || len(record.Key) == 0 {
+				if err != nil {
+					tracing.Fail(span, err)
+				}
 				if c.hooks.OnMalformed != nil {
 					c.hooks.OnMalformed()
 				}
 				return
 			}
 
-			envelope, err := json.Marshal(wire.ServerMessage{Tag: wire.TagOffer, Offer: &offer})
-			if err != nil {
-				if c.hooks.OnMalformed != nil {
-					c.hooks.OnMalformed()
-				}
-				return
-			}
-
-			if c.pusher.Push(offer.DriverID, envelope) {
+			if c.pusher.Push(string(record.Key), record.Value) {
 				if c.hooks.OnDelivered != nil {
 					c.hooks.OnDelivered()
 				}

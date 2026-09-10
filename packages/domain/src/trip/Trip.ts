@@ -1,5 +1,5 @@
 import { DriverId } from "../api/Primitives.js";
-import type { Get200, Preview200 } from "../api/SurgeApi.js";
+import { Get200, type Preview200 } from "../api/SurgeApi.js";
 
 /**
  * Names for the shapes the generated client returns, and the rules about them
@@ -33,8 +33,13 @@ export type Coordinate = Trip["pickup"];
  * The protobuf enum names, verbatim. A friendlier spelling here would be one
  * more place for the two sides to disagree; the place to make it readable is
  * where it is rendered.
+ *
+ * A runtime schema, lifted out of the generated client rather than restated,
+ * because the WebSocket's trip push decodes the same field and should fail on
+ * the same values the REST response would.
  */
-export type TripStatus = Trip["status"];
+export const TripStatus = Get200.fields.trip.fields.status;
+export type TripStatus = typeof TripStatus.Type;
 
 /** Statuses a rider is still waiting through. */
 export const isPending = (status: TripStatus): boolean =>

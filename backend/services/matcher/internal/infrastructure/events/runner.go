@@ -334,7 +334,10 @@ func (r *Runner) emit(ctx context.Context, outcome domain.Outcome) {
 		r.produce(ctx, kafkax.TopicGeoEvents, event.Cell, event)
 	}
 	for _, offer := range outcome.Offers {
-		r.produce(ctx, kafkax.TopicWSPush, offer.DriverID, offer)
+		// The whole envelope, keyed by the driver: the gateway forwards push
+		// records verbatim and decides only who receives them.
+		r.produce(ctx, kafkax.TopicWSPush, offer.DriverID,
+			wire.ServerMessage{Tag: wire.TagOffer, Offer: &offer})
 	}
 
 	for _, match := range outcome.Matched {

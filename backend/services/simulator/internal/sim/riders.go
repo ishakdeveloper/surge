@@ -206,13 +206,17 @@ func (r *Riders) answer(ctx context.Context) {
 			offerCtx, span := tracing.Consume(ctx, record, "driver.offer")
 			defer span.End()
 
-			var offer wire.Offer
-			if err := json.Unmarshal(record.Value, &offer); err != nil {
+			// ws.push carries whole ServerMessages now — offers and trip updates
+			// on one topic — so the driver side reads the envelope and keeps
+			// only what a driver answers.
+			var message wire.ServerMessage
+			if err := json.Unmarshal(record.Value, &message); err != nil {
 				return
 			}
-			if offer.Tag != wire.TagOffer {
+			if message.Tag != wire.TagOffer || message.Offer == nil {
 				return
 			}
+			offer := *message.Offer
 
 			if r.hooks.OnOffer != nil {
 				r.hooks.OnOffer()

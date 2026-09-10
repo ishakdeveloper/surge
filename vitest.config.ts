@@ -2,7 +2,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    projects: ["apps/*", "packages/*"],
+    // `packages/*` finds each package's `vitest.config.ts`. The integration
+    // project shares a directory with `client`, so it is named explicitly.
+    projects: ["apps/*", "packages/*", "packages/client/vitest.integration.config.ts"],
     coverage: {
       provider: "v8",
       include: ["apps/*/src/**/*.ts", "packages/*/src/**/*.ts"],

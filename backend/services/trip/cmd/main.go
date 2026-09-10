@@ -115,6 +115,9 @@ func run() error {
 		Router:  triprouting.NewValhalla(router),
 		Surge:   triprouting.FlatSurge{},
 		Matcher: events.NewMatchRequester(producer),
+		// Every transition is pushed to the rider and driver on it, which is
+		// what lets a rider's screen change the moment a driver accepts.
+		Notifier: events.NewTripNotifier(producer),
 	})
 
 	consumer, err := events.NewConsumer(brokers, group, trip, events.Hooks{

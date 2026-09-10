@@ -29,6 +29,13 @@ func main() {
 	fixtures := map[string]any{
 		"server_welcome.json": wire.ServerMessage{Tag: wire.TagServerWelcome},
 		"server_error.json":   wire.ServerMessage{Tag: wire.TagServerError, Error: "token expired"},
+		"server_trip_updated.json": wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{
+			TripID:   "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+			RiderID:  "rider-000456",
+			DriverID: "drv-000123",
+			Status:   "TRIP_STATUS_ACCEPTED",
+			AtMs:     1757512331000,
+		}},
 		"server_offer.json": wire.ServerMessage{Tag: wire.TagOffer, Offer: &wire.Offer{
 			Tag:            wire.TagOffer,
 			TripID:         "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",

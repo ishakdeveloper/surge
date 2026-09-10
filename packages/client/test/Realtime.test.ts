@@ -40,6 +40,7 @@ const fixture = (name: string): string =>
 
 const WELCOME = fixture("server_welcome.json");
 const OFFER = fixture("server_offer.json");
+const TRIP_UPDATED = fixture("server_trip_updated.json");
 
 interface Listener {
   readonly fn: (event: unknown) => void;
@@ -207,6 +208,35 @@ describe("Realtime", () => {
 
         const [offer] = Array.from(yield* Fiber.join(received));
         expect(offer?.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
+        expect(offer?.replyCell).toBe("871f1d492ffffff");
+      }).pipe(Effect.provide(layer));
+    }));
+
+  it.effect("delivers trip updates apart from offers", () =>
+    Effect.gen(function*() {
+      const { layer, live } = harness();
+
+      yield* Effect.gen(function*() {
+        const realtime = yield* Realtime;
+        const updates = yield* Effect.forkScoped(
+          Stream.runCollect(Stream.take(realtime.tripUpdates, 1)),
+        );
+        const offers = yield* Effect.forkScoped(
+          Stream.runCollect(Stream.take(realtime.offers, 1)),
+        );
+
+        const socket = yield* live;
+        yield* settle;
+        // Interleaved, as they are on the wire: ws.push carries both, and each
+        // stream must take only its own.
+        socket.deliver(TRIP_UPDATED);
+        socket.deliver(OFFER);
+
+        const [update] = Array.from(yield* Fiber.join(updates));
+        expect(update?.status).toBe("TRIP_STATUS_ACCEPTED");
+        expect(update?.tripId).toBe("0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80");
+
+        const [offer] = Array.from(yield* Fiber.join(offers));
         expect(offer?.replyCell).toBe("871f1d492ffffff");
       }).pipe(Effect.provide(layer));
     }));

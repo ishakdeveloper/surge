@@ -307,6 +307,90 @@ export const V1GetTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1GetTripResponse" });
+export type V1ArriveTripResponse = {
+  readonly "trip": {
+    readonly "id": string;
+    readonly "riderId": string;
+    readonly "driverId": string;
+    readonly "status":
+      | "TRIP_STATUS_UNSPECIFIED"
+      | "TRIP_STATUS_REQUESTED"
+      | "TRIP_STATUS_OFFERED"
+      | "TRIP_STATUS_ACCEPTED"
+      | "TRIP_STATUS_ARRIVED"
+      | "TRIP_STATUS_IN_PROGRESS"
+      | "TRIP_STATUS_COMPLETED"
+      | "TRIP_STATUS_CANCELLED"
+      | "TRIP_STATUS_UNMATCHED";
+    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
+    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
+    readonly "route": {
+      readonly "polyline6": string;
+      readonly "meters": number;
+      readonly "seconds": string;
+    };
+    readonly "totalCents": string;
+    readonly "createdAt": string;
+    readonly "updatedAt": string;
+  };
+};
+export const V1ArriveTripResponse = Schema.Struct({
+  "trip": Schema.Struct({
+    "id": TripId,
+    "riderId": RiderId,
+    "driverId": DriverId,
+    "status": Schema.Literals([
+      "TRIP_STATUS_UNSPECIFIED",
+      "TRIP_STATUS_REQUESTED",
+      "TRIP_STATUS_OFFERED",
+      "TRIP_STATUS_ACCEPTED",
+      "TRIP_STATUS_ARRIVED",
+      "TRIP_STATUS_IN_PROGRESS",
+      "TRIP_STATUS_COMPLETED",
+      "TRIP_STATUS_CANCELLED",
+      "TRIP_STATUS_UNMATCHED",
+    ]).annotate({
+      "description":
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+      "default": "TRIP_STATUS_UNSPECIFIED",
+    }),
+    "pickup": Schema.Struct({
+      "lat": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "lng": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+    }).annotate({
+      "description":
+        "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which.",
+    }),
+    "dropoff": Schema.Struct({
+      "lat": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "lng": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+    }).annotate({
+      "description":
+        "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which.",
+    }),
+    "route": Schema.Struct({
+      "polyline6": Schema.String.annotate({
+        "description":
+          "Polyline encoded at precision 6, as Valhalla emits it. Not a repeated\nCoordinate: a city route is hundreds of points, and the encoded form is\nroughly a tenth the size on a connection a phone is paying for.",
+      }),
+      "meters": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "seconds": Int64FromString,
+    }).annotate({ "description": "Route is a driveable path with its cost." }),
+    "totalCents": CentsFromString,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1ArriveTripResponse" });
 export type TripServiceCancelTripBody = { readonly "reason": string; };
 export const TripServiceCancelTripBody = Schema.Struct({ "reason": Schema.String }).annotate({
   "identifier": "TripServiceCancelTripBody",
@@ -395,6 +479,174 @@ export const V1CancelTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1CancelTripResponse" });
+export type V1CompleteTripResponse = {
+  readonly "trip": {
+    readonly "id": string;
+    readonly "riderId": string;
+    readonly "driverId": string;
+    readonly "status":
+      | "TRIP_STATUS_UNSPECIFIED"
+      | "TRIP_STATUS_REQUESTED"
+      | "TRIP_STATUS_OFFERED"
+      | "TRIP_STATUS_ACCEPTED"
+      | "TRIP_STATUS_ARRIVED"
+      | "TRIP_STATUS_IN_PROGRESS"
+      | "TRIP_STATUS_COMPLETED"
+      | "TRIP_STATUS_CANCELLED"
+      | "TRIP_STATUS_UNMATCHED";
+    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
+    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
+    readonly "route": {
+      readonly "polyline6": string;
+      readonly "meters": number;
+      readonly "seconds": string;
+    };
+    readonly "totalCents": string;
+    readonly "createdAt": string;
+    readonly "updatedAt": string;
+  };
+};
+export const V1CompleteTripResponse = Schema.Struct({
+  "trip": Schema.Struct({
+    "id": TripId,
+    "riderId": RiderId,
+    "driverId": DriverId,
+    "status": Schema.Literals([
+      "TRIP_STATUS_UNSPECIFIED",
+      "TRIP_STATUS_REQUESTED",
+      "TRIP_STATUS_OFFERED",
+      "TRIP_STATUS_ACCEPTED",
+      "TRIP_STATUS_ARRIVED",
+      "TRIP_STATUS_IN_PROGRESS",
+      "TRIP_STATUS_COMPLETED",
+      "TRIP_STATUS_CANCELLED",
+      "TRIP_STATUS_UNMATCHED",
+    ]).annotate({
+      "description":
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+      "default": "TRIP_STATUS_UNSPECIFIED",
+    }),
+    "pickup": Schema.Struct({
+      "lat": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "lng": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+    }).annotate({
+      "description":
+        "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which.",
+    }),
+    "dropoff": Schema.Struct({
+      "lat": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "lng": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+    }).annotate({
+      "description":
+        "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which.",
+    }),
+    "route": Schema.Struct({
+      "polyline6": Schema.String.annotate({
+        "description":
+          "Polyline encoded at precision 6, as Valhalla emits it. Not a repeated\nCoordinate: a city route is hundreds of points, and the encoded form is\nroughly a tenth the size on a connection a phone is paying for.",
+      }),
+      "meters": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "seconds": Int64FromString,
+    }).annotate({ "description": "Route is a driveable path with its cost." }),
+    "totalCents": CentsFromString,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1CompleteTripResponse" });
+export type V1StartTripResponse = {
+  readonly "trip": {
+    readonly "id": string;
+    readonly "riderId": string;
+    readonly "driverId": string;
+    readonly "status":
+      | "TRIP_STATUS_UNSPECIFIED"
+      | "TRIP_STATUS_REQUESTED"
+      | "TRIP_STATUS_OFFERED"
+      | "TRIP_STATUS_ACCEPTED"
+      | "TRIP_STATUS_ARRIVED"
+      | "TRIP_STATUS_IN_PROGRESS"
+      | "TRIP_STATUS_COMPLETED"
+      | "TRIP_STATUS_CANCELLED"
+      | "TRIP_STATUS_UNMATCHED";
+    readonly "pickup": { readonly "lat": number; readonly "lng": number; };
+    readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
+    readonly "route": {
+      readonly "polyline6": string;
+      readonly "meters": number;
+      readonly "seconds": string;
+    };
+    readonly "totalCents": string;
+    readonly "createdAt": string;
+    readonly "updatedAt": string;
+  };
+};
+export const V1StartTripResponse = Schema.Struct({
+  "trip": Schema.Struct({
+    "id": TripId,
+    "riderId": RiderId,
+    "driverId": DriverId,
+    "status": Schema.Literals([
+      "TRIP_STATUS_UNSPECIFIED",
+      "TRIP_STATUS_REQUESTED",
+      "TRIP_STATUS_OFFERED",
+      "TRIP_STATUS_ACCEPTED",
+      "TRIP_STATUS_ARRIVED",
+      "TRIP_STATUS_IN_PROGRESS",
+      "TRIP_STATUS_COMPLETED",
+      "TRIP_STATUS_CANCELLED",
+      "TRIP_STATUS_UNMATCHED",
+    ]).annotate({
+      "description":
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+      "default": "TRIP_STATUS_UNSPECIFIED",
+    }),
+    "pickup": Schema.Struct({
+      "lat": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "lng": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+    }).annotate({
+      "description":
+        "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which.",
+    }),
+    "dropoff": Schema.Struct({
+      "lat": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "lng": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+    }).annotate({
+      "description":
+        "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which.",
+    }),
+    "route": Schema.Struct({
+      "polyline6": Schema.String.annotate({
+        "description":
+          "Polyline encoded at precision 6, as Valhalla emits it. Not a repeated\nCoordinate: a city route is hundreds of points, and the encoded form is\nroughly a tenth the size on a connection a phone is paying for.",
+      }),
+      "meters": Schema.Number.annotate({ "format": "double" }).check(
+        Schema.isFinite().annotate({ "expected": "a finite number" }),
+      ),
+      "seconds": Int64FromString,
+    }).annotate({ "description": "Route is a driveable path with its cost." }),
+    "totalCents": CentsFromString,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1StartTripResponse" });
 export type V1PreviewTripRequest = {
   readonly "pickup": { readonly "lat": number; readonly "lng": number; };
   readonly "dropoff": { readonly "lat": number; readonly "lng": number; };
@@ -514,6 +766,12 @@ export type Get200 = V1GetTripResponse;
 export const Get200 = V1GetTripResponse;
 export type Getdefault = V1ErrorBody;
 export const Getdefault = V1ErrorBody;
+export type ArrivePathParams = { readonly "tripId": string; };
+export const ArrivePathParams = Schema.Struct({ "tripId": TripId });
+export type Arrive200 = V1ArriveTripResponse;
+export const Arrive200 = V1ArriveTripResponse;
+export type Arrivedefault = V1ErrorBody;
+export const Arrivedefault = V1ErrorBody;
 export type CancelPathParams = { readonly "tripId": string; };
 export const CancelPathParams = Schema.Struct({ "tripId": TripId });
 export type CancelRequestJson = TripServiceCancelTripBody;
@@ -522,6 +780,18 @@ export type Cancel200 = V1CancelTripResponse;
 export const Cancel200 = V1CancelTripResponse;
 export type Canceldefault = V1ErrorBody;
 export const Canceldefault = V1ErrorBody;
+export type CompletePathParams = { readonly "tripId": string; };
+export const CompletePathParams = Schema.Struct({ "tripId": TripId });
+export type Complete200 = V1CompleteTripResponse;
+export const Complete200 = V1CompleteTripResponse;
+export type Completedefault = V1ErrorBody;
+export const Completedefault = V1ErrorBody;
+export type StartPathParams = { readonly "tripId": string; };
+export const StartPathParams = Schema.Struct({ "tripId": TripId });
+export type Start200 = V1StartTripResponse;
+export const Start200 = V1StartTripResponse;
+export type Startdefault = V1ErrorBody;
+export const Startdefault = V1ErrorBody;
 export type PreviewRequestJson = V1PreviewTripRequest;
 export const PreviewRequestJson = V1PreviewTripRequest;
 export type Preview200 = V1PreviewTripResponse;
@@ -537,7 +807,10 @@ class TripsGroup extends HttpApiGroup.make("trips")
       error: Listdefault,
     })
       .annotate(OpenApi.Identifier, "list")
-      .annotate(OpenApi.Summary, "ListTrips is a rider's history, newest first."),
+      .annotate(
+        OpenApi.Summary,
+        "ListTrips is the caller's history, newest first — the rides a rider booked,\nor the rides a driver was assigned. The token decides which.",
+      ),
     HttpApiEndpoint.post("create", "/v1/trips", {
       payload: CreateRequestJson,
       success: Create200,
@@ -559,6 +832,20 @@ class TripsGroup extends HttpApiGroup.make("trips")
     })
       .annotate(OpenApi.Identifier, "get")
       .annotate(OpenApi.Summary, "Get returns a trip's current state."),
+    HttpApiEndpoint.post("arrive", "/v1/trips/:tripId/arrive", {
+      params: ArrivePathParams,
+      success: Arrive200,
+      error: Arrivedefault,
+    })
+      .annotate(OpenApi.Identifier, "arrive")
+      .annotate(
+        OpenApi.Summary,
+        "ArriveTrip, StartTrip and CompleteTrip are the driver's half of the\nlifecycle: accepted → arrived → in progress → completed.",
+      )
+      .annotate(
+        OpenApi.Description,
+        "Only the driver the trip is assigned to may call them, and the trip service\nenforces that rather than the gateway, for the same reason ownership is\nenforced there on reads: only the service knows whose trip it is. A caller\nwho is not the assigned driver gets NotFound, because confirming a trip\nexists to someone who may not touch it is itself a disclosure.\n\nNo body: the trip id in the path is the whole request, and the caller is\nmetadata like everywhere else.\nArrive: the driver is at the pickup.",
+      ),
     HttpApiEndpoint.post("cancel", "/v1/trips/:tripId/cancel", {
       params: CancelPathParams,
       payload: CancelRequestJson,
@@ -571,6 +858,20 @@ class TripsGroup extends HttpApiGroup.make("trips")
         OpenApi.Description,
         "A custom method rather than DELETE: cancelling is a state transition that\nreturns the trip, not a deletion — the row stays, and a rider can still\nread what happened to it.",
       ),
+    HttpApiEndpoint.post("complete", "/v1/trips/:tripId/complete", {
+      params: CompletePathParams,
+      success: Complete200,
+      error: Completedefault,
+    })
+      .annotate(OpenApi.Identifier, "complete")
+      .annotate(OpenApi.Summary, "Complete: the rider has been dropped off."),
+    HttpApiEndpoint.post("start", "/v1/trips/:tripId/start", {
+      params: StartPathParams,
+      success: Start200,
+      error: Startdefault,
+    })
+      .annotate(OpenApi.Identifier, "start")
+      .annotate(OpenApi.Summary, "Start: the rider is in the car."),
     HttpApiEndpoint.post("preview", "/v1/trips:preview", {
       payload: PreviewRequestJson,
       success: Preview200,

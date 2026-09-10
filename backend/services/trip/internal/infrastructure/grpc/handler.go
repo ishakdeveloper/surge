@@ -11,6 +11,7 @@ import (
 	"errors"
 
 	"github.com/ishakdeveloper/surge/services/trip/internal/domain"
+	"github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/wirestatus"
 	"github.com/ishakdeveloper/surge/services/trip/internal/service"
 	"github.com/ishakdeveloper/surge/shared/authz"
 	"github.com/ishakdeveloper/surge/shared/geo"
@@ -125,7 +126,7 @@ func (h *Handler) GetTrip(ctx context.Context, request *trippb.GetTripRequest) (
 	// who is asking; only this service knows whose trip it is, and putting the
 	// check where the data is means a second caller — the console, a mobile
 	// app, a direct gRPC client — cannot skip it by not being the gateway.
-	if trip.RiderID != caller.UserID && caller.Role != authz.RoleOps {
+	if !canSee(caller, trip) {
 		// NotFound, not PermissionDenied: confirming that a trip exists to
 		// someone who may not see it is itself a disclosure.
 		return nil, status.Error(codes.NotFound, "unknown trip")
@@ -134,21 +135,37 @@ func (h *Handler) GetTrip(ctx context.Context, request *trippb.GetTripRequest) (
 	return &trippb.GetTripResponse{Trip: toProto(trip)}, nil
 }
 
+// canSee is the read rule: the rider who booked it, the driver assigned to it,
+// or ops. The driver clause guards the empty id explicitly — an unassigned trip
+// has DriverID "", and that must not match anybody.
+func canSee(caller authz.Identity, trip *domain.Trip) bool {
+	return trip.RiderID == caller.UserID ||
+		(trip.DriverID != "" && trip.DriverID == caller.UserID) ||
+		caller.Role == authz.RoleOps
+}
+
 func (h *Handler) ListTrips(ctx context.Context, request *trippb.ListTripsRequest) (*trippb.ListTripsResponse, error) {
 	caller, err := authz.RequireCaller(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	page, err := h.service.List(ctx, domain.ListFilter{
-		// A rider lists their own trips and nobody else's. There is no
-		// parameter for whose history to read, which is the simplest way to
-		// ensure there is no way to ask for someone else's.
-		RiderID: caller.UserID,
-		Status:  domain.Status(request.GetStatus()),
-		Limit:   int(request.GetPageSize()),
-		Cursor:  request.GetPageToken(),
-	})
+	// The caller lists their own trips and nobody else's. There is no
+	// parameter for whose history to read, which is the simplest way to ensure
+	// there is no way to ask for someone else's — the token decides, and so
+	// does which side of a trip the token belongs to.
+	filter := domain.ListFilter{
+		Status: domain.Status(request.GetStatus()),
+		Limit:  int(request.GetPageSize()),
+		Cursor: request.GetPageToken(),
+	}
+	if caller.Role == authz.RoleDriver {
+		filter.DriverID = caller.UserID
+	} else {
+		filter.RiderID = caller.UserID
+	}
+
+	page, err := h.service.List(ctx, filter)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not list trips: %v", err)
 	}
@@ -194,6 +211,61 @@ func (h *Handler) CancelTrip(ctx context.Context, request *trippb.CancelTripRequ
 	return &trippb.CancelTripResponse{Trip: toProto(trip)}, nil
 }
 
+func (h *Handler) ArriveTrip(ctx context.Context, request *trippb.ArriveTripRequest) (*trippb.ArriveTripResponse, error) {
+	trip, err := h.driverAction(ctx, request.GetTripId(), h.service.Arrive)
+	if err != nil {
+		return nil, err
+	}
+	return &trippb.ArriveTripResponse{Trip: toProto(trip)}, nil
+}
+
+func (h *Handler) StartTrip(ctx context.Context, request *trippb.StartTripRequest) (*trippb.StartTripResponse, error) {
+	trip, err := h.driverAction(ctx, request.GetTripId(), h.service.Start)
+	if err != nil {
+		return nil, err
+	}
+	return &trippb.StartTripResponse{Trip: toProto(trip)}, nil
+}
+
+func (h *Handler) CompleteTrip(ctx context.Context, request *trippb.CompleteTripRequest) (*trippb.CompleteTripResponse, error) {
+	trip, err := h.driverAction(ctx, request.GetTripId(), h.service.Complete)
+	if err != nil {
+		return nil, err
+	}
+	return &trippb.CompleteTripResponse{Trip: toProto(trip)}, nil
+}
+
+// driverAction is the shared shape of the three driver transitions: a driver,
+// a trip id, and the translation of what can go wrong into status codes.
+func (h *Handler) driverAction(
+	ctx context.Context, tripID string,
+	action func(ctx context.Context, tripID, driverID string) (*domain.Trip, error),
+) (*domain.Trip, error) {
+	caller, err := authz.RequireCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if caller.Role != authz.RoleDriver {
+		return nil, status.Error(codes.PermissionDenied, "only a driver can move a trip forward")
+	}
+
+	trip, err := action(ctx, tripID, caller.UserID)
+
+	switch {
+	case errors.Is(err, domain.ErrNotFound), errors.Is(err, service.ErrNotAssigned):
+		return nil, status.Error(codes.NotFound, "unknown trip")
+	case errors.Is(err, domain.ErrInvalidTransition):
+		// FailedPrecondition: the request was well formed, the trip is simply
+		// not in a state it can move from — "start" before "arrive", or twice
+		// "complete" from a retry after the first one landed.
+		return nil, status.Errorf(codes.FailedPrecondition, "this trip cannot do that now: %v", err)
+	case err != nil:
+		return nil, status.Errorf(codes.Internal, "could not update trip: %v", err)
+	}
+
+	return trip, nil
+}
+
 func point(c *commonpb.Coordinate) geo.Point {
 	return geo.Point{Lat: c.GetLat(), Lng: c.GetLng()}
 }
@@ -202,27 +274,12 @@ func coordinate(p geo.Point) *commonpb.Coordinate {
 	return &commonpb.Coordinate{Lat: p.Lat, Lng: p.Lng}
 }
 
-// statuses maps the domain's state names to the wire enum.
-//
-// An explicit table rather than a string cast, so renaming a domain constant is
-// a compile error here instead of a silently UNSPECIFIED status on the wire.
-var statuses = map[domain.Status]trippb.TripStatus{
-	domain.StatusRequested:  trippb.TripStatus_TRIP_STATUS_REQUESTED,
-	domain.StatusOffered:    trippb.TripStatus_TRIP_STATUS_OFFERED,
-	domain.StatusAccepted:   trippb.TripStatus_TRIP_STATUS_ACCEPTED,
-	domain.StatusArrived:    trippb.TripStatus_TRIP_STATUS_ARRIVED,
-	domain.StatusInProgress: trippb.TripStatus_TRIP_STATUS_IN_PROGRESS,
-	domain.StatusCompleted:  trippb.TripStatus_TRIP_STATUS_COMPLETED,
-	domain.StatusCancelled:  trippb.TripStatus_TRIP_STATUS_CANCELLED,
-	domain.StatusUnmatched:  trippb.TripStatus_TRIP_STATUS_UNMATCHED,
-}
-
 func toProto(trip *domain.Trip) *trippb.Trip {
 	return &trippb.Trip{
 		Id:         trip.ID,
 		RiderId:    trip.RiderID,
 		DriverId:   trip.DriverID,
-		Status:     statuses[trip.Status],
+		Status:     wirestatus.Of(trip.Status),
 		Pickup:     coordinate(trip.Pickup),
 		Dropoff:    coordinate(trip.Dropoff),
 		Route:      &commonpb.Route{Polyline6: trip.Polyline6, Meters: trip.Meters, Seconds: trip.Seconds},

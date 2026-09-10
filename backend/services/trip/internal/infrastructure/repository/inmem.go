@@ -90,7 +90,9 @@ func (r *InMemory) List(_ context.Context, filter domain.ListFilter) (domain.Pag
 
 	var found []domain.Trip
 	for _, trip := range r.trips {
-		if trip.RiderID != filter.RiderID {
+		ownsIt := (filter.RiderID != "" && trip.RiderID == filter.RiderID) ||
+			(filter.DriverID != "" && trip.DriverID == filter.DriverID)
+		if !ownsIt {
 			continue
 		}
 		if filter.Status != "" && trip.Status != filter.Status {

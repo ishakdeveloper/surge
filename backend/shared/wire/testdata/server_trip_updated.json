@@ -1,0 +1,10 @@
+{
+  "_tag": "TripUpdated",
+  "trip": {
+    "tripId": "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+    "riderId": "rider-000456",
+    "driverId": "drv-000123",
+    "status": "TRIP_STATUS_ACCEPTED",
+    "atMs": 1757512331000
+  }
+}

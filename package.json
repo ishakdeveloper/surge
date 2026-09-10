@@ -25,7 +25,8 @@
     "coverage": "vitest run --coverage",
     "clean": "rm -rf apps/*/build apps/*/.tsbuildinfo packages/*/build packages/*/.tsbuildinfo apps/web/dist apps/web/.output apps/web/.tanstack coverage",
     "sync:skills": "node scripts/sync-effect-skills.mjs",
-    "capture:api-fixtures": "node scripts/capture-api-fixtures.mjs"
+    "capture:api-fixtures": "node scripts/capture-api-fixtures.mjs",
+    "test:integration": "vitest run --project client-integration"
   },
   "devDependencies": {
     "@effect/openapi-generator": "catalog:",

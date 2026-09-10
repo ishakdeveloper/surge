@@ -23,7 +23,7 @@
   "paths": {
     "/v1/trips": {
       "get": {
-        "summary": "ListTrips is a rider's history, newest first.",
+        "summary": "ListTrips is the caller's history, newest first — the rides a rider booked,\nor the rides a driver was assigned. The token decides which.",
         "operationId": "list",
         "responses": {
           "200": {
@@ -132,6 +132,39 @@
         ]
       }
     },
+    "/v1/trips/{tripId}/arrive": {
+      "post": {
+        "summary": "ArriveTrip, StartTrip and CompleteTrip are the driver's half of the\nlifecycle: accepted → arrived → in progress → completed.",
+        "description": "Only the driver the trip is assigned to may call them, and the trip service\nenforces that rather than the gateway, for the same reason ownership is\nenforced there on reads: only the service knows whose trip it is. A caller\nwho is not the assigned driver gets NotFound, because confirming a trip\nexists to someone who may not touch it is itself a disclosure.\n\nNo body: the trip id in the path is the whole request, and the caller is\nmetadata like everywhere else.\nArrive: the driver is at the pickup.",
+        "operationId": "arrive",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ArriveTripResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "trips"
+        ]
+      }
+    },
     "/v1/trips/{tripId}/cancel": {
       "post": {
         "summary": "Cancel ends a trip before completion.",
@@ -173,6 +206,103 @@
         ]
       }
     },
+    "/v1/trips/{tripId}/complete": {
+      "post": {
+        "summary": "Complete: the rider has been dropped off.",
+        "operationId": "complete",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteTripResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "trips"
+        ]
+      }
+    },
+    "/v1/trips/{tripId}/start": {
+      "post": {
+        "summary": "Start: the rider is in the car.",
+        "operationId": "start",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartTripResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "trips"
+        ]
+      }
+    },
+    "/v1/trips/{tripId}:arrive": {
+      "post": {
+        "summary": "ArriveTrip, StartTrip and CompleteTrip are the driver's half of the\nlifecycle: accepted → arrived → in progress → completed.",
+        "description": "Only the driver the trip is assigned to may call them, and the trip service\nenforces that rather than the gateway, for the same reason ownership is\nenforced there on reads: only the service knows whose trip it is. A caller\nwho is not the assigned driver gets NotFound, because confirming a trip\nexists to someone who may not touch it is itself a disclosure.\n\nNo body: the trip id in the path is the whole request, and the caller is\nmetadata like everywhere else.\nArrive: the driver is at the pickup.",
+        "operationId": "arrive",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ArriveTripResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "trips"
+        ]
+      }
+    },
     "/v1/trips/{tripId}:cancel": {
       "post": {
         "summary": "Cancel ends a trip before completion.",
@@ -207,6 +337,70 @@
             "schema": {
               "$ref": "#/definitions/TripServiceCancelTripBody"
             }
+          }
+        ],
+        "tags": [
+          "trips"
+        ]
+      }
+    },
+    "/v1/trips/{tripId}:complete": {
+      "post": {
+        "summary": "Complete: the rider has been dropped off.",
+        "operationId": "complete",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteTripResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "trips"
+        ]
+      }
+    },
+    "/v1/trips/{tripId}:start": {
+      "post": {
+        "summary": "Start: the rider is in the car.",
+        "operationId": "start",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartTripResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
           }
         ],
         "tags": [
@@ -259,7 +453,23 @@
         }
       }
     },
+    "v1ArriveTripResponse": {
+      "type": "object",
+      "properties": {
+        "trip": {
+          "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
     "v1CancelTripResponse": {
+      "type": "object",
+      "properties": {
+        "trip": {
+          "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1CompleteTripResponse": {
       "type": "object",
       "properties": {
         "trip": {
@@ -420,6 +630,14 @@
         }
       },
       "description": "Route is a driveable path with its cost."
+    },
+    "v1StartTripResponse": {
+      "type": "object",
+      "properties": {
+        "trip": {
+          "$ref": "#/definitions/v1Trip"
+        }
+      }
     },
     "v1Trip": {
       "type": "object",

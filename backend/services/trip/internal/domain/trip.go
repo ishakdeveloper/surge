@@ -137,9 +137,15 @@ type Page struct {
 	NextCursor string
 }
 
-// ListFilter narrows a rider's history.
+// ListFilter narrows a caller's history.
+//
+// Exactly one of RiderID and DriverID is set, by whoever built the filter from a
+// verified caller. Both repositories match on whichever is set and on nothing
+// when neither is — so a filter built wrongly lists no trips rather than every
+// trip, which is the only acceptable way for that bug to fail.
 type ListFilter struct {
-	RiderID string
+	RiderID  string
+	DriverID string
 	// Status is optional; empty means every status.
 	Status Status
 	Limit  int

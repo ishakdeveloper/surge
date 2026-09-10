@@ -361,9 +361,14 @@ type ClientMessage struct {
 
 // ServerMessage is the outbound envelope. Offers are the main event; trip
 // updates and errors share the channel.
+//
+// It is also the value of every `ws.push` record, keyed by the recipient's user
+// id, so the gateway forwards bytes it did not have to build: whoever produces a
+// push decides what the client sees, and the gateway only decides who.
 type ServerMessage struct {
-	Tag   string `json:"_tag"`
-	Offer *Offer `json:"offer,omitempty"`
+	Tag   string      `json:"_tag"`
+	Offer *Offer      `json:"offer,omitempty"`
+	Trip  *TripUpdate `json:"trip,omitempty"`
 	// Error carries a human-meaningful reason when the gateway refuses
 	// something, so a client can distinguish "your token expired" from "the
 	// network dropped".
@@ -373,4 +378,42 @@ type ServerMessage struct {
 const (
 	TagServerError   = "ServerError"
 	TagServerWelcome = "ServerWelcome"
+	// TagTripUpdated is a trip changing state, pushed to its rider and to its
+	// driver. It is what lets a rider watch "finding you a driver" become "your
+	// driver is on the way" without polling for it.
+	TagTripUpdated = "TripUpdated"
 )
+
+// TripUpdate is the notification, not the trip.
+//
+// Deliberately thin: enough to render a status and to know which trip to fetch,
+// no more. The full trip is one REST call away and already has a decoder, and a
+// second, pushed copy of it would be a second shape to keep in step with the
+// proto.
+type TripUpdate struct {
+	TripID   string `json:"tripId"`
+	RiderID  string `json:"riderId"`
+	DriverID string `json:"driverId"`
+	// Status is the protobuf enum name — TRIP_STATUS_ACCEPTED — exactly as the
+	// REST API spells it, so a client holds one status type rather than two.
+	Status string `json:"status"`
+	AtMs   int64  `json:"atMs"`
+}
+
+// Valid reports whether the payload matching the tag is present.
+//
+// The gateway forwards push records verbatim, so this is the last point at
+// which a record whose tag and payload disagree can be dropped rather than
+// delivered to a client that would fail to decode it.
+func (m ServerMessage) Valid() bool {
+	switch m.Tag {
+	case TagOffer:
+		return m.Offer != nil
+	case TagTripUpdated:
+		return m.Trip != nil && m.Trip.TripID != ""
+	case TagServerError, TagServerWelcome:
+		return true
+	default:
+		return false
+	}
+}

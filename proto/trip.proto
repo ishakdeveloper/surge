@@ -141,12 +141,81 @@ service TripService {
     };
   }
 
-  // ListTrips is a rider's history, newest first.
+  // ListTrips is the caller's history, newest first — the rides a rider booked,
+  // or the rides a driver was assigned. The token decides which.
   rpc ListTrips(ListTripsRequest) returns (ListTripsResponse) {
     option (google.api.http) = {get: "/v1/trips"};
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       tags: "trips"
       operation_id: "list"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ArriveTrip, StartTrip and CompleteTrip are the driver's half of the
+  // lifecycle: accepted → arrived → in progress → completed.
+  //
+  // Only the driver the trip is assigned to may call them, and the trip service
+  // enforces that rather than the gateway, for the same reason ownership is
+  // enforced there on reads: only the service knows whose trip it is. A caller
+  // who is not the assigned driver gets NotFound, because confirming a trip
+  // exists to someone who may not touch it is itself a disclosure.
+  //
+  // No body: the trip id in the path is the whole request, and the caller is
+  // metadata like everywhere else.
+  // Arrive: the driver is at the pickup.
+  rpc ArriveTrip(ArriveTripRequest) returns (ArriveTripResponse) {
+    option (google.api.http) = {
+      post: "/v1/trips/{trip_id}:arrive"
+      additional_bindings: {post: "/v1/trips/{trip_id}/arrive"}
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "arrive"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // Start: the rider is in the car.
+  rpc StartTrip(StartTripRequest) returns (StartTripResponse) {
+    option (google.api.http) = {
+      post: "/v1/trips/{trip_id}:start"
+      additional_bindings: {post: "/v1/trips/{trip_id}/start"}
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "start"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // Complete: the rider has been dropped off.
+  rpc CompleteTrip(CompleteTripRequest) returns (CompleteTripResponse) {
+    option (google.api.http) = {
+      post: "/v1/trips/{trip_id}:complete"
+      additional_bindings: {post: "/v1/trips/{trip_id}/complete"}
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "trips"
+      operation_id: "complete"
       responses: {
         key: "default"
         value: {
@@ -217,6 +286,30 @@ message CancelTripRequest {
 }
 
 message CancelTripResponse {
+  Trip trip = 1;
+}
+
+message ArriveTripRequest {
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+}
+
+message ArriveTripResponse {
+  Trip trip = 1;
+}
+
+message StartTripRequest {
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+}
+
+message StartTripResponse {
+  Trip trip = 1;
+}
+
+message CompleteTripRequest {
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+}
+
+message CompleteTripResponse {
   Trip trip = 1;
 }
 

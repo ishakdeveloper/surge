@@ -43,20 +43,22 @@ const FORMATS = {
 };
 
 /**
- * The `:cancel` binding, which exists in the proto because it is Google's
- * convention for custom methods.
+ * Custom methods — `:cancel`, `:arrive` — are Google's convention, and every one
+ * in the proto carries a second binding on a plain path segment beside it.
  *
  * Effect's router reads `/v1/trips/:tripId:cancel` as a parameter literally
- * named `tripId:cancel`, so the client cannot express it. The proto declares a
- * second binding on a plain path segment for exactly this, and both reach the
- * same handler — so the generated client uses that one and this drops the
- * other rather than emitting a route that would never match.
+ * named `tripId:cancel`, so the client cannot express the `:verb` spelling at
+ * all. Both bindings reach the same handler, so the generated client takes the
+ * segment one and every `}:verb` path is dropped here — as a rule, so the next
+ * custom method needs nothing in this file.
  */
-const UNROUTABLE = "/v1/trips/{tripId}:cancel";
+const UNROUTABLE = /\}:[A-Za-z]+$/;
 
 const spec = JSON.parse(fs.readFileSync(specPath, "utf8"));
 
-delete spec.paths[UNROUTABLE];
+for (const route of Object.keys(spec.paths)) {
+  if (UNROUTABLE.test(route)) delete spec.paths[route];
+}
 
 /**
  * proto3 has no required fields, so every property in the document is optional
