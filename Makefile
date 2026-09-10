@@ -9,10 +9,10 @@ GO      := cd backend && go
 BIN     := backend/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help proto images k8s-up k8s-down k8s-status tilt scaffold up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold up down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
-	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 # --- kubernetes -------------------------------------------------------------
 #
@@ -34,22 +34,27 @@ images: ## Build every container image
 	@echo "  building auth"
 	@docker build -q -f apps/auth/Dockerfile -t surge/auth:dev . > /dev/null
 
-k8s-up: images ## Deploy the whole system to a local cluster
+K8S_ENV ?= development
+
+k8s-up: images ## Deploy to a local cluster (K8S_ENV=development)
 	@kubectl --context $(KCTX) config current-context | grep -qE '^(orbstack|docker-desktop|rancher-desktop|minikube|kind-)' \
 		|| { echo "refusing: $(KCTX) is not a local cluster"; exit 1; }
-	kubectl --context $(KCTX) apply -f deploy/k8s/00-namespace.yaml
+	kubectl --context $(KCTX) apply -f deploy/k8s/base/namespace.yaml
 	@kubectl --context $(KCTX) -n surge get secret surge-secrets >/dev/null 2>&1 || \
 		kubectl --context $(KCTX) -n surge create secret generic surge-secrets \
 			--from-literal=AUTH_SECRET="$$(openssl rand -base64 32)" \
 			--from-literal=SIM_TOKEN_SECRET="$$(openssl rand -base64 32)" \
 			--from-literal=SIM_ENABLED=true
-	kubectl --context $(KCTX) apply -f deploy/k8s/
+	kubectl --context $(KCTX) apply -k deploy/k8s/$(K8S_ENV)
 	@echo
 	@echo "  kubectl --context $(KCTX) -n surge get pods -w"
 	@echo "  valhalla builds tiles on first boot; the rest waits for it rather than crashlooping"
 
 k8s-down: ## Remove the deployment, keep the cluster
 	kubectl --context $(KCTX) delete namespace surge --ignore-not-found
+
+k8s-diff: ## Render an environment: make k8s-diff K8S_ENV=production
+	@kubectl --context $(KCTX) kustomize deploy/k8s/$(K8S_ENV)
 
 k8s-status: ## Pods, and the shard assignment across matcher pods
 	@kubectl --context $(KCTX) -n surge get pods

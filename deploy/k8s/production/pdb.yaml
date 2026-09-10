@@ -1,0 +1,29 @@
+# What a node drain may not take away.
+#
+# Without these a cluster upgrade can evict every pod of a tier at once, which
+# for the matcher means every shard rebalancing simultaneously and for the
+# gateway means every connection in the fleet reconnecting at the same instant.
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: gateway, namespace: surge }
+spec:
+  minAvailable: 75%
+  selector: { matchLabels: { app: gateway } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: matcher, namespace: surge }
+spec:
+  # One at a time. Each eviction is a rebalance, and overlapping rebalances
+  # means shards that never finish restoring before losing their partitions
+  # again.
+  maxUnavailable: 1
+  selector: { matchLabels: { app: matcher } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: trip, namespace: surge }
+spec:
+  minAvailable: 1
+  selector: { matchLabels: { app: trip } }

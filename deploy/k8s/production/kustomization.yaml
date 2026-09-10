@@ -1,0 +1,84 @@
+# Production.
+#
+# The differences from development are the ones worth being explicit about:
+#
+#   - No infrastructure. Postgres, Kafka and the routing engine are managed
+#     services, addressed through a Secret. Running a single-replica Redpanda
+#     on emptyDir next to the thing that depends on it is fine on a laptop and
+#     is data loss anywhere else.
+#   - No simulator. It mints its own driver identities; it has no business
+#     anywhere a real rider might be, and SIM_ENABLED is absent so the gateway
+#     would refuse those tokens even if it were deployed by accident.
+#   - Images come from a registry with an immutable tag, set by CI.
+#   - Real replica counts, requests that reflect measured usage, and a
+#     PodDisruptionBudget so a node drain cannot take a whole tier down.
+#
+#   kubectl apply -k deploy/k8s/production
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: surge
+
+resources:
+  - ../base
+  - hpa.yaml
+  - pdb.yaml
+
+# CI replaces the tag with the commit sha:
+#   kustomize edit set image surge/gateway=ghcr.io/ishakdeveloper/surge-gateway:$SHA
+images:
+  - { name: surge/auth, newName: ghcr.io/ishakdeveloper/surge-auth, newTag: latest }
+  - { name: surge/gateway, newName: ghcr.io/ishakdeveloper/surge-gateway, newTag: latest }
+  - { name: surge/ingest, newName: ghcr.io/ishakdeveloper/surge-ingest, newTag: latest }
+  - { name: surge/matcher, newName: ghcr.io/ishakdeveloper/surge-matcher, newTag: latest }
+  - { name: surge/trip, newName: ghcr.io/ishakdeveloper/surge-trip, newTag: latest }
+  - { name: surge/migrate, newName: ghcr.io/ishakdeveloper/surge-migrate, newTag: latest }
+
+configMapGenerator:
+  - name: surge-config
+    behavior: merge
+    literals:
+      # Addresses of managed services. Credentials are NOT here — DATABASE_URL
+      # and KAFKA_BROKERS carry hostnames and passwords, so they come from the
+      # secret instead.
+      - OTEL_TRACES_SAMPLER_ARG=0.01
+      - GATEWAY_ORIGINS=https://app.surge.example
+
+patches:
+  # Pull from a registry, unlike development where images are built locally and
+  # a pull would fail on every rollout.
+  - target: { kind: Deployment }
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+
+  # Replica counts follow what each tier scales on.
+  - target: { kind: Deployment, name: gateway }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 4
+  - target: { kind: Deployment, name: ingest }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 4
+  # Matcher replicas divide the 32 partitions. Keep this a factor of 32 or the
+  # assignment is lopsided: 5 instances means three own 7 cells and two own 6.
+  - target: { kind: Deployment, name: matcher }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 8
+
+  # Credentials come from the secret, overriding the development ConfigMap
+  # values that point at in-cluster services.
+  - target: { kind: Deployment, name: trip }
+    path: patch-managed-services.yaml
+  - target: { kind: Deployment, name: ingest }
+    path: patch-managed-services.yaml
+  - target: { kind: Deployment, name: matcher }
+    path: patch-managed-services.yaml
+  - target: { kind: Deployment, name: gateway }
+    path: patch-managed-services.yaml

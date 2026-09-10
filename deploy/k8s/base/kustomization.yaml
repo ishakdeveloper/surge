@@ -1,0 +1,35 @@
+# What every environment has in common.
+#
+# Base is deliberately not deployable on its own: it names a ConfigMap whose
+# values differ per environment and images without a registry. An overlay
+# supplies both. That is the point of the split — the shape of the system lives
+# here, and the things that genuinely differ between a laptop and production
+# live next to the environment that differs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: surge
+
+resources:
+  - namespace.yaml
+  - auth.yaml
+  - gateway.yaml
+  - ingest.yaml
+  - matcher.yaml
+  - trip.yaml
+  - migrate-job.yaml
+  - migrate-auth-job.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: surge
+    includeSelectors: false
+
+# A generator rather than a plain ConfigMap, so kustomize appends a content
+# hash to the name and rewrites every reference to it. Changing a value then
+# changes the ConfigMap's name, which rolls the Deployments that read it — the
+# alternative is editing config and wondering why nothing picked it up.
+configMapGenerator:
+  - name: surge-config
+    envs:
+      - config.env

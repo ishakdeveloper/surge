@@ -1,0 +1,43 @@
+# Autoscaling, on what each tier actually scales on.
+#
+# Only two tiers get one. The matcher is deliberately absent: its replica count
+# determines the shard assignment, so scaling it is a rebalance — every instance
+# stops matching for the cells it hands over, and doing that automatically in
+# response to a CPU spike would trade a slow minute for a stalled one.
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: gateway, namespace: surge }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: gateway }
+  minReplicas: 4
+  maxReplicas: 40
+  metrics:
+    # CPU is a poor proxy for a connection-bound service — ten thousand idle
+    # sockets cost almost nothing — so this is a floor against runaway work
+    # rather than the real signal. The real signal is
+    # surge_gateway_connections, which needs a custom metrics adapter.
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+  behavior:
+    scaleDown:
+      # Slow, because scaling in drops WebSocket connections and every dropped
+      # client reconnects at once. A hasty scale-down is a self-inflicted
+      # thundering herd.
+      stabilizationWindowSeconds: 600
+      policies: [{ type: Pods, value: 1, periodSeconds: 120 }]
+    scaleUp:
+      stabilizationWindowSeconds: 30
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: ingest, namespace: surge }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: ingest }
+  minReplicas: 4
+  # Capped at the partition count of loc.ping: more consumers than partitions
+  # means idle pods, since Kafka gives each partition to exactly one member.
+  maxReplicas: 32
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
