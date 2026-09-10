@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -79,11 +80,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if stripeProcessor != nil && !strings.HasPrefix(webURL, "https://") {
-		// Stripe refuses onboarding links whose return address is not HTTPS,
-		// localhost included. Everything else works; say so at boot rather
-		// than in a driver's failed click.
-		slog.Warn("PAYMENTS_WEB_URL is not https; Stripe will refuse driver onboarding links until it is",
+	if stripeProcessor != nil && plainHTTPOffLocalhost(webURL) {
+		// Onboarding links send the driver's browser back here. Stripe takes
+		// http://localhost for that in test mode — checked against the
+		// sandbox — but a real host has to be HTTPS. Said at boot rather than
+		// in a driver's failed click.
+		slog.Warn("PAYMENTS_WEB_URL is plain http on a real host; Stripe will refuse driver onboarding links",
 			"web_url", webURL)
 	}
 
@@ -226,6 +228,21 @@ func openProcessor() (service.Processor, *surgestripe.Processor, error) {
 			Key: "PAYMENTS_PROCESSOR", Value: name, Want: "processor",
 			Err: errors.New("want stripe or fake"),
 		}
+	}
+}
+
+// plainHTTPOffLocalhost reports a web URL Stripe will not send a driver back
+// to: http on anything but the loopback host.
+func plainHTTPOffLocalhost(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != "http" {
+		return false
+	}
+	switch parsed.Hostname() {
+	case "localhost", "127.0.0.1", "::1":
+		return false
+	default:
+		return true
 	}
 }
 
