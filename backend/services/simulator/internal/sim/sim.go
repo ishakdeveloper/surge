@@ -56,6 +56,13 @@ type Config struct {
 	// is exactly the case the per-driver sequence number exists to survive.
 	// Setting this to zero would hide a class of bug the real system has.
 	GPSNoiseMeters float64
+
+	// TripKm turns trips on. A driver who accepts drives to the pickup, then
+	// carries the rider about this far before cruising again, reporting
+	// enroute_pickup and on_trip as it goes. Zero keeps the fleet the earlier
+	// benchmarks measured, where accepting changes nothing and supply never
+	// drains — which is also why those runs had no pickups to learn ETAs from.
+	TripKm float64
 }
 
 func DefaultConfig() Config {
@@ -80,6 +87,8 @@ func (c Config) validate() error {
 		return fmt.Errorf("sim: speed range %.1f-%.1f km/h is not usable", c.SpeedKmhMin, c.SpeedKmhMax)
 	case c.GPSNoiseMeters < 0:
 		return fmt.Errorf("sim: gps noise must not be negative")
+	case c.TripKm < 0:
+		return fmt.Errorf("sim: trip length must not be negative")
 	}
 	return nil
 }
@@ -104,6 +113,10 @@ type Sim struct {
 	wg      sync.WaitGroup
 	running atomic.Int64
 	pings   atomic.Uint64
+
+	// inboxes is where accepted trips reach their drivers: driver id to a
+	// channel the driver's goroutine reads.
+	inboxes sync.Map
 }
 
 func New(pool *RoutePool, transport Transport, config Config, hooks Hooks) (*Sim, error) {
@@ -208,17 +221,23 @@ func (s *Sim) drive(ctx context.Context, index int, config Config) {
 	s.running.Add(1)
 	defer s.running.Add(-1)
 
-	var (
-		route    = s.pool.Random(source)
-		distance float64
-		seq      uint64
-	)
-	if route == nil {
+	// Accepted trips arrive here, from whichever transport answered the offer.
+	inbox := make(chan wire.Offer, 1)
+	s.inboxes.Store(id, inbox)
+	defer s.inboxes.Delete(id)
+
+	start := s.pool.Random(source)
+	if start == nil {
 		return
 	}
-	// Start somewhere along the route rather than at its head, so drivers
-	// sharing a route are scattered along it instead of convoying.
-	distance = source.Float64() * route.Path.Length()
+	var (
+		path = start.Path
+		// Start somewhere along the route rather than at its head, so drivers
+		// sharing a route are scattered along it instead of convoying.
+		distance = source.Float64() * start.Path.Length()
+		seq      uint64
+		status   = wire.StatusIdle
+	)
 
 	speedMps := (config.SpeedKmhMin + source.Float64()*(config.SpeedKmhMax-config.SpeedKmhMin)) / 3.6
 
@@ -229,27 +248,47 @@ func (s *Sim) drive(ctx context.Context, index int, config Config) {
 		select {
 		case <-ctx.Done():
 			return
+		case offer := <-inbox:
+			// A trip, if trips are on and this driver is free to take one. The
+			// leg to the pickup is a real route, so the time it takes is the
+			// time a pickup takes — which is what ETA prediction learns from.
+			if config.TripKm <= 0 || status != wire.StatusIdle {
+				continue
+			}
+			from, _ := path.At(distance)
+			path, distance = s.leg(ctx, from, geo.Point{Lat: offer.PickupLat, Lng: offer.PickupLng}), 0
+			status = wire.StatusEnRoutePickup
+			continue
 		case <-ticker.C:
 		}
 
 		distance += speedMps * config.PingInterval.Seconds()
 
-		if distance >= route.Path.Length() {
-			// Arrived. Pick a new route and carry on cruising — an idle driver
-			// in a city does not park, it circles.
-			if next := s.pool.Random(source); next != nil {
-				route = next
-				distance = 0
-				speedMps = (config.SpeedKmhMin + source.Float64()*(config.SpeedKmhMax-config.SpeedKmhMin)) / 3.6
-			} else {
-				distance = route.Path.Length()
-			}
-			if s.hooks.OnArrival != nil {
-				s.hooks.OnArrival()
+		if distance >= path.Length() {
+			switch status {
+			case wire.StatusEnRoutePickup:
+				// At the pickup. Carry the rider somewhere about TripKm away.
+				pickup, _ := path.At(path.Length())
+				path, distance = s.leg(ctx, pickup, s.destination(source, pickup, config.TripKm*1000)), 0
+				status = wire.StatusOnTrip
+			default:
+				// Arrived, or dropped the rider off. Pick a new route and carry on
+				// cruising — an idle driver in a city does not park, it circles.
+				status = wire.StatusIdle
+				if next := s.pool.Random(source); next != nil {
+					path = next.Path
+					distance = 0
+					speedMps = (config.SpeedKmhMin + source.Float64()*(config.SpeedKmhMax-config.SpeedKmhMin)) / 3.6
+				} else {
+					distance = path.Length()
+				}
+				if s.hooks.OnArrival != nil {
+					s.hooks.OnArrival()
+				}
 			}
 		}
 
-		position, heading := route.Path.At(distance)
+		position, heading := path.At(distance)
 		position = jitter(position, config.GPSNoiseMeters, source)
 
 		seq++
@@ -261,7 +300,7 @@ func (s *Sim) drive(ctx context.Context, index int, config Config) {
 			Lng:      position.Lng,
 			Heading:  heading,
 			SpeedMps: speedMps,
-			Status:   wire.StatusIdle,
+			Status:   status,
 			SentAtMs: time.Now().UnixMilli(),
 		}
 
@@ -277,6 +316,60 @@ func (s *Sim) drive(ctx context.Context, index int, config Config) {
 			s.hooks.OnPing()
 		}
 	}
+}
+
+// Assign hands an accepted trip to its driver. Non-blocking: a driver already
+// on a trip ignores a second one, as a real driver would.
+func (s *Sim) Assign(offer wire.Offer) {
+	inbox, ok := s.inboxes.Load(offer.DriverID)
+	if !ok {
+		return
+	}
+	select {
+	case inbox.(chan wire.Offer) <- offer:
+	default:
+	}
+}
+
+// leg is a drivable path between two points: Valhalla's, or a straight line
+// when it has none, because a simulated driver must never be stranded by a
+// gap in the road network.
+func (s *Sim) leg(ctx context.Context, from, to geo.Point) *geo.Path {
+	if s.pool.router != nil {
+		routeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		route, err := s.pool.router.Route(routeCtx, from, to)
+		cancel()
+		if err == nil {
+			return route.Path
+		}
+	}
+	if path, err := geo.NewPath([]geo.Point{from, to}); err == nil {
+		return path
+	}
+	// Already there: a path a metre long, so the next tick arrives.
+	path, _ := geo.NewPath([]geo.Point{from, {Lat: from.Lat + 1e-5, Lng: from.Lng}})
+	return path
+}
+
+// destination is where a trip ends: of many points on the road network, the
+// one whose distance from the pickup is closest to the target. Drawn from the
+// driver's own seeded source, so a run is repeatable.
+//
+// Many, not a few: the ring 1-2 km around a pickup is a few per cent of the
+// city, and eight tries missed it most of the time, sending trips far longer
+// or shorter than asked. Each try is a lookup in memory, not a route.
+func (s *Sim) destination(source *rand.Rand, pickup geo.Point, meters float64) geo.Point {
+	best, gap := pickup, math.Inf(1)
+	for range 64 {
+		point, ok := s.pool.RandomPoint(source)
+		if !ok {
+			continue
+		}
+		if off := math.Abs(geo.DistanceMeters(pickup, point) - meters); off < gap {
+			best, gap = point, off
+		}
+	}
+	return best
 }
 
 // jitter displaces a point by a random offset with the given standard
