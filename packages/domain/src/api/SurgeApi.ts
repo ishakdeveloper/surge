@@ -16,7 +16,13 @@
  * present, and that a `format` names a branded id or a 64-bit number.
  */
 import * as Schema from "effect/Schema";
-import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi";
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+  HttpApiSchema,
+  OpenApi,
+} from "effect/unstable/httpapi";
 import {
   CentsFromString,
   DriverId,
@@ -752,59 +758,214 @@ export const ListQuery = Schema.Struct({
 });
 export type List200 = V1ListTripsResponse;
 export const List200 = V1ListTripsResponse;
-export type Listdefault = V1ErrorBody;
-export const Listdefault = V1ErrorBody;
+export type List400 = V1ErrorBody;
+export const List400 = V1ErrorBody;
+export type List401 = V1ErrorBody;
+export const List401 = V1ErrorBody;
+export type List403 = V1ErrorBody;
+export const List403 = V1ErrorBody;
+export type List404 = V1ErrorBody;
+export const List404 = V1ErrorBody;
+export type List409 = V1ErrorBody;
+export const List409 = V1ErrorBody;
+export type List429 = V1ErrorBody;
+export const List429 = V1ErrorBody;
+export type List500 = V1ErrorBody;
+export const List500 = V1ErrorBody;
+export type List501 = V1ErrorBody;
+export const List501 = V1ErrorBody;
+export type List503 = V1ErrorBody;
+export const List503 = V1ErrorBody;
+export type List504 = V1ErrorBody;
+export const List504 = V1ErrorBody;
 export type CreateRequestJson = V1CreateTripRequest;
 export const CreateRequestJson = V1CreateTripRequest;
 export type Create200 = V1CreateTripResponse;
 export const Create200 = V1CreateTripResponse;
-export type Createdefault = V1ErrorBody;
-export const Createdefault = V1ErrorBody;
+export type Create400 = V1ErrorBody;
+export const Create400 = V1ErrorBody;
+export type Create401 = V1ErrorBody;
+export const Create401 = V1ErrorBody;
+export type Create403 = V1ErrorBody;
+export const Create403 = V1ErrorBody;
+export type Create404 = V1ErrorBody;
+export const Create404 = V1ErrorBody;
+export type Create409 = V1ErrorBody;
+export const Create409 = V1ErrorBody;
+export type Create429 = V1ErrorBody;
+export const Create429 = V1ErrorBody;
+export type Create500 = V1ErrorBody;
+export const Create500 = V1ErrorBody;
+export type Create501 = V1ErrorBody;
+export const Create501 = V1ErrorBody;
+export type Create503 = V1ErrorBody;
+export const Create503 = V1ErrorBody;
+export type Create504 = V1ErrorBody;
+export const Create504 = V1ErrorBody;
 export type GetPathParams = { readonly "tripId": string; };
 export const GetPathParams = Schema.Struct({ "tripId": TripId });
 export type Get200 = V1GetTripResponse;
 export const Get200 = V1GetTripResponse;
-export type Getdefault = V1ErrorBody;
-export const Getdefault = V1ErrorBody;
+export type Get400 = V1ErrorBody;
+export const Get400 = V1ErrorBody;
+export type Get401 = V1ErrorBody;
+export const Get401 = V1ErrorBody;
+export type Get403 = V1ErrorBody;
+export const Get403 = V1ErrorBody;
+export type Get404 = V1ErrorBody;
+export const Get404 = V1ErrorBody;
+export type Get409 = V1ErrorBody;
+export const Get409 = V1ErrorBody;
+export type Get429 = V1ErrorBody;
+export const Get429 = V1ErrorBody;
+export type Get500 = V1ErrorBody;
+export const Get500 = V1ErrorBody;
+export type Get501 = V1ErrorBody;
+export const Get501 = V1ErrorBody;
+export type Get503 = V1ErrorBody;
+export const Get503 = V1ErrorBody;
+export type Get504 = V1ErrorBody;
+export const Get504 = V1ErrorBody;
 export type ArrivePathParams = { readonly "tripId": string; };
 export const ArrivePathParams = Schema.Struct({ "tripId": TripId });
 export type Arrive200 = V1ArriveTripResponse;
 export const Arrive200 = V1ArriveTripResponse;
-export type Arrivedefault = V1ErrorBody;
-export const Arrivedefault = V1ErrorBody;
+export type Arrive400 = V1ErrorBody;
+export const Arrive400 = V1ErrorBody;
+export type Arrive401 = V1ErrorBody;
+export const Arrive401 = V1ErrorBody;
+export type Arrive403 = V1ErrorBody;
+export const Arrive403 = V1ErrorBody;
+export type Arrive404 = V1ErrorBody;
+export const Arrive404 = V1ErrorBody;
+export type Arrive409 = V1ErrorBody;
+export const Arrive409 = V1ErrorBody;
+export type Arrive429 = V1ErrorBody;
+export const Arrive429 = V1ErrorBody;
+export type Arrive500 = V1ErrorBody;
+export const Arrive500 = V1ErrorBody;
+export type Arrive501 = V1ErrorBody;
+export const Arrive501 = V1ErrorBody;
+export type Arrive503 = V1ErrorBody;
+export const Arrive503 = V1ErrorBody;
+export type Arrive504 = V1ErrorBody;
+export const Arrive504 = V1ErrorBody;
 export type CancelPathParams = { readonly "tripId": string; };
 export const CancelPathParams = Schema.Struct({ "tripId": TripId });
 export type CancelRequestJson = TripServiceCancelTripBody;
 export const CancelRequestJson = TripServiceCancelTripBody;
 export type Cancel200 = V1CancelTripResponse;
 export const Cancel200 = V1CancelTripResponse;
-export type Canceldefault = V1ErrorBody;
-export const Canceldefault = V1ErrorBody;
+export type Cancel400 = V1ErrorBody;
+export const Cancel400 = V1ErrorBody;
+export type Cancel401 = V1ErrorBody;
+export const Cancel401 = V1ErrorBody;
+export type Cancel403 = V1ErrorBody;
+export const Cancel403 = V1ErrorBody;
+export type Cancel404 = V1ErrorBody;
+export const Cancel404 = V1ErrorBody;
+export type Cancel409 = V1ErrorBody;
+export const Cancel409 = V1ErrorBody;
+export type Cancel429 = V1ErrorBody;
+export const Cancel429 = V1ErrorBody;
+export type Cancel500 = V1ErrorBody;
+export const Cancel500 = V1ErrorBody;
+export type Cancel501 = V1ErrorBody;
+export const Cancel501 = V1ErrorBody;
+export type Cancel503 = V1ErrorBody;
+export const Cancel503 = V1ErrorBody;
+export type Cancel504 = V1ErrorBody;
+export const Cancel504 = V1ErrorBody;
 export type CompletePathParams = { readonly "tripId": string; };
 export const CompletePathParams = Schema.Struct({ "tripId": TripId });
 export type Complete200 = V1CompleteTripResponse;
 export const Complete200 = V1CompleteTripResponse;
-export type Completedefault = V1ErrorBody;
-export const Completedefault = V1ErrorBody;
+export type Complete400 = V1ErrorBody;
+export const Complete400 = V1ErrorBody;
+export type Complete401 = V1ErrorBody;
+export const Complete401 = V1ErrorBody;
+export type Complete403 = V1ErrorBody;
+export const Complete403 = V1ErrorBody;
+export type Complete404 = V1ErrorBody;
+export const Complete404 = V1ErrorBody;
+export type Complete409 = V1ErrorBody;
+export const Complete409 = V1ErrorBody;
+export type Complete429 = V1ErrorBody;
+export const Complete429 = V1ErrorBody;
+export type Complete500 = V1ErrorBody;
+export const Complete500 = V1ErrorBody;
+export type Complete501 = V1ErrorBody;
+export const Complete501 = V1ErrorBody;
+export type Complete503 = V1ErrorBody;
+export const Complete503 = V1ErrorBody;
+export type Complete504 = V1ErrorBody;
+export const Complete504 = V1ErrorBody;
 export type StartPathParams = { readonly "tripId": string; };
 export const StartPathParams = Schema.Struct({ "tripId": TripId });
 export type Start200 = V1StartTripResponse;
 export const Start200 = V1StartTripResponse;
-export type Startdefault = V1ErrorBody;
-export const Startdefault = V1ErrorBody;
+export type Start400 = V1ErrorBody;
+export const Start400 = V1ErrorBody;
+export type Start401 = V1ErrorBody;
+export const Start401 = V1ErrorBody;
+export type Start403 = V1ErrorBody;
+export const Start403 = V1ErrorBody;
+export type Start404 = V1ErrorBody;
+export const Start404 = V1ErrorBody;
+export type Start409 = V1ErrorBody;
+export const Start409 = V1ErrorBody;
+export type Start429 = V1ErrorBody;
+export const Start429 = V1ErrorBody;
+export type Start500 = V1ErrorBody;
+export const Start500 = V1ErrorBody;
+export type Start501 = V1ErrorBody;
+export const Start501 = V1ErrorBody;
+export type Start503 = V1ErrorBody;
+export const Start503 = V1ErrorBody;
+export type Start504 = V1ErrorBody;
+export const Start504 = V1ErrorBody;
 export type PreviewRequestJson = V1PreviewTripRequest;
 export const PreviewRequestJson = V1PreviewTripRequest;
 export type Preview200 = V1PreviewTripResponse;
 export const Preview200 = V1PreviewTripResponse;
-export type Previewdefault = V1ErrorBody;
-export const Previewdefault = V1ErrorBody;
+export type Preview400 = V1ErrorBody;
+export const Preview400 = V1ErrorBody;
+export type Preview401 = V1ErrorBody;
+export const Preview401 = V1ErrorBody;
+export type Preview403 = V1ErrorBody;
+export const Preview403 = V1ErrorBody;
+export type Preview404 = V1ErrorBody;
+export const Preview404 = V1ErrorBody;
+export type Preview409 = V1ErrorBody;
+export const Preview409 = V1ErrorBody;
+export type Preview429 = V1ErrorBody;
+export const Preview429 = V1ErrorBody;
+export type Preview500 = V1ErrorBody;
+export const Preview500 = V1ErrorBody;
+export type Preview501 = V1ErrorBody;
+export const Preview501 = V1ErrorBody;
+export type Preview503 = V1ErrorBody;
+export const Preview503 = V1ErrorBody;
+export type Preview504 = V1ErrorBody;
+export const Preview504 = V1ErrorBody;
 
 class TripsGroup extends HttpApiGroup.make("trips")
   .add(
     HttpApiEndpoint.get("list", "/v1/trips", {
       query: ListQuery,
       success: List200,
-      error: Listdefault,
+      error: [
+        List400.pipe(HttpApiSchema.status(400)),
+        List401.pipe(HttpApiSchema.status(401)),
+        List403.pipe(HttpApiSchema.status(403)),
+        List404.pipe(HttpApiSchema.status(404)),
+        List409.pipe(HttpApiSchema.status(409)),
+        List429.pipe(HttpApiSchema.status(429)),
+        List500,
+        List501.pipe(HttpApiSchema.status(501)),
+        List503.pipe(HttpApiSchema.status(503)),
+        List504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "list")
       .annotate(
@@ -814,7 +975,18 @@ class TripsGroup extends HttpApiGroup.make("trips")
     HttpApiEndpoint.post("create", "/v1/trips", {
       payload: CreateRequestJson,
       success: Create200,
-      error: Createdefault,
+      error: [
+        Create400.pipe(HttpApiSchema.status(400)),
+        Create401.pipe(HttpApiSchema.status(401)),
+        Create403.pipe(HttpApiSchema.status(403)),
+        Create404.pipe(HttpApiSchema.status(404)),
+        Create409.pipe(HttpApiSchema.status(409)),
+        Create429.pipe(HttpApiSchema.status(429)),
+        Create500,
+        Create501.pipe(HttpApiSchema.status(501)),
+        Create503.pipe(HttpApiSchema.status(503)),
+        Create504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "create")
       .annotate(
@@ -828,14 +1000,36 @@ class TripsGroup extends HttpApiGroup.make("trips")
     HttpApiEndpoint.get("get", "/v1/trips/:tripId", {
       params: GetPathParams,
       success: Get200,
-      error: Getdefault,
+      error: [
+        Get400.pipe(HttpApiSchema.status(400)),
+        Get401.pipe(HttpApiSchema.status(401)),
+        Get403.pipe(HttpApiSchema.status(403)),
+        Get404.pipe(HttpApiSchema.status(404)),
+        Get409.pipe(HttpApiSchema.status(409)),
+        Get429.pipe(HttpApiSchema.status(429)),
+        Get500,
+        Get501.pipe(HttpApiSchema.status(501)),
+        Get503.pipe(HttpApiSchema.status(503)),
+        Get504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "get")
       .annotate(OpenApi.Summary, "Get returns a trip's current state."),
     HttpApiEndpoint.post("arrive", "/v1/trips/:tripId/arrive", {
       params: ArrivePathParams,
       success: Arrive200,
-      error: Arrivedefault,
+      error: [
+        Arrive400.pipe(HttpApiSchema.status(400)),
+        Arrive401.pipe(HttpApiSchema.status(401)),
+        Arrive403.pipe(HttpApiSchema.status(403)),
+        Arrive404.pipe(HttpApiSchema.status(404)),
+        Arrive409.pipe(HttpApiSchema.status(409)),
+        Arrive429.pipe(HttpApiSchema.status(429)),
+        Arrive500,
+        Arrive501.pipe(HttpApiSchema.status(501)),
+        Arrive503.pipe(HttpApiSchema.status(503)),
+        Arrive504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "arrive")
       .annotate(
@@ -850,7 +1044,18 @@ class TripsGroup extends HttpApiGroup.make("trips")
       params: CancelPathParams,
       payload: CancelRequestJson,
       success: Cancel200,
-      error: Canceldefault,
+      error: [
+        Cancel400.pipe(HttpApiSchema.status(400)),
+        Cancel401.pipe(HttpApiSchema.status(401)),
+        Cancel403.pipe(HttpApiSchema.status(403)),
+        Cancel404.pipe(HttpApiSchema.status(404)),
+        Cancel409.pipe(HttpApiSchema.status(409)),
+        Cancel429.pipe(HttpApiSchema.status(429)),
+        Cancel500,
+        Cancel501.pipe(HttpApiSchema.status(501)),
+        Cancel503.pipe(HttpApiSchema.status(503)),
+        Cancel504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "cancel")
       .annotate(OpenApi.Summary, "Cancel ends a trip before completion.")
@@ -861,21 +1066,54 @@ class TripsGroup extends HttpApiGroup.make("trips")
     HttpApiEndpoint.post("complete", "/v1/trips/:tripId/complete", {
       params: CompletePathParams,
       success: Complete200,
-      error: Completedefault,
+      error: [
+        Complete400.pipe(HttpApiSchema.status(400)),
+        Complete401.pipe(HttpApiSchema.status(401)),
+        Complete403.pipe(HttpApiSchema.status(403)),
+        Complete404.pipe(HttpApiSchema.status(404)),
+        Complete409.pipe(HttpApiSchema.status(409)),
+        Complete429.pipe(HttpApiSchema.status(429)),
+        Complete500,
+        Complete501.pipe(HttpApiSchema.status(501)),
+        Complete503.pipe(HttpApiSchema.status(503)),
+        Complete504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "complete")
       .annotate(OpenApi.Summary, "Complete: the rider has been dropped off."),
     HttpApiEndpoint.post("start", "/v1/trips/:tripId/start", {
       params: StartPathParams,
       success: Start200,
-      error: Startdefault,
+      error: [
+        Start400.pipe(HttpApiSchema.status(400)),
+        Start401.pipe(HttpApiSchema.status(401)),
+        Start403.pipe(HttpApiSchema.status(403)),
+        Start404.pipe(HttpApiSchema.status(404)),
+        Start409.pipe(HttpApiSchema.status(409)),
+        Start429.pipe(HttpApiSchema.status(429)),
+        Start500,
+        Start501.pipe(HttpApiSchema.status(501)),
+        Start503.pipe(HttpApiSchema.status(503)),
+        Start504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "start")
       .annotate(OpenApi.Summary, "Start: the rider is in the car."),
     HttpApiEndpoint.post("preview", "/v1/trips:preview", {
       payload: PreviewRequestJson,
       success: Preview200,
-      error: Previewdefault,
+      error: [
+        Preview400.pipe(HttpApiSchema.status(400)),
+        Preview401.pipe(HttpApiSchema.status(401)),
+        Preview403.pipe(HttpApiSchema.status(403)),
+        Preview404.pipe(HttpApiSchema.status(404)),
+        Preview409.pipe(HttpApiSchema.status(409)),
+        Preview429.pipe(HttpApiSchema.status(429)),
+        Preview500,
+        Preview501.pipe(HttpApiSchema.status(501)),
+        Preview503.pipe(HttpApiSchema.status(503)),
+        Preview504.pipe(HttpApiSchema.status(504)),
+      ],
     })
       .annotate(OpenApi.Identifier, "preview")
       .annotate(

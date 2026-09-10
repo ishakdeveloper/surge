@@ -61,6 +61,34 @@ for (const route of Object.keys(spec.paths)) {
 }
 
 /**
+ * The statuses the gateway's error handler can answer with, each carrying the
+ * same `ErrorBody`.
+ *
+ * The document declares errors as `default`, which is true — every operation can
+ * fail — and useless to the generated client: `HttpApiClient` decodes an error
+ * body only for the exact statuses an endpoint declares, and the generator maps
+ * `default` to 500 alone. A 404 or a 409 arrived as an untyped `StatusCodeError`
+ * with the body never read, and a screen could not tell "that fare expired,
+ * quote again" from "the server is down".
+ *
+ * So `default` is spelled out as every status `rest.go` maps a gRPC code to.
+ * `rest_test.go` in the gateway reads this array and fails if the two disagree,
+ * which is the only reason it is safe to write the list down twice.
+ */
+const GATEWAY_ERROR_STATUSES = [400, 401, 403, 404, 409, 429, 500, 501, 503, 504];
+
+for (const operations of Object.values(spec.paths)) {
+  for (const operation of Object.values(operations)) {
+    const fallback = operation?.responses?.default;
+    if (fallback === undefined) continue;
+    for (const status of GATEWAY_ERROR_STATUSES) {
+      operation.responses[String(status)] ??= fallback;
+    }
+    delete operation.responses.default;
+  }
+}
+
+/**
  * proto3 has no required fields, so every property in the document is optional
  * and `trip.id` would decode as `string | undefined` at every call site. That
  * is not what the server does in either direction: it marshals responses with

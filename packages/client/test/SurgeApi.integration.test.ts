@@ -1,7 +1,7 @@
 import { AuthToken } from "@/AuthToken.js";
 import { SurgeApi } from "@/SurgeApi.js";
 import { describe, expect, it } from "@effect/vitest";
-import { FareId } from "@surge/domain/api/Primitives";
+import { FareId, TripId } from "@surge/domain/api/Primitives";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
@@ -131,6 +131,20 @@ describe.skipIf(!online)("SurgeApi against the running gateway", () => {
       // Unassigned arrives as "" rather than absent, because the gateway emits
       // unpopulated fields — a schema expecting an optional would reject it.
       expect(first.trip.driverId).toBe("");
+    }).pipe(Effect.provide(layer)));
+
+  /**
+   * Before every status the gateway can answer with was declared to the
+   * generator, this was an untyped StatusCodeError with the body never read —
+   * the client knew the request failed and nothing about why.
+   */
+  it.effect("fails with a typed error the client can branch on", () =>
+    Effect.gen(function*() {
+      const api = yield* SurgeApi;
+      const failure = yield* Effect.flip(
+        api.trips.get({ params: { tripId: TripId.make("does-not-exist") } }),
+      );
+      expect(failure).toMatchObject({ error: { code: "not_found" } });
     }).pipe(Effect.provide(layer)));
 
   it.effect("lists only the caller's own trips", () =>

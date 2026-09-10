@@ -4,8 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	commonpb "github.com/ishakdeveloper/surge/shared/proto/common"
@@ -81,5 +86,51 @@ func TestEmptyMessageIsStillPresent(t *testing.T) {
 
 	if !strings.Contains(raw, `"message":""`) {
 		t.Errorf("an empty message was omitted, which the client cannot decode: %s", raw)
+	}
+}
+
+// The TypeScript client decodes an error body only for the statuses it was told
+// about, and scripts/generate-api-client.mjs is what tells it — by listing the
+// statuses this file maps gRPC codes to. A status added to httpStatus and not
+// there reaches browsers as an undecoded StatusCodeError. This reads the
+// script's list and fails when the two disagree, in either direction.
+func TestEveryStatusTheGatewayEmitsIsDeclaredToClients(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "..", "..", "..", "scripts", "generate-api-client.mjs")
+	script, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read the client generator: %v", err)
+	}
+
+	match := regexp.MustCompile(`const GATEWAY_ERROR_STATUSES = \[([0-9,\s]+)\];`).FindSubmatch(script)
+	if match == nil {
+		t.Fatal("GATEWAY_ERROR_STATUSES not found in scripts/generate-api-client.mjs")
+	}
+
+	declared := map[int]bool{}
+	for _, field := range strings.FieldsFunc(string(match[1]), func(r rune) bool {
+		return r == ',' || unicode.IsSpace(r)
+	}) {
+		status, err := strconv.Atoi(field)
+		if err != nil {
+			t.Fatalf("not a status: %q", field)
+		}
+		declared[status] = true
+	}
+
+	// 500 is what any code missing from the table becomes.
+	emitted := map[int]bool{http.StatusInternalServerError: true}
+	for _, status := range httpStatus {
+		emitted[status] = true
+	}
+
+	for status := range emitted {
+		if !declared[status] {
+			t.Errorf("the gateway can answer %d, but the client generator does not declare it", status)
+		}
+	}
+	for status := range declared {
+		if !emitted[status] {
+			t.Errorf("the client generator declares %d, but the gateway never answers with it", status)
+		}
 	}
 }

@@ -2,10 +2,11 @@ import {
   Cancel200,
   Create200,
   Get200,
+  Get404,
   GetPathParams,
   List200,
+  List401,
   Preview200,
-  Previewdefault,
   SurgeApi,
 } from "@surge/domain/api/SurgeApi";
 import { Effect, Schema } from "effect";
@@ -108,15 +109,15 @@ describe("the generated client decodes what the gateway sends", () => {
    * would have failed to decode every error the server has ever sent.
    */
   it("decodes the error the gateway actually returns", () => {
-    const notFound = decode(Previewdefault, responses["notFound"]);
+    const notFound = decode(Get404, responses["notFound"]);
     expect(notFound.error.code).toBe("not_found");
     expect(notFound.error.message).toBe("unknown trip");
 
-    expect(decode(Previewdefault, responses["unauth"]).error.code).toBe("unauthenticated");
+    expect(decode(List401, responses["unauth"]).error.code).toBe("unauthenticated");
 
     // The code is a closed set, so a server inventing one is a decode failure
     // here rather than a string nobody branches on.
-    expect(() => decode(Previewdefault, { error: { code: "kaput", message: "" } })).toThrow();
+    expect(() => decode(Get404, { error: { code: "kaput", message: "" } })).toThrow();
   });
 
   it("routes cancellation through the binding Effect can express", () => {
