@@ -66,6 +66,10 @@ func run() error {
 	metricsAddr := config.StringOr("TRIP_METRICS_ADDR", ":9105")
 	valhallaURL := config.StringOr("VALHALLA_URL", "http://localhost:8002")
 	group := config.StringOr("TRIP_GROUP", "trip")
+	requirePayment, err := config.BoolOr("TRIP_REQUIRE_PAYMENT", false)
+	if err != nil {
+		return err
+	}
 
 	shutdownTracing, err := tracing.Init(ctx, "trip",
 		config.StringOr("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
@@ -128,13 +132,18 @@ func run() error {
 		Matcher: events.NewMatchRequester(producer),
 		// Every transition is pushed to the rider and driver on it, which is
 		// what lets a rider's screen change the moment a driver accepts.
-		Notifier: events.NewTripNotifier(producer),
+		Notifier:       events.NewTripNotifier(producer),
+		RequirePayment: requirePayment,
 	})
+	if requirePayment {
+		slog.Info("bookings wait for payments to hold the fare before dispatch")
+	}
 
 	consumer, err := events.NewConsumer(brokers, group, trip, events.Hooks{
 		OnMatched:   func() { metrics.outcomes.WithLabelValues("matched").Inc() },
 		OnUnmatched: func() { metrics.outcomes.WithLabelValues("unmatched").Inc() },
 		OnRejected:  func(reason string) { metrics.rejected.WithLabelValues(reason).Inc() },
+		OnPayment:   func(kind string) { metrics.outcomes.WithLabelValues("payment_" + kind).Inc() },
 	})
 	if err != nil {
 		return err

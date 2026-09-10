@@ -21,6 +21,7 @@ export const formatPoint = (point: { readonly lat: number; readonly lng: number;
  */
 export const riderStatus: Record<TripStatus, string> = {
   TRIP_STATUS_UNSPECIFIED: "Unknown",
+  TRIP_STATUS_PAYMENT_PENDING: "Confirming your payment",
   TRIP_STATUS_REQUESTED: "Finding you a driver",
   TRIP_STATUS_OFFERED: "Finding you a driver",
   TRIP_STATUS_ACCEPTED: "Your driver is on the way",

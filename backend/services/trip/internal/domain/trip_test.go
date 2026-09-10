@@ -26,6 +26,9 @@ func TestTransitions(t *testing.T) {
 		{domain.StatusOffered, domain.StatusRequested},
 		// And an unmatched trip can be retried.
 		{domain.StatusUnmatched, domain.StatusRequested},
+		// A held fare dispatches the trip; a failed one, or the rider, ends it.
+		{domain.StatusPaymentPending, domain.StatusRequested},
+		{domain.StatusPaymentPending, domain.StatusCancelled},
 	}
 
 	for _, move := range legal {
@@ -45,6 +48,9 @@ func TestTransitions(t *testing.T) {
 		{domain.StatusCancelled, domain.StatusAccepted},
 		// A rider cannot be picked up before anyone accepted.
 		{domain.StatusRequested, domain.StatusInProgress},
+		// Nor a driver assigned before the fare is held.
+		{domain.StatusPaymentPending, domain.StatusAccepted},
+		{domain.StatusPaymentPending, domain.StatusUnmatched},
 	}
 
 	for _, move := range illegal {

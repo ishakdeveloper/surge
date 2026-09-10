@@ -21,6 +21,10 @@ import (
 type Status string
 
 const (
+	// StatusPaymentPending is a booking waiting for its fare to be held on the
+	// rider's card. Nobody is dispatched to a ride that cannot be paid for.
+	StatusPaymentPending Status = "payment_pending"
+
 	StatusRequested  Status = "requested"
 	StatusOffered    Status = "offered"
 	StatusAccepted   Status = "accepted"
@@ -39,6 +43,11 @@ const (
 // exhaustively, and rendered as the diagram in docs/architecture without
 // anybody transcribing it.
 var transitions = map[Status][]Status{
+	// Only forward to dispatch once the fare is held, or out. There is no path
+	// from here to accepted: a driver cannot be assigned to a ride nobody has
+	// shown they can pay for.
+	StatusPaymentPending: {StatusRequested, StatusCancelled},
+
 	// Requested goes straight to accepted as well as through offered, because
 	// the trip service does not observe every offer. `offered` is the matcher's
 	// internal state — a trip may be offered to four drivers in turn — and what

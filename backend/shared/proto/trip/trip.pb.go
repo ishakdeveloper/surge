@@ -43,6 +43,12 @@ const (
 	// nobody chose it, and the rider should be offered a retry rather than an
 	// apology.
 	TripStatus_TRIP_STATUS_UNMATCHED TripStatus = 8
+	// Waiting for the fare to be held on the rider's card. Nobody is dispatched to
+	// a ride that cannot be paid for: payments answers within about a second, or
+	// the trip is cancelled with the reason payment_failed. Numbered last rather
+	// than first because enum numbers are the wire, and renumbering REQUESTED
+	// would change what every stored and in-flight 1 means.
+	TripStatus_TRIP_STATUS_PAYMENT_PENDING TripStatus = 9
 )
 
 // Enum value maps for TripStatus.
@@ -57,17 +63,19 @@ var (
 		6: "TRIP_STATUS_COMPLETED",
 		7: "TRIP_STATUS_CANCELLED",
 		8: "TRIP_STATUS_UNMATCHED",
+		9: "TRIP_STATUS_PAYMENT_PENDING",
 	}
 	TripStatus_value = map[string]int32{
-		"TRIP_STATUS_UNSPECIFIED": 0,
-		"TRIP_STATUS_REQUESTED":   1,
-		"TRIP_STATUS_OFFERED":     2,
-		"TRIP_STATUS_ACCEPTED":    3,
-		"TRIP_STATUS_ARRIVED":     4,
-		"TRIP_STATUS_IN_PROGRESS": 5,
-		"TRIP_STATUS_COMPLETED":   6,
-		"TRIP_STATUS_CANCELLED":   7,
-		"TRIP_STATUS_UNMATCHED":   8,
+		"TRIP_STATUS_UNSPECIFIED":     0,
+		"TRIP_STATUS_REQUESTED":       1,
+		"TRIP_STATUS_OFFERED":         2,
+		"TRIP_STATUS_ACCEPTED":        3,
+		"TRIP_STATUS_ARRIVED":         4,
+		"TRIP_STATUS_IN_PROGRESS":     5,
+		"TRIP_STATUS_COMPLETED":       6,
+		"TRIP_STATUS_CANCELLED":       7,
+		"TRIP_STATUS_UNMATCHED":       8,
+		"TRIP_STATUS_PAYMENT_PENDING": 9,
 	}
 )
 
@@ -1153,7 +1161,7 @@ const file_trip_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt*\xfe\x01\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt*\x9f\x02\n" +
 	"\n" +
 	"TripStatus\x12\x1b\n" +
 	"\x17TRIP_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
@@ -1164,7 +1172,8 @@ const file_trip_proto_rawDesc = "" +
 	"\x17TRIP_STATUS_IN_PROGRESS\x10\x05\x12\x19\n" +
 	"\x15TRIP_STATUS_COMPLETED\x10\x06\x12\x19\n" +
 	"\x15TRIP_STATUS_CANCELLED\x10\a\x12\x19\n" +
-	"\x15TRIP_STATUS_UNMATCHED\x10\b2\xf0\x0f\n" +
+	"\x15TRIP_STATUS_UNMATCHED\x10\b\x12\x1f\n" +
+	"\x1bTRIP_STATUS_PAYMENT_PENDING\x10\t2\xf0\x0f\n" +
 	"\vTripService\x12\xee\x01\n" +
 	"\vPreviewTrip\x12!.surge.trip.v1.PreviewTripRequest\x1a\".surge.trip.v1.PreviewTripResponse\"\x97\x01\x92Ax\n" +
 	"\x05trips*\apreviewJf\n" +

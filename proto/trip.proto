@@ -362,4 +362,10 @@ enum TripStatus {
   // nobody chose it, and the rider should be offered a retry rather than an
   // apology.
   TRIP_STATUS_UNMATCHED = 8;
+  // Waiting for the fare to be held on the rider's card. Nobody is dispatched to
+  // a ride that cannot be paid for: payments answers within about a second, or
+  // the trip is cancelled with the reason payment_failed. Numbered last rather
+  // than first because enum numbers are the wire, and renumbering REQUESTED
+  // would change what every stored and in-flight 1 means.
+  TRIP_STATUS_PAYMENT_PENDING = 9;
 }

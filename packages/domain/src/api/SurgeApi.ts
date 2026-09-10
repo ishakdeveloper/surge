@@ -231,9 +231,10 @@ export const V1ListTripsResponse = Schema.Struct({
       "TRIP_STATUS_COMPLETED",
       "TRIP_STATUS_CANCELLED",
       "TRIP_STATUS_UNMATCHED",
+      "TRIP_STATUS_PAYMENT_PENDING",
     ]).annotate({
       "description":
-        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means.",
       "default": "TRIP_STATUS_UNSPECIFIED",
     }),
     "pickup": Schema.Struct({
@@ -298,9 +299,10 @@ export const V1CreateTripResponse = Schema.Struct({
       "TRIP_STATUS_COMPLETED",
       "TRIP_STATUS_CANCELLED",
       "TRIP_STATUS_UNMATCHED",
+      "TRIP_STATUS_PAYMENT_PENDING",
     ]).annotate({
       "description":
-        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means.",
       "default": "TRIP_STATUS_UNSPECIFIED",
     }),
     "pickup": Schema.Struct({
@@ -356,9 +358,10 @@ export const V1GetTripResponse = Schema.Struct({
       "TRIP_STATUS_COMPLETED",
       "TRIP_STATUS_CANCELLED",
       "TRIP_STATUS_UNMATCHED",
+      "TRIP_STATUS_PAYMENT_PENDING",
     ]).annotate({
       "description":
-        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means.",
       "default": "TRIP_STATUS_UNSPECIFIED",
     }),
     "pickup": Schema.Struct({
@@ -414,9 +417,10 @@ export const V1ArriveTripResponse = Schema.Struct({
       "TRIP_STATUS_COMPLETED",
       "TRIP_STATUS_CANCELLED",
       "TRIP_STATUS_UNMATCHED",
+      "TRIP_STATUS_PAYMENT_PENDING",
     ]).annotate({
       "description":
-        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means.",
       "default": "TRIP_STATUS_UNSPECIFIED",
     }),
     "pickup": Schema.Struct({
@@ -476,9 +480,10 @@ export const V1CancelTripResponse = Schema.Struct({
       "TRIP_STATUS_COMPLETED",
       "TRIP_STATUS_CANCELLED",
       "TRIP_STATUS_UNMATCHED",
+      "TRIP_STATUS_PAYMENT_PENDING",
     ]).annotate({
       "description":
-        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means.",
       "default": "TRIP_STATUS_UNSPECIFIED",
     }),
     "pickup": Schema.Struct({
@@ -534,9 +539,10 @@ export const V1CompleteTripResponse = Schema.Struct({
       "TRIP_STATUS_COMPLETED",
       "TRIP_STATUS_CANCELLED",
       "TRIP_STATUS_UNMATCHED",
+      "TRIP_STATUS_PAYMENT_PENDING",
     ]).annotate({
       "description":
-        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means.",
       "default": "TRIP_STATUS_UNSPECIFIED",
     }),
     "pickup": Schema.Struct({
@@ -592,9 +598,10 @@ export const V1StartTripResponse = Schema.Struct({
       "TRIP_STATUS_COMPLETED",
       "TRIP_STATUS_CANCELLED",
       "TRIP_STATUS_UNMATCHED",
+      "TRIP_STATUS_PAYMENT_PENDING",
     ]).annotate({
       "description":
-        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.",
+        "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means.",
       "default": "TRIP_STATUS_UNSPECIFIED",
     }),
     "pickup": Schema.Struct({

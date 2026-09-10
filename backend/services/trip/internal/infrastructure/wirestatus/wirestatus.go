@@ -14,14 +14,15 @@ import (
 )
 
 var statuses = map[domain.Status]trippb.TripStatus{
-	domain.StatusRequested:  trippb.TripStatus_TRIP_STATUS_REQUESTED,
-	domain.StatusOffered:    trippb.TripStatus_TRIP_STATUS_OFFERED,
-	domain.StatusAccepted:   trippb.TripStatus_TRIP_STATUS_ACCEPTED,
-	domain.StatusArrived:    trippb.TripStatus_TRIP_STATUS_ARRIVED,
-	domain.StatusInProgress: trippb.TripStatus_TRIP_STATUS_IN_PROGRESS,
-	domain.StatusCompleted:  trippb.TripStatus_TRIP_STATUS_COMPLETED,
-	domain.StatusCancelled:  trippb.TripStatus_TRIP_STATUS_CANCELLED,
-	domain.StatusUnmatched:  trippb.TripStatus_TRIP_STATUS_UNMATCHED,
+	domain.StatusPaymentPending: trippb.TripStatus_TRIP_STATUS_PAYMENT_PENDING,
+	domain.StatusRequested:      trippb.TripStatus_TRIP_STATUS_REQUESTED,
+	domain.StatusOffered:        trippb.TripStatus_TRIP_STATUS_OFFERED,
+	domain.StatusAccepted:       trippb.TripStatus_TRIP_STATUS_ACCEPTED,
+	domain.StatusArrived:        trippb.TripStatus_TRIP_STATUS_ARRIVED,
+	domain.StatusInProgress:     trippb.TripStatus_TRIP_STATUS_IN_PROGRESS,
+	domain.StatusCompleted:      trippb.TripStatus_TRIP_STATUS_COMPLETED,
+	domain.StatusCancelled:      trippb.TripStatus_TRIP_STATUS_CANCELLED,
+	domain.StatusUnmatched:      trippb.TripStatus_TRIP_STATUS_UNMATCHED,
 }
 
 // Of is the wire enum for a domain status.

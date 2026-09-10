@@ -41,9 +41,11 @@ export type Coordinate = Trip["pickup"];
 export const TripStatus = TripsGet200.fields.trip.fields.status;
 export type TripStatus = typeof TripStatus.Type;
 
-/** Statuses a rider is still waiting through. */
+/** Statuses a rider is still waiting through: for the fare to be held, then for a driver. */
 export const isPending = (status: TripStatus): boolean =>
-  status === "TRIP_STATUS_REQUESTED" || status === "TRIP_STATUS_OFFERED";
+  status === "TRIP_STATUS_PAYMENT_PENDING"
+  || status === "TRIP_STATUS_REQUESTED"
+  || status === "TRIP_STATUS_OFFERED";
 
 /** Statuses where a driver is on their way or the ride is under way. */
 export const isUnderway = (status: TripStatus): boolean =>

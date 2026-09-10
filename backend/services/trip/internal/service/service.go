@@ -75,13 +75,14 @@ var (
 )
 
 type Service struct {
-	trips    domain.Repository
-	fares    FareStore
-	router   Router
-	surge    Surge
-	matcher  Matcher
-	notifier Notifier
-	now      func() time.Time
+	trips          domain.Repository
+	fares          FareStore
+	router         Router
+	surge          Surge
+	matcher        Matcher
+	notifier       Notifier
+	requirePayment bool
+	now            func() time.Time
 }
 
 type Options struct {
@@ -92,6 +93,11 @@ type Options struct {
 	Matcher Matcher
 	// Notifier is optional; without one, changes are simply not pushed.
 	Notifier Notifier
+	// RequirePayment makes a booking wait in payment_pending until payments
+	// reports the fare held, and only then asks for a driver. Off, a booking
+	// is dispatched at once — the flow from before payments existed, and the
+	// one a machine without a payments service still needs.
+	RequirePayment bool
 	// Now is injectable so time-dependent behaviour — fare expiry above all —
 	// is tested by moving a variable rather than by sleeping.
 	Now func() time.Time
@@ -108,7 +114,8 @@ func New(options Options) *Service {
 	}
 	return &Service{
 		trips: options.Trips, fares: options.Fares, router: options.Router,
-		surge: options.Surge, matcher: options.Matcher, notifier: notifier, now: now,
+		surge: options.Surge, matcher: options.Matcher, notifier: notifier,
+		requirePayment: options.RequirePayment, now: now,
 	}
 }
 
@@ -192,10 +199,17 @@ func (s *Service) Create(ctx context.Context, riderID, fareID, idempotencyKey st
 		return nil, ErrFareExpired
 	}
 
+	status := domain.StatusRequested
+	if s.requirePayment {
+		// Held before dispatched. The matcher is asked for a driver only when
+		// payments reports the fare on the rider's card: see PaymentAuthorized.
+		status = domain.StatusPaymentPending
+	}
+
 	trip := &domain.Trip{
 		ID:              uuid.NewString(),
 		RiderID:         riderID,
-		Status:          domain.StatusRequested,
+		Status:          status,
 		Pickup:          geo.Point{Lat: fare.Pickup.Lat, Lng: fare.Pickup.Lng},
 		Dropoff:         geo.Point{Lat: fare.Dropoff.Lat, Lng: fare.Dropoff.Lng},
 		Polyline6:       fare.Polyline6,
@@ -229,12 +243,70 @@ func (s *Service) Create(ctx context.Context, riderID, fareID, idempotencyKey st
 	// Asked for asynchronously: matching takes as long as a driver takes to
 	// answer, and a rider must not hold an open RPC for eight seconds to find
 	// out. The answer arrives as a trip event.
-	if err := s.matcher.RequestMatch(ctx, trip); err != nil {
-		return nil, fmt.Errorf("service: request match: %w", err)
+	if !s.requirePayment {
+		if err := s.matcher.RequestMatch(ctx, trip); err != nil {
+			return nil, fmt.Errorf("service: request match: %w", err)
+		}
 	}
 
 	s.notifier.TripChanged(ctx, trip)
 	return trip, nil
+}
+
+// CancelReasonPaymentFailed is why a trip whose fare could not be held ended.
+// payments knows the specific reason; the rider reads it from there.
+const CancelReasonPaymentFailed = "payment_failed"
+
+// errMovedOn is a payment fact for a trip no longer waiting on it.
+var errMovedOn = errors.New("service: trip is no longer waiting for payment")
+
+// PaymentAuthorized dispatches a trip whose fare is now held.
+//
+// A trip already requested is asked for again rather than ignored. That is a
+// redelivery finishing what a crash between storing the move and asking the
+// matcher left undone; the matcher's idempotency window, keyed by trip id,
+// makes the second request harmless. Anything past requested has a driver
+// and is left alone.
+func (s *Service) PaymentAuthorized(ctx context.Context, tripID string) error {
+	trip, err := s.transitionIf(ctx, tripID, domain.StatusRequested, func(trip *domain.Trip) error {
+		if trip.Status != domain.StatusPaymentPending && trip.Status != domain.StatusRequested {
+			return errMovedOn
+		}
+		return nil
+	}, nil)
+	if errors.Is(err, errMovedOn) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := s.matcher.RequestMatch(ctx, trip); err != nil {
+		return fmt.Errorf("service: request match: %w", err)
+	}
+	return nil
+}
+
+// PaymentFailed cancels a trip whose fare could not be held.
+//
+// Only a trip still waiting on its payment. A failure cannot arrive after
+// dispatch by design, and if one ever does, a driver already on their way is
+// not a trip to pull out from under them.
+func (s *Service) PaymentFailed(ctx context.Context, tripID string) error {
+	_, err := s.transitionIf(ctx, tripID, domain.StatusCancelled, func(trip *domain.Trip) error {
+		if trip.Status != domain.StatusPaymentPending && trip.Status != domain.StatusCancelled {
+			return errMovedOn
+		}
+		return nil
+	}, func(trip *domain.Trip) {
+		if trip.Status != domain.StatusCancelled {
+			trip.CancelReason = CancelReasonPaymentFailed
+		}
+	})
+	if errors.Is(err, errMovedOn) {
+		return nil
+	}
+	return err
 }
 
 func (s *Service) Get(ctx context.Context, id string) (*domain.Trip, error) {

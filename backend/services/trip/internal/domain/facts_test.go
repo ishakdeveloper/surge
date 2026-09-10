@@ -14,6 +14,12 @@ func TestFactsOf(t *testing.T) {
 		want     domain.FactKind // empty: no fact
 	}{
 		{"", domain.StatusRequested, domain.FactRequested},
+		// With payment in the loop a booking starts here, and it is still the
+		// request payments places its hold on.
+		{"", domain.StatusPaymentPending, domain.FactRequested},
+		// Its dispatch is not news to payments, which is what caused it.
+		{domain.StatusPaymentPending, domain.StatusRequested, ""},
+		{domain.StatusPaymentPending, domain.StatusCancelled, domain.FactCancelled},
 		{domain.StatusRequested, domain.StatusAccepted, ""},
 		{domain.StatusOffered, domain.StatusAccepted, ""},
 		{domain.StatusAccepted, domain.StatusArrived, ""},
