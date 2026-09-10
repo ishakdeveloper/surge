@@ -166,7 +166,7 @@ func TestARouterThatNeverAnswersTimesOut(t *testing.T) {
 	withTwoCarsAndTwoRiders(t, shard)
 	tick := shard.Tick(base.Add(2 * time.Second))
 
-	if waiting := shard.Tick(base.Add(4 * time.Second)); len(waiting.Offers) != 0 {
+	if waiting := shard.Tick(base.Add(2*time.Second + domain.DefaultConfig().BatchTimeout/2)); len(waiting.Offers) != 0 {
 		t.Fatalf("dispatched before the timeout: %+v", waiting.Offers)
 	}
 	timedOut := shard.Tick(base.Add(2*time.Second + domain.DefaultConfig().BatchTimeout))
@@ -195,9 +195,19 @@ func TestARequestDuringASolveWaitsForTheNextWindow(t *testing.T) {
 		t.Fatalf("first batch dispatched %v, want A and B only", first)
 	}
 
+	// Alone in its window, C competes with nobody, so it is dispatched at the
+	// window's close without asking the router at all.
 	next := shard.Tick(late.Add(2 * time.Second))
-	if next.Batch == nil || len(next.Batch.Pickups) != 1 {
-		t.Fatalf("next batch = %+v, want C alone", next.Batch)
+	if next.Batch != nil {
+		t.Fatalf("C alone asked the router for travel times: %+v", next.Batch)
+	}
+	// The first batch took two of the three cars; C gets the one it left.
+	free := map[string]bool{"d1": true, "d2": true, "d3": true}
+	for _, driver := range first {
+		delete(free, driver)
+	}
+	if got := offered(next); len(free) != 1 || !free[got["C"]] {
+		t.Errorf("next window offered %v, want C on the one free car of %v", got, free)
 	}
 }
 
@@ -264,5 +274,27 @@ func TestParseStrategy(t *testing.T) {
 	}
 	if _, err := domain.ParseStrategy("hungarian"); err == nil {
 		t.Error("an unknown strategy was accepted")
+	}
+}
+
+// Two riders a few kilometres apart, each with a car of their own: no car is
+// wanted twice, so there is nothing to solve jointly. The window dispatches
+// both at once without asking the router, and each rider gets their own car.
+func TestAnUncontendedWindowSkipsTheRouter(t *testing.T) {
+	farRider := geo.Point{Lat: 52.3400, Lng: 4.8500}
+	farCar := geo.Point{Lat: 52.3405, Lng: 4.8505}
+
+	shard := batched()
+	must(t, shard, entered(t, "near", nearby, 1), base)
+	must(t, shard, entered(t, "far", farCar, 1), base)
+	must(t, shard, request(t, "C", dam), base)
+	must(t, shard, request(t, "D", farRider), base)
+
+	tick := shard.Tick(base.Add(2 * time.Second))
+	if tick.Batch != nil {
+		t.Fatalf("an uncontended window asked the router for travel times: %+v", tick.Batch)
+	}
+	if got := offered(tick); got["C"] != "near" || got["D"] != "far" {
+		t.Errorf("offers = %v, want C→near and D→far", got)
 	}
 }

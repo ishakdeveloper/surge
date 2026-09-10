@@ -57,8 +57,12 @@ type Config struct {
 	// matrix is drivers × requests, and the solver is cubic.
 	BatchMaxRequests int
 	BatchMaxDrivers  int
-	// BatchTimeout gives up on travel times that never came back, and solves
-	// that batch over straight-line distance instead.
+	// BatchFetchTimeout is how long the runner waits for Valhalla's travel
+	// times. Short on purpose: a batch that waits seconds for a router has
+	// already cost the rider more than the better assignment could save.
+	BatchFetchTimeout time.Duration
+	// BatchTimeout is the shard's own limit on an answer that never arrives,
+	// after which it solves over straight-line distance instead.
 	BatchTimeout time.Duration
 
 	// SurgeWindow is the time constant demand and supply are smoothed over. A
@@ -85,7 +89,8 @@ func DefaultConfig() Config {
 		BatchWindow:       2 * time.Second,
 		BatchMaxRequests:  32,
 		BatchMaxDrivers:   64,
-		BatchTimeout:      5 * time.Second,
+		BatchFetchTimeout: 400 * time.Millisecond,
+		BatchTimeout:      time.Second,
 		SurgeWindow:       time.Minute,
 		SurgeStep:         0.5,
 		SurgeMax:          3.0,

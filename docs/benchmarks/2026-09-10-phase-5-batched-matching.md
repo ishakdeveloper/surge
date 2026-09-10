@@ -154,6 +154,67 @@ goes quiet, then the group's committed offsets.
 The trip service applies a match once however often it hears of it, so nobody
 was ever sent two cars — but every handover was doing seconds of work twice.
 
+## Round two: cheaper batches, and cars that are actually scarce
+
+The first valid run gave batching two handicaps. It waited on Valhalla for every
+window, contested or not, and it ran against a fleet that never got busy. Both
+changed:
+
+- **An uncontested window skips the solve.** If no car is a candidate for more
+  than one rider, a joint assignment cannot beat each rider's nearest car, so
+  the window dispatches at once without asking the router. One rider alone is
+  the common case of this.
+- **The router has 400 ms, not three seconds**, and a shard gives up on an
+  answer after one second.
+- **Drivers do their trips** (`SIM_TRIP_KM=1.5`): an accepted driver drives to
+  the pickup and carries the rider about 1.5 km before cruising again, so supply
+  drains the way a real fleet's does.
+- **Demand has hotspots** (`SIM_HOTSPOT_SHARE=0.7`): seven pickups in ten land
+  within 800 m of Centraal, Zuid or Leidseplein, so riders compete for the same
+  cars.
+- **Warm-up is three minutes**, long enough for a fleet whose trips take three
+  and a half to settle into being busy.
+
+300 drivers, 2 requests/s, 4 minutes measured per strategy. Both valid; neither
+matcher lost a partition.
+
+|                             |  greedy |    batched |
+| --------------------------- | ------: | ---------: |
+| **double dispatches**       |   **0** |      **0** |
+| redelivered matches         |       0 |          0 |
+| riders matched / s          |    0.50 |       0.50 |
+| riders unmatched / s        |    1.51 |       1.51 |
+| road pickup, mean           | 229.1 s |    254.1 s |
+| road pickup, p50            | 181.2 s |    239.7 s |
+| road pickup, p95            | 640.4 s |    564.2 s |
+| straight-line pickup, mean  |   683 m |      680 m |
+| match latency p50           |  1.56 s |     4.04 s |
+| match latency p99           |  4.80 s |     7.95 s |
+| contested solves            |       – | 7 in 4 min |
+| riders per contested solve  |       – |       2.14 |
+| solves without travel times |       – |          0 |
+
+**Batching is now cheap, and still not better.** Median latency fell from 9.5 s
+to 4.0 s and no solve waited out a router. But in four minutes only seven
+windows held two riders wanting the same car; every other decision was
+greedy's, taken two seconds later. The match rate is identical, and the pickup
+times sit within noise of each other — 162 priced pickups a side, a standard
+error around 12 s, the median favouring greedy and the p95 batching. The wait
+is paid on every request; the benefit arrives only on the rare contested one.
+
+For batching to win, a shard's window has to hold riders who compete: far more
+demand per shard than one laptop's fleet produces, or a longer window, which
+costs latency again. At this scale greedy is the right default, and the batch
+path stays for the day the numbers change.
+
+The two strategies ran as separate invocations: the memory guard killed the
+paired run halfway through its second half, so `STRATEGIES=batched` now runs
+one alone, with the same settings. Getting here also took one more harness fix.
+A second attempt reused the consumer group `matcher-bench` from an earlier
+invocation, so its greedy run resumed hours back and replayed every request
+since — 806 matches and 3,544 unmatched in a window that had seen about 850
+real requests. Each invocation now gets a fresh group.
+
 ## The first attempt, and why it does not count
 
 The first run reported batching as _worse_: 613 m mean pickup against greedy's

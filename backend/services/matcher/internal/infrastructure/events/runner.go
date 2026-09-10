@@ -505,9 +505,9 @@ func (r *Runner) emit(ctx context.Context, w *worker, outcome domain.Outcome) {
 // shard: a matrix call takes tens of milliseconds, and the loop that owns a
 // slice of the city must not stop for it. The shard keeps handling pings,
 // replies and new requests meanwhile, and the answer arrives as one more
-// message on the worker's queue. The deadline sits inside the shard's own
-// BatchTimeout, so a slow router is given up on here before the shard gives
-// up on it there.
+// message on the worker's queue. BatchFetchTimeout is shorter than the
+// shard's own BatchTimeout, so a slow router is given up on here, and the
+// shard still hears back, before the shard gives up on it there.
 func (r *Runner) solve(w *worker, request domain.BatchRequest) {
 	go func() {
 		started := time.Now()
@@ -515,7 +515,7 @@ func (r *Runner) solve(w *worker, request domain.BatchRequest) {
 		if r.router == nil {
 			result.Err = errors.New("matcher: no router configured")
 		} else {
-			ctx, cancel := context.WithTimeout(context.Background(), r.config.BatchTimeout*3/5)
+			ctx, cancel := context.WithTimeout(context.Background(), r.config.BatchFetchTimeout)
 			matrix, err := r.router.Matrix(ctx, request.Drivers, request.Pickups)
 			cancel()
 			result.Err = err
