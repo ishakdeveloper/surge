@@ -41,7 +41,7 @@ import { TelemetryLive } from "./Telemetry.js";
 const CorsLive = Layer.unwrap(
   Effect.gen(function*() {
     const webUrl = yield* Config.nonEmptyString("WEB_URL").pipe(
-      Config.withDefault("http://localhost:5173"),
+      Config.withDefault("http://localhost:5273"),
     );
 
     return HttpRouter.cors({ allowedOrigins: [webUrl], credentials: true });

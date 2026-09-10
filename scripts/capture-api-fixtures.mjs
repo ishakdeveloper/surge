@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 const auth = process.env["AUTH_BASE_URL"] ?? "http://localhost:3200";
 const gateway = process.env["SURGE_API_URL"] ?? "http://localhost:8100";
-const origin = process.env["WEB_URL"] ?? "http://localhost:5173";
+const origin = process.env["WEB_URL"] ?? "http://localhost:5273";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const target = path.join(root, "packages", "domain", "test", "api", "testdata", "responses.json");

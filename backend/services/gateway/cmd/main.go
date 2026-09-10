@@ -54,7 +54,7 @@ func run() error {
 		httpAddr    = config.StringOr("GATEWAY_HTTP_ADDR", ":8100")
 		metricsAddr = config.StringOr("GATEWAY_METRICS_ADDR", ":9104")
 		tripAddr    = config.StringOr("TRIP_GRPC_ADDR", "localhost:8110")
-		webOrigins  = config.Strings("GATEWAY_ORIGINS", []string{"http://localhost:5173"})
+		webOrigins  = config.Strings("GATEWAY_ORIGINS", []string{"http://localhost:5273"})
 	)
 
 	shutdownTracing, err := tracing.Init(ctx, "gateway",

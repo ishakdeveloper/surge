@@ -32,7 +32,7 @@ spec:
           env:
             - { name: PORT, value: "3200" }
             - { name: AUTH_BASE_URL, value: "http://auth:3200" }
-            - { name: WEB_URL, value: "http://localhost:5173" }
+            - { name: WEB_URL, value: "http://localhost:5273" }
           ports: [{ name: http, containerPort: 3200 }]
           livenessProbe:
             httpGet: { path: /health, port: 3200 }

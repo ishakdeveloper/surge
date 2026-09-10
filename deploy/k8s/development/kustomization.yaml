@@ -45,7 +45,7 @@ configMapGenerator:
       # makes the collector the bottleneck and the service under test spend its
       # time on telemetry.
       - OTEL_TRACES_SAMPLER_ARG=0.01
-      - GATEWAY_ORIGINS=http://localhost:5173
+      - GATEWAY_ORIGINS=http://localhost:5273
       - SIM_DRIVERS=1000
       - SIM_REQUESTS_PER_SECOND=5
 

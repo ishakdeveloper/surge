@@ -27,7 +27,7 @@ export class Auth extends Context.Service<Auth, AuthInstance>()("Auth") {
       );
       const secret = yield* Config.redacted("AUTH_SECRET");
       const webUrl = yield* Config.nonEmptyString("WEB_URL").pipe(
-        Config.withDefault("http://localhost:5173"),
+        Config.withDefault("http://localhost:5273"),
       );
 
       /**

@@ -26,7 +26,7 @@ export default defineConfig(({ command, mode }) => {
    * must agree is one more than necessary.
    */
   const port = Number(
-    new URL(process.env["WEB_URL"] ?? env["WEB_URL"] ?? "http://localhost:5173").port || 5173,
+    new URL(process.env["WEB_URL"] ?? env["WEB_URL"] ?? "http://localhost:5273").port || 5273,
   );
 
   if (command === "serve") {

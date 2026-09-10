@@ -26,7 +26,7 @@ const authBase = process.env["AUTH_BASE_URL"] ?? "http://localhost:3200";
  * origin is not a workaround: it is what the browser this test stands in for
  * would send.
  */
-const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5173";
+const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5273";
 
 const reachable = async (url: string): Promise<boolean> => {
   try {

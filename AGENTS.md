@@ -211,8 +211,10 @@ project references cannot — the Vite and Vitest configs, `vitest.shared.ts`,
 ## Ports
 
 Deliberately off the defaults. This machine already runs a Postgres on 5432, a
-Redis on 6379, and other projects on 3000, 3001 and 3100 — an ambiguous bind is
-a debugging trap you only notice an hour later.
+Redis on 6379, and other projects on 3000, 3001, 3100 and 5173 — an ambiguous
+bind is a debugging trap you only notice an hour later. The web app is on 5273
+rather than Vite's own 5173 for exactly that reason: another project's dev
+server had it, and auth and the gateway each trust a single web origin.
 
 |                  |       |          |       |
 | ---------------- | ----- | -------- | ----- |
@@ -220,7 +222,7 @@ a debugging trap you only notice an hour later.
 | Redpanda         | 19092 | Redis    | 56380 |
 | Redpanda Console | 8080  | Valhalla | 8002  |
 | Prometheus       | 9090  | Grafana  | 3005  |
-| Jaeger           | 16686 |          |       |
+| Jaeger           | 16686 | web      | 5273  |
 
 Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101,
 `ingest` 8102/9102.

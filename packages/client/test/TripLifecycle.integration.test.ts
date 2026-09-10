@@ -28,7 +28,7 @@ import { Socket } from "effect/unstable/socket";
  */
 const authBase = process.env["AUTH_BASE_URL"] ?? "http://localhost:3200";
 const gateway = process.env["SURGE_API_URL"] ?? "http://localhost:8100";
-const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5173";
+const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5273";
 
 const reachable = async (url: string): Promise<boolean> => {
   try {
