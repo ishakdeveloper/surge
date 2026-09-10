@@ -109,11 +109,18 @@ func run() error {
 
 	fares := repository.NewFareCache()
 
+	// The matchers publish each cell's multiplier; a quote reads its pickup's.
+	surge, err := events.NewSurgeBook(brokers)
+	if err != nil {
+		return err
+	}
+	defer surge.Close()
+
 	trip := service.New(service.Options{
 		Trips:   repo,
 		Fares:   fares,
 		Router:  triprouting.NewValhalla(router),
-		Surge:   triprouting.FlatSurge{},
+		Surge:   surge,
 		Matcher: events.NewMatchRequester(producer),
 		// Every transition is pushed to the rider and driver on it, which is
 		// what lets a rider's screen change the moment a driver accepts.
@@ -154,9 +161,10 @@ func run() error {
 		return fmt.Errorf("trip: listen %s: %w", grpcAddr, err)
 	}
 
-	errs := make(chan error, 3)
+	errs := make(chan error, 4)
 	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
 	go func() { errs <- consumer.Run(ctx) }()
+	go func() { errs <- surge.Run(ctx) }()
 	go func() {
 		slog.Info("grpc listening", "addr", grpcAddr)
 		errs <- server.Serve(listener)

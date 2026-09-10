@@ -57,6 +57,11 @@ const (
 	// the console. Short-lived: a frame is superseded a second after it is
 	// written, and a gateway starting up wants the next one, not the backlog.
 	TopicFleetFrames = "fleet.frames"
+
+	// TopicSurgeCells is each resolution-7 cell's latest price multiplier,
+	// keyed by cell and compacted: the trip service reads it from the start as
+	// the current state of pricing, not as a history.
+	TopicSurgeCells = "surge.cells"
 )
 
 // GeoPartitions is the shard count, and therefore the ceiling on matcher
@@ -94,6 +99,11 @@ func specs() []topicSpec {
 		{TopicTripEvents, 16, nil},
 		{TopicWSPush, 16, map[string]*string{"retention.ms": stringPtr("600000")}},
 		{TopicFleetFrames, GeoPartitions, map[string]*string{"retention.ms": stringPtr("60000")}},
+		{TopicSurgeCells, 8, map[string]*string{
+			"cleanup.policy":            compact,
+			"min.cleanable.dirty.ratio": stringPtr("0.1"),
+			"segment.ms":                stringPtr("60000"),
+		}},
 	}
 }
 

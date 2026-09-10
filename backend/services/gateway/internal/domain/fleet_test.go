@@ -126,3 +126,42 @@ func TestAnEmptyFleetEncodesArraysNotNull(t *testing.T) {
 		t.Errorf("an empty update contains null: %s", payload)
 	}
 }
+
+// Surge rides on the cells: the multiplier on each surging cell, a cell drawn
+// for its surge even with no car in it, and the city's highest in the stats.
+func TestSurgeRidesOnTheCells(t *testing.T) {
+	fleet := domain.NewFleet()
+	busy := driver(t, "a", 52.3791, 4.9003, wire.StatusIdle, false)
+	empty := driver(t, "x", 52.3300, 4.8200, wire.StatusIdle, false).Cell
+	fleet.Record(wire.FleetFrame{Partition: 1, Drivers: []wire.FleetDriver{busy}, Surge: []wire.CellSurge{
+		{Cell: busy.Cell, Multiplier: 1.6},
+		{Cell: empty, Multiplier: 2.2},
+	}}, epoch)
+
+	update := fleet.Snapshot(city, epoch)
+	byCell := map[string]wire.FleetCell{}
+	for _, cell := range update.Cells {
+		byCell[cell.Cell] = cell
+	}
+	if byCell[busy.Cell].Multiplier != 1.6 || byCell[busy.Cell].Drivers != 1 {
+		t.Errorf("busy cell = %+v, want 1.6x with its one car", byCell[busy.Cell])
+	}
+	if c, ok := byCell[empty]; !ok || c.Multiplier != 2.2 || len(c.Boundary) != 6 {
+		t.Errorf("a surging cell with no cars was not drawn: %+v", c)
+	}
+	if update.Stats.MaxMultiplier != 2.2 || update.Stats.SurgingCells != 2 {
+		t.Errorf("stats = %+v, want max 2.2 over 2 cells", update.Stats)
+	}
+}
+
+// Nowhere surging reads as base price, not as zero.
+func TestNoSurgeIsBasePrice(t *testing.T) {
+	fleet := domain.NewFleet()
+	fleet.Record(wire.FleetFrame{Partition: 1, Drivers: []wire.FleetDriver{
+		driver(t, "a", 52.3791, 4.9003, wire.StatusIdle, false),
+	}}, epoch)
+	update := fleet.Snapshot(city, epoch)
+	if update.Stats.MaxMultiplier != 1 || update.Cells[0].Multiplier != 1 {
+		t.Errorf("stats %+v, cell %+v; want 1.0 everywhere", update.Stats, update.Cells[0])
+	}
+}

@@ -99,6 +99,8 @@ func (f *Fleet) Snapshot(view wire.Viewport, now time.Time) wire.FleetUpdate {
 		Drivers: []wire.FleetDriver{},
 		Shards:  []wire.FleetShard{},
 	}
+	// Base price until some cell says otherwise.
+	update.Stats.MaxMultiplier = 1
 	zoomedIn := view.Zoom >= DriverZoom
 	if zoomedIn {
 		update.Mode = "drivers"
@@ -146,6 +148,28 @@ func (f *Fleet) Snapshot(view wire.Viewport, now time.Time) wire.FleetUpdate {
 			if idle {
 				cell.Idle++
 			}
+		}
+
+		for _, surge := range latest.frame.Surge {
+			update.Stats.SurgingCells++
+			update.Stats.MaxMultiplier = max(update.Stats.MaxMultiplier, surge.Multiplier)
+			if zoomedIn {
+				continue
+			}
+			// A surging cell is drawn even with no car in it — that is
+			// usually why it is surging.
+			cell, ok := cells[surge.Cell]
+			if !ok {
+				cell = &wire.FleetCell{Cell: surge.Cell, Boundary: f.boundary(surge.Cell)}
+				cells[surge.Cell] = cell
+			}
+			cell.Multiplier = surge.Multiplier
+		}
+	}
+
+	for _, cell := range cells {
+		if cell.Multiplier < 1 {
+			cell.Multiplier = 1
 		}
 	}
 

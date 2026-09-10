@@ -106,6 +106,8 @@ describe("server messages", () => {
       ageMs: 340,
     });
     expect(message.fleet.stats.p99Ms).toBe(4400);
+    expect(message.fleet.cells[0]?.multiplier).toBe(1.4);
+    expect(message.fleet.stats).toMatchObject({ maxMultiplier: 1.4, surgingCells: 1 });
   });
 
   it("decodes a fleet update in driver mode", async () => {

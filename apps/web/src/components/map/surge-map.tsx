@@ -39,6 +39,11 @@ export interface MapCell {
   readonly boundary: ReadonlyArray<readonly [number, number]>;
   /** 0 to 1: how strongly to shade it. */
   readonly weight: number;
+  /**
+   * 0 to 1: how hard the cell is surging. A surging cell is drawn red instead
+   * of amber, so price reads apart from how many cars are there.
+   */
+  readonly heat?: number;
 }
 
 /** What the map is showing: its bounds and zoom. */
@@ -178,7 +183,10 @@ export const SurgeMap = (props: SurgeMapProps) => {
           id: "cells",
           data: props.cells ?? NONE,
           getPolygon: (cell) => cell.boundary.map(([lng, lat]): [number, number] => [lng, lat]),
-          getFillColor: (cell) => [245, 158, 11, Math.round(20 + 170 * cell.weight)],
+          getFillColor: (cell) =>
+            (cell.heat ?? 0) > 0
+              ? [239, 68, 68, Math.round(60 + 160 * (cell.heat ?? 0))]
+              : [245, 158, 11, Math.round(20 + 170 * cell.weight)],
           getLineColor: [245, 158, 11, 90],
           lineWidthMinPixels: 1,
           stroked: true,

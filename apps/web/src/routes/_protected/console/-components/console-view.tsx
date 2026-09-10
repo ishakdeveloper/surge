@@ -35,6 +35,8 @@ export const ConsoleView = () => {
       id: cell.cell,
       boundary: cell.boundary,
       weight: cell.drivers / busiest,
+      // 3x, the cap, is full heat.
+      heat: Math.min(1, (cell.multiplier - 1) / 2),
     }));
   }, [update]);
 

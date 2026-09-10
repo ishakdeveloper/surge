@@ -177,6 +177,8 @@ export class FleetCell extends Schema.Class<FleetCell>("FleetCell")({
   cell: CellId,
   drivers: Schema.Number,
   idle: Schema.Number,
+  /** The cell's surge, 1 when it has none. */
+  multiplier: Schema.Number,
   boundary: Schema.Array(Schema.Tuple([Schema.Number, Schema.Number])),
 }) {}
 
@@ -201,6 +203,9 @@ export class FleetStats extends Schema.Class<FleetStats>("FleetStats")({
   p50Ms: Schema.Number,
   p95Ms: Schema.Number,
   p99Ms: Schema.Number,
+  /** The highest surge anywhere, 1 when nowhere surges. */
+  maxMultiplier: Schema.Number,
+  surgingCells: Schema.Number,
 }) {}
 
 /** One console's view of the fleet, once a second while it watches. */

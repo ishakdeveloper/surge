@@ -637,6 +637,7 @@ func (r *Runner) commit(ctx context.Context, client *kgo.Client) {
 // "since the last frame".
 func (r *Runner) publishFrame(w *worker) {
 	drivers, pending, offers := w.shard.Frame()
+	surging, changed := w.shard.Surge(time.Now())
 
 	latencies := w.latencies
 	if latencies == nil {
@@ -653,9 +654,15 @@ func (r *Runner) publishFrame(w *worker) {
 		Offers:           offers,
 		MatchLatenciesMs: latencies,
 		Abandoned:        w.abandoned,
+		Surge:            surging,
 	}
 	w.latencies = nil
 	w.abandoned = 0
 
 	r.produce(context.Background(), kafkax.TopicFleetFrames, strconv.Itoa(int(frame.Partition)), frame)
+
+	// Only what changed, keyed by cell: the trip service reads the latest per cell.
+	for _, surge := range changed {
+		r.produce(context.Background(), kafkax.TopicSurgeCells, surge.Cell, surge)
+	}
 }
