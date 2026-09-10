@@ -29,6 +29,29 @@
     "application/json"
   ],
   "paths": {
+    "/v1/payments/balance": {
+      "get": {
+        "summary": "GetBalance is what a driver can take out now, what is on its way to their\nbalance, and what they have earned that has not reached it yet.",
+        "operationId": "getBalance",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetBalanceResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "payments"
+        ]
+      }
+    },
     "/v1/payments/earnings": {
       "get": {
         "summary": "ListEarnings is a driver's share of each trip, newest first, and what is\nstill owed to them.",
@@ -205,6 +228,116 @@
             "required": true,
             "type": "string",
             "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/trips/{tripId}/refund": {
+      "post": {
+        "summary": "RefundTrip gives money back to a rider, ops only, and takes the driver's\nshare of it back in proportion. An amount of zero refunds everything left.",
+        "operationId": "refund",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RefundTripResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PaymentsServiceRefundTripBody"
+            }
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/withdrawals": {
+      "get": {
+        "summary": "ListWithdrawals is a driver's withdrawals, newest first.",
+        "operationId": "listWithdrawals",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListWithdrawalsResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageToken",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      },
+      "post": {
+        "summary": "CreateWithdrawal pays out from a driver's balance to their bank. An amount\nof zero withdraws everything available.",
+        "description": "Takes an idempotency key, because it moves money and the caller is a phone:\nthe double tap and the retried request are one payout.",
+        "operationId": "withdraw",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateWithdrawalResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateWithdrawalRequest"
+            }
           }
         ],
         "tags": [
@@ -691,6 +824,22 @@
     }
   },
   "definitions": {
+    "PaymentsServiceRefundTripBody": {
+      "type": "object",
+      "properties": {
+        "amountCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "Zero refunds everything left."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "type": "string"
+        }
+      }
+    },
     "TripServiceCancelTripBody": {
       "type": "object",
       "properties": {
@@ -704,6 +853,32 @@
       "properties": {
         "trip": {
           "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1Balance": {
+      "type": "object",
+      "properties": {
+        "availableCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "In the driver's balance and free to withdraw."
+        },
+        "pendingCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "In the driver's balance and not yet settled."
+        },
+        "owedCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "Earned and not yet sent to their balance: waiting on onboarding."
+        },
+        "currency": {
+          "type": "string"
+        },
+        "canWithdraw": {
+          "type": "boolean"
         }
       }
     },
@@ -810,6 +985,28 @@
         }
       }
     },
+    "v1CreateWithdrawalRequest": {
+      "type": "object",
+      "properties": {
+        "amountCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "Zero withdraws everything available."
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "description": "Generated client-side. The gateway also accepts an Idempotency-Key header."
+        }
+      }
+    },
+    "v1CreateWithdrawalResponse": {
+      "type": "object",
+      "properties": {
+        "withdrawal": {
+          "$ref": "#/definitions/v1Withdrawal"
+        }
+      }
+    },
     "v1Earning": {
       "type": "object",
       "properties": {
@@ -901,6 +1098,14 @@
         }
       }
     },
+    "v1GetBalanceResponse": {
+      "type": "object",
+      "properties": {
+        "balance": {
+          "$ref": "#/definitions/v1Balance"
+        }
+      }
+    },
     "v1GetPaymentMethodResponse": {
       "type": "object",
       "properties": {
@@ -987,6 +1192,21 @@
         "nextPageToken": {
           "type": "string",
           "description": "Empty when there are no more."
+        }
+      }
+    },
+    "v1ListWithdrawalsResponse": {
+      "type": "object",
+      "properties": {
+        "withdrawals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Withdrawal"
+          }
+        },
+        "nextPageToken": {
+          "type": "string"
         }
       }
     },
@@ -1100,6 +1320,64 @@
         },
         "route": {
           "$ref": "#/definitions/v1Route"
+        }
+      }
+    },
+    "v1Refund": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "refund-id"
+        },
+        "tripId": {
+          "type": "string",
+          "format": "trip-id"
+        },
+        "amountCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "driverCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "The driver's part of it: their share of the fare, in proportion."
+        },
+        "currency": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "reversal": {
+          "$ref": "#/definitions/v1RefundReversal"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1RefundReversal": {
+      "type": "string",
+      "enum": [
+        "REFUND_REVERSAL_UNSPECIFIED",
+        "REFUND_REVERSAL_NONE",
+        "REFUND_REVERSAL_DEDUCTED",
+        "REFUND_REVERSAL_REVERSED",
+        "REFUND_REVERSAL_FAILED"
+      ],
+      "default": "REFUND_REVERSAL_UNSPECIFIED",
+      "description": "RefundReversal is how a refund took the driver's share back.\n\n - REFUND_REVERSAL_NONE: Nothing was earned on the trip.\n - REFUND_REVERSAL_DEDUCTED: Not yet paid out: the driver is owed less.\n - REFUND_REVERSAL_REVERSED: Taken back from the driver's balance.\n - REFUND_REVERSAL_FAILED: The driver's balance could not cover it; the platform carries it."
+    },
+    "v1RefundTripResponse": {
+      "type": "object",
+      "properties": {
+        "refund": {
+          "$ref": "#/definitions/v1Refund"
+        },
+        "payment": {
+          "$ref": "#/definitions/v1Payment"
         }
       }
     },
@@ -1226,6 +1504,48 @@
       ],
       "default": "TRIP_STATUS_UNSPECIFIED",
       "description": "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means."
+    },
+    "v1Withdrawal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "withdrawal-id"
+        },
+        "amountCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1WithdrawalStatus"
+        },
+        "failureReason": {
+          "type": "string",
+          "description": "Why a failed withdrawal failed, in the processor's words."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1WithdrawalStatus": {
+      "type": "string",
+      "enum": [
+        "WITHDRAWAL_STATUS_UNSPECIFIED",
+        "WITHDRAWAL_STATUS_REQUESTED",
+        "WITHDRAWAL_STATUS_IN_TRANSIT",
+        "WITHDRAWAL_STATUS_PAID",
+        "WITHDRAWAL_STATUS_FAILED"
+      ],
+      "default": "WITHDRAWAL_STATUS_UNSPECIFIED"
     }
   }
 }

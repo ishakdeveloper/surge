@@ -116,6 +116,82 @@ service PaymentsService {
     };
   }
 
+  // GetBalance is what a driver can take out now, what is on its way to their
+  // balance, and what they have earned that has not reached it yet.
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse) {
+    option (google.api.http) = {get: "/v1/payments/balance"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "getBalance"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // CreateWithdrawal pays out from a driver's balance to their bank. An amount
+  // of zero withdraws everything available.
+  //
+  // Takes an idempotency key, because it moves money and the caller is a phone:
+  // the double tap and the retried request are one payout.
+  rpc CreateWithdrawal(CreateWithdrawalRequest) returns (CreateWithdrawalResponse) {
+    option (google.api.http) = {
+      post: "/v1/payments/withdrawals"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "withdraw"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ListWithdrawals is a driver's withdrawals, newest first.
+  rpc ListWithdrawals(ListWithdrawalsRequest) returns (ListWithdrawalsResponse) {
+    option (google.api.http) = {get: "/v1/payments/withdrawals"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "listWithdrawals"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // RefundTrip gives money back to a rider, ops only, and takes the driver's
+  // share of it back in proportion. An amount of zero refunds everything left.
+  rpc RefundTrip(RefundTripRequest) returns (RefundTripResponse) {
+    option (google.api.http) = {
+      post: "/v1/payments/trips/{trip_id}/refund"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "refund"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
   // DeliverWebhook hands this service a processor webhook exactly as it
   // arrived.
   //
@@ -142,6 +218,101 @@ service PaymentsService {
       }
     };
   }
+}
+
+message GetBalanceRequest {}
+
+message GetBalanceResponse {
+  Balance balance = 1;
+}
+
+message Balance {
+  // In the driver's balance and free to withdraw.
+  int64 available_cents = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  // In the driver's balance and not yet settled.
+  int64 pending_cents = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  // Earned and not yet sent to their balance: waiting on onboarding.
+  int64 owed_cents = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  string currency = 4;
+  bool can_withdraw = 5;
+}
+
+message CreateWithdrawalRequest {
+  // Zero withdraws everything available.
+  int64 amount_cents = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  // Generated client-side. The gateway also accepts an Idempotency-Key header.
+  string idempotency_key = 2;
+}
+
+message CreateWithdrawalResponse {
+  Withdrawal withdrawal = 1;
+}
+
+message ListWithdrawalsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListWithdrawalsResponse {
+  repeated Withdrawal withdrawals = 1;
+  string next_page_token = 2;
+}
+
+message Withdrawal {
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "withdrawal-id"}];
+  int64 amount_cents = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  string currency = 3;
+  WithdrawalStatus status = 4;
+  // Why a failed withdrawal failed, in the processor's words.
+  string failure_reason = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+enum WithdrawalStatus {
+  WITHDRAWAL_STATUS_UNSPECIFIED = 0;
+  WITHDRAWAL_STATUS_REQUESTED = 1;
+  WITHDRAWAL_STATUS_IN_TRANSIT = 2;
+  WITHDRAWAL_STATUS_PAID = 3;
+  WITHDRAWAL_STATUS_FAILED = 4;
+}
+
+message RefundTripRequest {
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+  // Zero refunds everything left.
+  int64 amount_cents = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  string reason = 3;
+  string idempotency_key = 4;
+}
+
+message RefundTripResponse {
+  Refund refund = 1;
+  Payment payment = 2;
+}
+
+message Refund {
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "refund-id"}];
+  string trip_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+  int64 amount_cents = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  // The driver's part of it: their share of the fare, in proportion.
+  int64 driver_cents = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  string currency = 5;
+  string reason = 6;
+  RefundReversal reversal = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+// RefundReversal is how a refund took the driver's share back.
+enum RefundReversal {
+  REFUND_REVERSAL_UNSPECIFIED = 0;
+  // Nothing was earned on the trip.
+  REFUND_REVERSAL_NONE = 1;
+  // Not yet paid out: the driver is owed less.
+  REFUND_REVERSAL_DEDUCTED = 2;
+  // Taken back from the driver's balance.
+  REFUND_REVERSAL_REVERSED = 3;
+  // The driver's balance could not cover it; the platform carries it.
+  REFUND_REVERSAL_FAILED = 4;
 }
 
 message DeliverWebhookRequest {

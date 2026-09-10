@@ -30,10 +30,36 @@ import {
   FareId,
   Int64FromString,
   PaymentId,
+  RefundId,
   RiderId,
   TripId,
+  WithdrawalId,
 } from "./Primitives.js";
 // non-recursive definitions
+export type V1GetBalanceResponse = typeof V1GetBalanceResponse.Type;
+export const V1GetBalanceResponse = Schema.Struct({
+  "balance": Schema.Struct({
+    "availableCents": CentsFromString,
+    "pendingCents": CentsFromString,
+    "owedCents": CentsFromString,
+    "currency": Schema.String,
+    "canWithdraw": Schema.Boolean,
+  }),
+}).annotate({ "identifier": "v1GetBalanceResponse" });
+export type V1ErrorBody = typeof V1ErrorBody.Type;
+export const V1ErrorBody = Schema.Struct({
+  "error": Schema.Struct({
+    "code": ErrorCode,
+    "message": Schema.String.annotate({
+      "description":
+        "For a human reading a log. Deliberately vague for anything internal — the\ndetail stays in the trace rather than travelling to a browser.",
+    }),
+  }),
+}).annotate({
+  "description":
+    "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends.",
+  "identifier": "v1ErrorBody",
+});
 export type V1ListEarningsResponse = typeof V1ListEarningsResponse.Type;
 export const V1ListEarningsResponse = Schema.Struct({
   "earnings": Schema.Array(Schema.Struct({
@@ -59,20 +85,6 @@ export const V1ListEarningsResponse = Schema.Struct({
   "paidCents": CentsFromString,
   "currency": Schema.String,
 }).annotate({ "identifier": "v1ListEarningsResponse" });
-export type V1ErrorBody = typeof V1ErrorBody.Type;
-export const V1ErrorBody = Schema.Struct({
-  "error": Schema.Struct({
-    "code": ErrorCode,
-    "message": Schema.String.annotate({
-      "description":
-        "For a human reading a log. Deliberately vague for anything internal — the\ndetail stays in the trace rather than travelling to a browser.",
-    }),
-  }),
-}).annotate({
-  "description":
-    "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends.",
-  "identifier": "v1ErrorBody",
-});
 export type V1GetPaymentMethodResponse = typeof V1GetPaymentMethodResponse.Type;
 export const V1GetPaymentMethodResponse = Schema.Struct({
   "saved": Schema.Boolean.annotate({
@@ -164,6 +176,114 @@ export const V1GetTripPaymentResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1GetTripPaymentResponse" });
+export type PaymentsServiceRefundTripBody = typeof PaymentsServiceRefundTripBody.Type;
+export const PaymentsServiceRefundTripBody = Schema.Struct({
+  "amountCents": CentsFromString,
+  "reason": Schema.String,
+  "idempotencyKey": Schema.String,
+}).annotate({ "identifier": "PaymentsServiceRefundTripBody" });
+export type V1RefundTripResponse = typeof V1RefundTripResponse.Type;
+export const V1RefundTripResponse = Schema.Struct({
+  "refund": Schema.Struct({
+    "id": RefundId,
+    "tripId": TripId,
+    "amountCents": CentsFromString,
+    "driverCents": CentsFromString,
+    "currency": Schema.String,
+    "reason": Schema.String,
+    "reversal": Schema.Literals([
+      "REFUND_REVERSAL_UNSPECIFIED",
+      "REFUND_REVERSAL_NONE",
+      "REFUND_REVERSAL_DEDUCTED",
+      "REFUND_REVERSAL_REVERSED",
+      "REFUND_REVERSAL_FAILED",
+    ]).annotate({
+      "description":
+        "RefundReversal is how a refund took the driver's share back.\n\n - REFUND_REVERSAL_NONE: Nothing was earned on the trip.\n - REFUND_REVERSAL_DEDUCTED: Not yet paid out: the driver is owed less.\n - REFUND_REVERSAL_REVERSED: Taken back from the driver's balance.\n - REFUND_REVERSAL_FAILED: The driver's balance could not cover it; the platform carries it.",
+      "default": "REFUND_REVERSAL_UNSPECIFIED",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+  "payment": Schema.Struct({
+    "id": PaymentId,
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "PAYMENT_STATUS_UNSPECIFIED",
+      "PAYMENT_STATUS_AUTHORIZING",
+      "PAYMENT_STATUS_REQUIRES_ACTION",
+      "PAYMENT_STATUS_AUTHORIZED",
+      "PAYMENT_STATUS_CAPTURED",
+      "PAYMENT_STATUS_RELEASED",
+      "PAYMENT_STATUS_FAILED",
+      "PAYMENT_STATUS_REFUNDED",
+    ]).annotate({
+      "description": "PaymentStatus is the payment state machine, as a client sees it.",
+      "default": "PAYMENT_STATUS_UNSPECIFIED",
+    }),
+    "amountCents": CentsFromString,
+    "capturedCents": CentsFromString,
+    "refundedCents": CentsFromString,
+    "currency": Schema.String,
+    "failureReason": Schema.String.annotate({
+      "description":
+        "Why a failed payment failed: no_payment_method, declined,\nauthentication_failed or expired. Empty otherwise.",
+    }),
+    "clientSecret": Schema.String.annotate({
+      "description":
+        "Set while the status is REQUIRES_ACTION, for Stripe.js to run the rider's\nauthentication step, and only for the rider. Empty otherwise.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1RefundTripResponse" });
+export type V1ListWithdrawalsResponse = typeof V1ListWithdrawalsResponse.Type;
+export const V1ListWithdrawalsResponse = Schema.Struct({
+  "withdrawals": Schema.Array(Schema.Struct({
+    "id": WithdrawalId,
+    "amountCents": CentsFromString,
+    "currency": Schema.String,
+    "status": Schema.Literals([
+      "WITHDRAWAL_STATUS_UNSPECIFIED",
+      "WITHDRAWAL_STATUS_REQUESTED",
+      "WITHDRAWAL_STATUS_IN_TRANSIT",
+      "WITHDRAWAL_STATUS_PAID",
+      "WITHDRAWAL_STATUS_FAILED",
+    ]).annotate({ "default": "WITHDRAWAL_STATUS_UNSPECIFIED" }),
+    "failureReason": Schema.String.annotate({
+      "description": "Why a failed withdrawal failed, in the processor's words.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  })),
+  "nextPageToken": Schema.String,
+}).annotate({ "identifier": "v1ListWithdrawalsResponse" });
+export type V1CreateWithdrawalRequest = typeof V1CreateWithdrawalRequest.Type;
+export const V1CreateWithdrawalRequest = Schema.Struct({
+  "amountCents": CentsFromString,
+  "idempotencyKey": Schema.String.annotate({
+    "description": "Generated client-side. The gateway also accepts an Idempotency-Key header.",
+  }),
+}).annotate({ "identifier": "v1CreateWithdrawalRequest" });
+export type V1CreateWithdrawalResponse = typeof V1CreateWithdrawalResponse.Type;
+export const V1CreateWithdrawalResponse = Schema.Struct({
+  "withdrawal": Schema.Struct({
+    "id": WithdrawalId,
+    "amountCents": CentsFromString,
+    "currency": Schema.String,
+    "status": Schema.Literals([
+      "WITHDRAWAL_STATUS_UNSPECIFIED",
+      "WITHDRAWAL_STATUS_REQUESTED",
+      "WITHDRAWAL_STATUS_IN_TRANSIT",
+      "WITHDRAWAL_STATUS_PAID",
+      "WITHDRAWAL_STATUS_FAILED",
+    ]).annotate({ "default": "WITHDRAWAL_STATUS_UNSPECIFIED" }),
+    "failureReason": Schema.String.annotate({
+      "description": "Why a failed withdrawal failed, in the processor's words.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1CreateWithdrawalResponse" });
 export type V1GetSimulatorResponse = typeof V1GetSimulatorResponse.Type;
 export const V1GetSimulatorResponse = Schema.Struct({
   "simulator": Schema.Struct({
@@ -698,6 +818,28 @@ export const V1PreviewTripResponse = Schema.Struct({
   }).annotate({ "description": "Route is a driveable path with its cost." }),
 }).annotate({ "identifier": "v1PreviewTripResponse" });
 // schemas
+export type PaymentsGetBalance200 = typeof PaymentsGetBalance200.Type;
+export const PaymentsGetBalance200 = V1GetBalanceResponse;
+export type PaymentsGetBalance400 = typeof PaymentsGetBalance400.Type;
+export const PaymentsGetBalance400 = V1ErrorBody;
+export type PaymentsGetBalance401 = typeof PaymentsGetBalance401.Type;
+export const PaymentsGetBalance401 = V1ErrorBody;
+export type PaymentsGetBalance403 = typeof PaymentsGetBalance403.Type;
+export const PaymentsGetBalance403 = V1ErrorBody;
+export type PaymentsGetBalance404 = typeof PaymentsGetBalance404.Type;
+export const PaymentsGetBalance404 = V1ErrorBody;
+export type PaymentsGetBalance409 = typeof PaymentsGetBalance409.Type;
+export const PaymentsGetBalance409 = V1ErrorBody;
+export type PaymentsGetBalance429 = typeof PaymentsGetBalance429.Type;
+export const PaymentsGetBalance429 = V1ErrorBody;
+export type PaymentsGetBalance500 = typeof PaymentsGetBalance500.Type;
+export const PaymentsGetBalance500 = V1ErrorBody;
+export type PaymentsGetBalance501 = typeof PaymentsGetBalance501.Type;
+export const PaymentsGetBalance501 = V1ErrorBody;
+export type PaymentsGetBalance503 = typeof PaymentsGetBalance503.Type;
+export const PaymentsGetBalance503 = V1ErrorBody;
+export type PaymentsGetBalance504 = typeof PaymentsGetBalance504.Type;
+export const PaymentsGetBalance504 = V1ErrorBody;
 export type PaymentsListEarningsParams = typeof PaymentsListEarningsParams.Type;
 export const PaymentsListEarningsParams = Schema.Struct({
   "pageSize": Schema.optionalKey(
@@ -854,6 +996,96 @@ export type PaymentsGetForTrip503 = typeof PaymentsGetForTrip503.Type;
 export const PaymentsGetForTrip503 = V1ErrorBody;
 export type PaymentsGetForTrip504 = typeof PaymentsGetForTrip504.Type;
 export const PaymentsGetForTrip504 = V1ErrorBody;
+export type PaymentsRefundPathParams = typeof PaymentsRefundPathParams.Type;
+export const PaymentsRefundPathParams = Schema.Struct({ "tripId": TripId });
+export type PaymentsRefundRequestJson = typeof PaymentsRefundRequestJson.Type;
+export const PaymentsRefundRequestJson = PaymentsServiceRefundTripBody;
+export type PaymentsRefund200 = typeof PaymentsRefund200.Type;
+export const PaymentsRefund200 = V1RefundTripResponse;
+export type PaymentsRefund400 = typeof PaymentsRefund400.Type;
+export const PaymentsRefund400 = V1ErrorBody;
+export type PaymentsRefund401 = typeof PaymentsRefund401.Type;
+export const PaymentsRefund401 = V1ErrorBody;
+export type PaymentsRefund403 = typeof PaymentsRefund403.Type;
+export const PaymentsRefund403 = V1ErrorBody;
+export type PaymentsRefund404 = typeof PaymentsRefund404.Type;
+export const PaymentsRefund404 = V1ErrorBody;
+export type PaymentsRefund409 = typeof PaymentsRefund409.Type;
+export const PaymentsRefund409 = V1ErrorBody;
+export type PaymentsRefund429 = typeof PaymentsRefund429.Type;
+export const PaymentsRefund429 = V1ErrorBody;
+export type PaymentsRefund500 = typeof PaymentsRefund500.Type;
+export const PaymentsRefund500 = V1ErrorBody;
+export type PaymentsRefund501 = typeof PaymentsRefund501.Type;
+export const PaymentsRefund501 = V1ErrorBody;
+export type PaymentsRefund503 = typeof PaymentsRefund503.Type;
+export const PaymentsRefund503 = V1ErrorBody;
+export type PaymentsRefund504 = typeof PaymentsRefund504.Type;
+export const PaymentsRefund504 = V1ErrorBody;
+export type PaymentsListWithdrawalsParams = typeof PaymentsListWithdrawalsParams.Type;
+export const PaymentsListWithdrawalsParams = Schema.Struct({
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type PaymentsListWithdrawalsQuery = typeof PaymentsListWithdrawalsQuery.Type;
+export const PaymentsListWithdrawalsQuery = Schema.Struct({
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type PaymentsListWithdrawals200 = typeof PaymentsListWithdrawals200.Type;
+export const PaymentsListWithdrawals200 = V1ListWithdrawalsResponse;
+export type PaymentsListWithdrawals400 = typeof PaymentsListWithdrawals400.Type;
+export const PaymentsListWithdrawals400 = V1ErrorBody;
+export type PaymentsListWithdrawals401 = typeof PaymentsListWithdrawals401.Type;
+export const PaymentsListWithdrawals401 = V1ErrorBody;
+export type PaymentsListWithdrawals403 = typeof PaymentsListWithdrawals403.Type;
+export const PaymentsListWithdrawals403 = V1ErrorBody;
+export type PaymentsListWithdrawals404 = typeof PaymentsListWithdrawals404.Type;
+export const PaymentsListWithdrawals404 = V1ErrorBody;
+export type PaymentsListWithdrawals409 = typeof PaymentsListWithdrawals409.Type;
+export const PaymentsListWithdrawals409 = V1ErrorBody;
+export type PaymentsListWithdrawals429 = typeof PaymentsListWithdrawals429.Type;
+export const PaymentsListWithdrawals429 = V1ErrorBody;
+export type PaymentsListWithdrawals500 = typeof PaymentsListWithdrawals500.Type;
+export const PaymentsListWithdrawals500 = V1ErrorBody;
+export type PaymentsListWithdrawals501 = typeof PaymentsListWithdrawals501.Type;
+export const PaymentsListWithdrawals501 = V1ErrorBody;
+export type PaymentsListWithdrawals503 = typeof PaymentsListWithdrawals503.Type;
+export const PaymentsListWithdrawals503 = V1ErrorBody;
+export type PaymentsListWithdrawals504 = typeof PaymentsListWithdrawals504.Type;
+export const PaymentsListWithdrawals504 = V1ErrorBody;
+export type PaymentsWithdrawRequestJson = typeof PaymentsWithdrawRequestJson.Type;
+export const PaymentsWithdrawRequestJson = V1CreateWithdrawalRequest;
+export type PaymentsWithdraw200 = typeof PaymentsWithdraw200.Type;
+export const PaymentsWithdraw200 = V1CreateWithdrawalResponse;
+export type PaymentsWithdraw400 = typeof PaymentsWithdraw400.Type;
+export const PaymentsWithdraw400 = V1ErrorBody;
+export type PaymentsWithdraw401 = typeof PaymentsWithdraw401.Type;
+export const PaymentsWithdraw401 = V1ErrorBody;
+export type PaymentsWithdraw403 = typeof PaymentsWithdraw403.Type;
+export const PaymentsWithdraw403 = V1ErrorBody;
+export type PaymentsWithdraw404 = typeof PaymentsWithdraw404.Type;
+export const PaymentsWithdraw404 = V1ErrorBody;
+export type PaymentsWithdraw409 = typeof PaymentsWithdraw409.Type;
+export const PaymentsWithdraw409 = V1ErrorBody;
+export type PaymentsWithdraw429 = typeof PaymentsWithdraw429.Type;
+export const PaymentsWithdraw429 = V1ErrorBody;
+export type PaymentsWithdraw500 = typeof PaymentsWithdraw500.Type;
+export const PaymentsWithdraw500 = V1ErrorBody;
+export type PaymentsWithdraw501 = typeof PaymentsWithdraw501.Type;
+export const PaymentsWithdraw501 = V1ErrorBody;
+export type PaymentsWithdraw503 = typeof PaymentsWithdraw503.Type;
+export const PaymentsWithdraw503 = V1ErrorBody;
+export type PaymentsWithdraw504 = typeof PaymentsWithdraw504.Type;
+export const PaymentsWithdraw504 = V1ErrorBody;
 export type SimulatorGet200 = typeof SimulatorGet200.Type;
 export const SimulatorGet200 = V1GetSimulatorResponse;
 export type SimulatorGet400 = typeof SimulatorGet400.Type;
@@ -1115,6 +1347,26 @@ export const TripsPreview504 = V1ErrorBody;
 
 class PaymentsGroup extends HttpApiGroup.make("payments")
   .add(
+    HttpApiEndpoint.get("getBalance", "/v1/payments/balance", {
+      success: PaymentsGetBalance200,
+      error: [
+        PaymentsGetBalance400.pipe(HttpApiSchema.status(400)),
+        PaymentsGetBalance401.pipe(HttpApiSchema.status(401)),
+        PaymentsGetBalance403.pipe(HttpApiSchema.status(403)),
+        PaymentsGetBalance404.pipe(HttpApiSchema.status(404)),
+        PaymentsGetBalance409.pipe(HttpApiSchema.status(409)),
+        PaymentsGetBalance429.pipe(HttpApiSchema.status(429)),
+        PaymentsGetBalance500,
+        PaymentsGetBalance501.pipe(HttpApiSchema.status(501)),
+        PaymentsGetBalance503.pipe(HttpApiSchema.status(503)),
+        PaymentsGetBalance504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "getBalance")
+      .annotate(
+        OpenApi.Summary,
+        "GetBalance is what a driver can take out now, what is on its way to their\nbalance, and what they have earned that has not reached it yet.",
+      ),
     HttpApiEndpoint.get("listEarnings", "/v1/payments/earnings", {
       query: PaymentsListEarningsQuery,
       success: PaymentsListEarnings200,
@@ -1236,6 +1488,71 @@ class PaymentsGroup extends HttpApiGroup.make("payments")
       .annotate(
         OpenApi.Summary,
         "GetTripPayment is what became of a trip's hold: the rider's receipt, and\nthe secret for an authentication step while one is waiting.",
+      ),
+    HttpApiEndpoint.post("refund", "/v1/payments/trips/:tripId/refund", {
+      params: PaymentsRefundPathParams,
+      payload: PaymentsRefundRequestJson,
+      success: PaymentsRefund200,
+      error: [
+        PaymentsRefund400.pipe(HttpApiSchema.status(400)),
+        PaymentsRefund401.pipe(HttpApiSchema.status(401)),
+        PaymentsRefund403.pipe(HttpApiSchema.status(403)),
+        PaymentsRefund404.pipe(HttpApiSchema.status(404)),
+        PaymentsRefund409.pipe(HttpApiSchema.status(409)),
+        PaymentsRefund429.pipe(HttpApiSchema.status(429)),
+        PaymentsRefund500,
+        PaymentsRefund501.pipe(HttpApiSchema.status(501)),
+        PaymentsRefund503.pipe(HttpApiSchema.status(503)),
+        PaymentsRefund504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "refund")
+      .annotate(
+        OpenApi.Summary,
+        "RefundTrip gives money back to a rider, ops only, and takes the driver's\nshare of it back in proportion. An amount of zero refunds everything left.",
+      ),
+    HttpApiEndpoint.get("listWithdrawals", "/v1/payments/withdrawals", {
+      query: PaymentsListWithdrawalsQuery,
+      success: PaymentsListWithdrawals200,
+      error: [
+        PaymentsListWithdrawals400.pipe(HttpApiSchema.status(400)),
+        PaymentsListWithdrawals401.pipe(HttpApiSchema.status(401)),
+        PaymentsListWithdrawals403.pipe(HttpApiSchema.status(403)),
+        PaymentsListWithdrawals404.pipe(HttpApiSchema.status(404)),
+        PaymentsListWithdrawals409.pipe(HttpApiSchema.status(409)),
+        PaymentsListWithdrawals429.pipe(HttpApiSchema.status(429)),
+        PaymentsListWithdrawals500,
+        PaymentsListWithdrawals501.pipe(HttpApiSchema.status(501)),
+        PaymentsListWithdrawals503.pipe(HttpApiSchema.status(503)),
+        PaymentsListWithdrawals504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "listWithdrawals")
+      .annotate(OpenApi.Summary, "ListWithdrawals is a driver's withdrawals, newest first."),
+    HttpApiEndpoint.post("withdraw", "/v1/payments/withdrawals", {
+      payload: PaymentsWithdrawRequestJson,
+      success: PaymentsWithdraw200,
+      error: [
+        PaymentsWithdraw400.pipe(HttpApiSchema.status(400)),
+        PaymentsWithdraw401.pipe(HttpApiSchema.status(401)),
+        PaymentsWithdraw403.pipe(HttpApiSchema.status(403)),
+        PaymentsWithdraw404.pipe(HttpApiSchema.status(404)),
+        PaymentsWithdraw409.pipe(HttpApiSchema.status(409)),
+        PaymentsWithdraw429.pipe(HttpApiSchema.status(429)),
+        PaymentsWithdraw500,
+        PaymentsWithdraw501.pipe(HttpApiSchema.status(501)),
+        PaymentsWithdraw503.pipe(HttpApiSchema.status(503)),
+        PaymentsWithdraw504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "withdraw")
+      .annotate(
+        OpenApi.Summary,
+        "CreateWithdrawal pays out from a driver's balance to their bank. An amount\nof zero withdraws everything available.",
+      )
+      .annotate(
+        OpenApi.Description,
+        "Takes an idempotency key, because it moves money and the caller is a phone:\nthe double tap and the retried request are one payout.",
       ),
   )
 {}

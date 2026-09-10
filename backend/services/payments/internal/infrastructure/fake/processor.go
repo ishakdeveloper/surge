@@ -38,13 +38,19 @@ const (
 )
 
 type hold struct {
-	amount int64
-	state  state
+	amount   int64
+	refunded int64
+	state    state
+}
+
+type transfer struct {
+	account string
+	amount  int64
 }
 
 // Calls counts what the processor was asked to do.
 type Calls struct {
-	Authorize, Capture, Release, Transfer int
+	Authorize, Capture, Release, Transfer, Refund, Reverse, Payout int
 }
 
 type Processor struct {
@@ -54,10 +60,19 @@ type Processor struct {
 	holds   map[string]*hold
 	calls   Calls
 	fail    error
+
+	// balances is each connected account's available money: transfers in,
+	// payouts and reversals out. Available at once — the fake has no
+	// settlement to wait for.
+	balances  map[string]int64
+	transfers map[string]transfer
 }
 
 func New() *Processor {
-	return &Processor{answers: map[string]any{}, holds: map[string]*hold{}}
+	return &Processor{
+		answers: map[string]any{}, holds: map[string]*hold{},
+		balances: map[string]int64{}, transfers: map[string]transfer{},
+	}
 }
 
 var _ service.Processor = (*Processor)(nil)
@@ -222,6 +237,8 @@ func (p *Processor) Transfer(_ context.Context, request service.TransferRequest)
 
 	id := p.id("tr")
 	p.answers[request.IdempotencyKey] = id
+	p.transfers[id] = transfer{account: request.DestinationAccountID, amount: request.AmountCents}
+	p.balances[request.DestinationAccountID] += request.AmountCents
 	return id, nil
 }
 

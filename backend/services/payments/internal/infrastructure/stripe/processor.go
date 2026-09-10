@@ -276,6 +276,9 @@ func (p *Processor) CreateConnectedAccount(ctx context.Context, driverID, email,
 	if err != nil {
 		return service.ConnectedAccount{}, fmt.Errorf("stripe: create account for %s: %w", driverID, err)
 	}
+	if err := p.manualPayouts(ctx, account.ID, idempotencyKey+":payouts"); err != nil {
+		return service.ConnectedAccount{}, err
+	}
 	return connected(account), nil
 }
 

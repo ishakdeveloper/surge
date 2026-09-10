@@ -24,6 +24,10 @@ const (
 	PaymentsService_GetTripPayment_FullMethodName    = "/surge.payments.v1.PaymentsService/GetTripPayment"
 	PaymentsService_GetPayoutAccount_FullMethodName  = "/surge.payments.v1.PaymentsService/GetPayoutAccount"
 	PaymentsService_StartOnboarding_FullMethodName   = "/surge.payments.v1.PaymentsService/StartOnboarding"
+	PaymentsService_GetBalance_FullMethodName        = "/surge.payments.v1.PaymentsService/GetBalance"
+	PaymentsService_CreateWithdrawal_FullMethodName  = "/surge.payments.v1.PaymentsService/CreateWithdrawal"
+	PaymentsService_ListWithdrawals_FullMethodName   = "/surge.payments.v1.PaymentsService/ListWithdrawals"
+	PaymentsService_RefundTrip_FullMethodName        = "/surge.payments.v1.PaymentsService/RefundTrip"
 	PaymentsService_DeliverWebhook_FullMethodName    = "/surge.payments.v1.PaymentsService/DeliverWebhook"
 	PaymentsService_ListEarnings_FullMethodName      = "/surge.payments.v1.PaymentsService/ListEarnings"
 )
@@ -64,6 +68,20 @@ type PaymentsServiceClient interface {
 	// redirects wherever a request said is an open redirect with a trusted
 	// domain in front of it.
 	StartOnboarding(ctx context.Context, in *StartOnboardingRequest, opts ...grpc.CallOption) (*StartOnboardingResponse, error)
+	// GetBalance is what a driver can take out now, what is on its way to their
+	// balance, and what they have earned that has not reached it yet.
+	GetBalance(ctx context.Context, in *GetBalanceRequest, opts ...grpc.CallOption) (*GetBalanceResponse, error)
+	// CreateWithdrawal pays out from a driver's balance to their bank. An amount
+	// of zero withdraws everything available.
+	//
+	// Takes an idempotency key, because it moves money and the caller is a phone:
+	// the double tap and the retried request are one payout.
+	CreateWithdrawal(ctx context.Context, in *CreateWithdrawalRequest, opts ...grpc.CallOption) (*CreateWithdrawalResponse, error)
+	// ListWithdrawals is a driver's withdrawals, newest first.
+	ListWithdrawals(ctx context.Context, in *ListWithdrawalsRequest, opts ...grpc.CallOption) (*ListWithdrawalsResponse, error)
+	// RefundTrip gives money back to a rider, ops only, and takes the driver's
+	// share of it back in proportion. An amount of zero refunds everything left.
+	RefundTrip(ctx context.Context, in *RefundTripRequest, opts ...grpc.CallOption) (*RefundTripResponse, error)
 	// DeliverWebhook hands this service a processor webhook exactly as it
 	// arrived.
 	//
@@ -136,6 +154,46 @@ func (c *paymentsServiceClient) StartOnboarding(ctx context.Context, in *StartOn
 	return out, nil
 }
 
+func (c *paymentsServiceClient) GetBalance(ctx context.Context, in *GetBalanceRequest, opts ...grpc.CallOption) (*GetBalanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBalanceResponse)
+	err := c.cc.Invoke(ctx, PaymentsService_GetBalance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *paymentsServiceClient) CreateWithdrawal(ctx context.Context, in *CreateWithdrawalRequest, opts ...grpc.CallOption) (*CreateWithdrawalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateWithdrawalResponse)
+	err := c.cc.Invoke(ctx, PaymentsService_CreateWithdrawal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *paymentsServiceClient) ListWithdrawals(ctx context.Context, in *ListWithdrawalsRequest, opts ...grpc.CallOption) (*ListWithdrawalsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWithdrawalsResponse)
+	err := c.cc.Invoke(ctx, PaymentsService_ListWithdrawals_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *paymentsServiceClient) RefundTrip(ctx context.Context, in *RefundTripRequest, opts ...grpc.CallOption) (*RefundTripResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RefundTripResponse)
+	err := c.cc.Invoke(ctx, PaymentsService_RefundTrip_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *paymentsServiceClient) DeliverWebhook(ctx context.Context, in *DeliverWebhookRequest, opts ...grpc.CallOption) (*DeliverWebhookResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeliverWebhookResponse)
@@ -192,6 +250,20 @@ type PaymentsServiceServer interface {
 	// redirects wherever a request said is an open redirect with a trusted
 	// domain in front of it.
 	StartOnboarding(context.Context, *StartOnboardingRequest) (*StartOnboardingResponse, error)
+	// GetBalance is what a driver can take out now, what is on its way to their
+	// balance, and what they have earned that has not reached it yet.
+	GetBalance(context.Context, *GetBalanceRequest) (*GetBalanceResponse, error)
+	// CreateWithdrawal pays out from a driver's balance to their bank. An amount
+	// of zero withdraws everything available.
+	//
+	// Takes an idempotency key, because it moves money and the caller is a phone:
+	// the double tap and the retried request are one payout.
+	CreateWithdrawal(context.Context, *CreateWithdrawalRequest) (*CreateWithdrawalResponse, error)
+	// ListWithdrawals is a driver's withdrawals, newest first.
+	ListWithdrawals(context.Context, *ListWithdrawalsRequest) (*ListWithdrawalsResponse, error)
+	// RefundTrip gives money back to a rider, ops only, and takes the driver's
+	// share of it back in proportion. An amount of zero refunds everything left.
+	RefundTrip(context.Context, *RefundTripRequest) (*RefundTripResponse, error)
 	// DeliverWebhook hands this service a processor webhook exactly as it
 	// arrived.
 	//
@@ -228,6 +300,18 @@ func (UnimplementedPaymentsServiceServer) GetPayoutAccount(context.Context, *Get
 }
 func (UnimplementedPaymentsServiceServer) StartOnboarding(context.Context, *StartOnboardingRequest) (*StartOnboardingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartOnboarding not implemented")
+}
+func (UnimplementedPaymentsServiceServer) GetBalance(context.Context, *GetBalanceRequest) (*GetBalanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBalance not implemented")
+}
+func (UnimplementedPaymentsServiceServer) CreateWithdrawal(context.Context, *CreateWithdrawalRequest) (*CreateWithdrawalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateWithdrawal not implemented")
+}
+func (UnimplementedPaymentsServiceServer) ListWithdrawals(context.Context, *ListWithdrawalsRequest) (*ListWithdrawalsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListWithdrawals not implemented")
+}
+func (UnimplementedPaymentsServiceServer) RefundTrip(context.Context, *RefundTripRequest) (*RefundTripResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RefundTrip not implemented")
 }
 func (UnimplementedPaymentsServiceServer) DeliverWebhook(context.Context, *DeliverWebhookRequest) (*DeliverWebhookResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverWebhook not implemented")
@@ -346,6 +430,78 @@ func _PaymentsService_StartOnboarding_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PaymentsService_GetBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBalanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServiceServer).GetBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentsService_GetBalance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServiceServer).GetBalance(ctx, req.(*GetBalanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PaymentsService_CreateWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateWithdrawalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServiceServer).CreateWithdrawal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentsService_CreateWithdrawal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServiceServer).CreateWithdrawal(ctx, req.(*CreateWithdrawalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PaymentsService_ListWithdrawals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWithdrawalsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServiceServer).ListWithdrawals(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentsService_ListWithdrawals_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServiceServer).ListWithdrawals(ctx, req.(*ListWithdrawalsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PaymentsService_RefundTrip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefundTripRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServiceServer).RefundTrip(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentsService_RefundTrip_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServiceServer).RefundTrip(ctx, req.(*RefundTripRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PaymentsService_DeliverWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeliverWebhookRequest)
 	if err := dec(in); err != nil {
@@ -408,6 +564,22 @@ var PaymentsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartOnboarding",
 			Handler:    _PaymentsService_StartOnboarding_Handler,
+		},
+		{
+			MethodName: "GetBalance",
+			Handler:    _PaymentsService_GetBalance_Handler,
+		},
+		{
+			MethodName: "CreateWithdrawal",
+			Handler:    _PaymentsService_CreateWithdrawal_Handler,
+		},
+		{
+			MethodName: "ListWithdrawals",
+			Handler:    _PaymentsService_ListWithdrawals_Handler,
+		},
+		{
+			MethodName: "RefundTrip",
+			Handler:    _PaymentsService_RefundTrip_Handler,
 		},
 		{
 			MethodName: "DeliverWebhook",

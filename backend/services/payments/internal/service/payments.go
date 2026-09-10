@@ -42,6 +42,17 @@ type Processor interface {
 	// OnboardingLink is a single-use link into the processor's hosted
 	// onboarding for an account.
 	OnboardingLink(ctx context.Context, accountID, refreshURL, returnURL string) (string, error)
+
+	// Refund gives money back to a rider from a captured payment.
+	Refund(ctx context.Context, request RefundRequest) (refundID string, err error)
+	// ReverseTransfer takes part of a transfer back from a driver's balance.
+	// ErrReversalRefused when the balance cannot cover it.
+	ReverseTransfer(ctx context.Context, request ReversalRequest) (reversalID string, err error)
+	// Balance is what a connected account holds.
+	Balance(ctx context.Context, accountID string) (Balance, error)
+	// Payout sends money from a connected account's balance to its bank.
+	// ErrPayoutRefused, carrying the processor's reason, when it will not.
+	Payout(ctx context.Context, request PayoutRequest) (Payout, error)
 }
 
 // Outcome is how a request for a hold was answered.
@@ -381,11 +392,12 @@ func (s *Service) payDriver(ctx context.Context, tripID string) error {
 	next.UpdatedAt = s.now()
 
 	// A share that rounds to nothing is settled without troubling the
-	// processor, which refuses a transfer of zero.
-	if earning.NetCents > 0 {
+	// processor, which refuses a transfer of zero. What is paid is what is
+	// payable: a refund before payout has already taken its part.
+	if earning.Payable() > 0 {
 		transferID, err := s.processor.Transfer(ctx, TransferRequest{
 			DestinationAccountID: account.ProcessorAccountID,
-			AmountCents:          earning.NetCents,
+			AmountCents:          earning.Payable(),
 			Currency:             earning.Currency,
 			SourceChargeID:       payment.ProcessorChargeID,
 			TripID:               tripID,

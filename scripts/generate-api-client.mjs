@@ -38,6 +38,8 @@ const FORMATS = {
   "driver-id": "DriverId",
   "rider-id": "RiderId",
   "payment-id": "PaymentId",
+  "withdrawal-id": "WithdrawalId",
+  "refund-id": "RefundId",
   "error-code": "ErrorCode",
   cents: "CentsFromString",
   int64: "Int64FromString",

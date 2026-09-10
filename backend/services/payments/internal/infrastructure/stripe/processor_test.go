@@ -2,6 +2,7 @@ package stripe_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -176,5 +177,47 @@ func TestAConnectedAccountStartsUnpaid(t *testing.T) {
 	again, err := p.ConnectedAccount(ctx, account.ID)
 	if err != nil || again.ID != account.ID {
 		t.Errorf("reading the account back: %+v (%v)", again, err)
+	}
+
+	// Nothing in it, and nothing can be paid out of an account with no bank:
+	// refused with a reason, not failed as an outage.
+	held, err := p.Balance(ctx, account.ID)
+	if err != nil || held.AvailableCents != 0 {
+		t.Errorf("a new account holds %+v (%v)", held, err)
+	}
+	_, err = p.Payout(ctx, service.PayoutRequest{AccountID: account.ID, AmountCents: 100, Currency: "eur", IdempotencyKey: run("payout")})
+	if !errors.Is(err, service.ErrPayoutRefused) {
+		t.Errorf("a payout with no bank: want ErrPayoutRefused, got %v", err)
+	}
+}
+
+// Money back to a rider, in parts, and never more than was taken.
+func TestARefundOfACapture(t *testing.T) {
+	p, raw := processor(t)
+	ctx := context.Background()
+	customer, visa := customerWith(t, p, raw, "pm_card_visa")
+
+	held := authorize(t, p, customer, visa)
+	if _, err := p.Capture(ctx, service.CaptureRequest{
+		ProcessorPaymentID: held.ProcessorPaymentID, AmountCents: 1450, IdempotencyKey: run("capture"),
+	}); err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+
+	refund := func(amount int64, key string) (string, error) {
+		return p.Refund(ctx, service.RefundRequest{
+			ProcessorPaymentID: held.ProcessorPaymentID, AmountCents: amount,
+			Reason: "late pickup", TripID: "contract-trip", IdempotencyKey: key,
+		})
+	}
+	first, err := refund(725, run("refund-1"))
+	if err != nil || !strings.HasPrefix(first, "re_") {
+		t.Fatalf("half: %q (%v)", first, err)
+	}
+	if _, err := refund(725, run("refund-2")); err != nil {
+		t.Fatalf("the other half: %v", err)
+	}
+	if _, err := refund(1, run("refund-3")); err == nil {
+		t.Error("refunded a cent more than was captured")
 	}
 }

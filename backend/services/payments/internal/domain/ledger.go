@@ -34,6 +34,8 @@ type TxnKind string
 const (
 	TxnCapture  TxnKind = "capture"
 	TxnTransfer TxnKind = "transfer"
+	TxnRefund   TxnKind = "refund"
+	TxnReversal TxnKind = "reversal"
 )
 
 // Entry is one leg of a transaction. Positive is a debit, negative a credit.
@@ -104,8 +106,8 @@ func TransferTxn(earning Earning) Txn {
 		TripID:   earning.TripID,
 		Currency: earning.Currency,
 		Entries: []Entry{
-			{Account: DriverAccount(earning.DriverID), AmountCents: earning.NetCents},
-			{Account: AccountClearing, AmountCents: -earning.NetCents},
+			{Account: DriverAccount(earning.DriverID), AmountCents: earning.Payable()},
+			{Account: AccountClearing, AmountCents: -earning.Payable()},
 		},
 	}
 }

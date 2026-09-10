@@ -44,6 +44,16 @@ export const PaymentId = Schema.String.pipe(Schema.brand("PaymentId")).annotate(
 });
 export type PaymentId = typeof PaymentId.Type;
 
+export const WithdrawalId = Schema.String.pipe(Schema.brand("WithdrawalId")).annotate({
+  identifier: "WithdrawalId",
+});
+export type WithdrawalId = typeof WithdrawalId.Type;
+
+export const RefundId = Schema.String.pipe(Schema.brand("RefundId")).annotate({
+  identifier: "RefundId",
+});
+export type RefundId = typeof RefundId.Type;
+
 /**
  * The gateway's error codes, as a closed set a client can branch on.
  *

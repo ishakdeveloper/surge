@@ -25,6 +25,8 @@ type InMemory struct {
 	posted      map[string]bool
 	balances    map[string]int64
 	events      map[string]bool
+	refunds     map[string]domain.Refund
+	withdrawals map[string]domain.Withdrawal
 	facts       []domain.Fact
 }
 
@@ -47,6 +49,7 @@ func NewInMemory() *InMemory {
 		byTrip: map[string]string{}, byProcessor: map[string]string{},
 		accounts: map[string]domain.PayoutAccount{}, earnings: map[string]domain.Earning{},
 		posted: map[string]bool{}, balances: map[string]int64{}, events: map[string]bool{},
+		refunds: map[string]domain.Refund{}, withdrawals: map[string]domain.Withdrawal{},
 	}
 }
 
@@ -205,9 +208,9 @@ func (r *InMemory) EarningTotals(_ context.Context, driverID string) (domain.Ear
 		}
 		switch earning.Status {
 		case domain.EarningUnpaid:
-			totals.OwedCents += earning.NetCents
+			totals.OwedCents += earning.Payable()
 		case domain.EarningTransferred:
-			totals.PaidCents += earning.NetCents
+			totals.PaidCents += earning.Payable()
 		}
 	}
 	return totals, nil
@@ -259,6 +262,12 @@ func (r *InMemory) Apply(_ context.Context, change domain.Change) error {
 		}
 	}
 
+	if refund := change.Refund; refund != nil {
+		if err := r.checkRefund(refund); err != nil {
+			return err
+		}
+	}
+
 	for _, txn := range change.Txns {
 		for _, entry := range txn.Entries {
 			if r.posted[txn.ID+"\x00"+entry.Account] {
@@ -276,6 +285,9 @@ func (r *InMemory) Apply(_ context.Context, change domain.Change) error {
 	}
 	if earning := change.Earning; earning != nil {
 		r.earnings[earning.TripID] = *earning
+	}
+	if refund := change.Refund; refund != nil {
+		r.applyRefund(refund)
 	}
 	for _, txn := range change.Txns {
 		for _, entry := range txn.Entries {

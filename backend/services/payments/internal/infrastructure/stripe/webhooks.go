@@ -112,9 +112,19 @@ func (w *Webhooks) apply(ctx context.Context, event stripego.Event) error {
 		}
 		return w.payments.CardSaved(ctx, intent.Customer.ID, saved)
 
+	case stripego.EventTypePayoutPaid, stripego.EventTypePayoutFailed, stripego.EventTypePayoutCanceled:
+		// A driver's withdrawal reaching their bank, or not. These are
+		// Connect events, from the driver's account rather than the
+		// platform's, and arrive on the same endpoint.
+		var payout stripego.Payout
+		if err := json.Unmarshal(event.Data.Raw, &payout); err != nil {
+			return fmt.Errorf("stripe: decode %s: %w", event.Type, err)
+		}
+		return w.payments.PayoutSettled(ctx, payout.ID, string(payout.Status), payout.FailureMessage)
+
 	default:
-		// Captures, releases and transfers are driven from this side and
-		// stored as they are made; their events confirm what is known.
+		// Captures, releases, transfers and refunds are driven from this side
+		// and stored as they are made; their events confirm what is known.
 		return nil
 	}
 }

@@ -60,18 +60,24 @@ const (
 
 // Earning is a driver's share of one captured trip.
 type Earning struct {
-	TripID              string
-	DriverID            string
-	PaymentID           string
-	GrossCents          int64
-	CommissionCents     int64
-	NetCents            int64
+	TripID          string
+	DriverID        string
+	PaymentID       string
+	GrossCents      int64
+	CommissionCents int64
+	NetCents        int64
+	// ReversedCents is what refunds have since taken back of NetCents.
+	ReversedCents       int64
 	Currency            string
 	Status              EarningStatus
 	ProcessorTransferID string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
+
+// Payable is what the driver is due from this trip: what it earned, less what
+// refunds took back.
+func (e Earning) Payable() int64 { return e.NetCents - e.ReversedCents }
 
 // NewEarning divides a captured payment into what the driver earned.
 func NewEarning(payment *Payment, commissionBps int, now time.Time) Earning {
@@ -132,6 +138,13 @@ type Change struct {
 	Earning     *Earning
 	EarningFrom EarningStatus
 
+	// Refund is inserted, and its amounts added to the payment's refunded
+	// total and the earning's reversed total in place — refused as ErrConflict
+	// if either would pass what was captured or earned. Added rather than
+	// written, so two refunds landing at once cannot each overwrite the other's
+	// total and give back more than was taken.
+	Refund *Refund
+
 	Txns  []Txn
 	Facts []Fact
 }
@@ -165,6 +178,18 @@ type Repository interface {
 	// safely, because every change it causes is a compare-and-set.
 	EventHandled(ctx context.Context, eventID string) (bool, error)
 	MarkEventHandled(ctx context.Context, eventID, eventType string) error
+
+	// RefundByKey finds the refund an idempotency key already made.
+	RefundByKey(ctx context.Context, tripID, key string) (*Refund, error)
+
+	// SaveWithdrawal inserts a new withdrawal; a second one with the same
+	// driver and key is ErrConflict.
+	SaveWithdrawal(ctx context.Context, withdrawal *Withdrawal) error
+	// UpdateWithdrawal is a compare-and-set on the status it was read in.
+	UpdateWithdrawal(ctx context.Context, withdrawal *Withdrawal, from WithdrawalStatus) error
+	WithdrawalByKey(ctx context.Context, driverID, key string) (*Withdrawal, error)
+	WithdrawalByPayoutID(ctx context.Context, processorPayoutID string) (*Withdrawal, error)
+	ListWithdrawals(ctx context.Context, filter WithdrawalFilter) (WithdrawalPage, error)
 
 	// Apply writes a change atomically, or returns ErrConflict and writes
 	// nothing when anything it was decided against has moved.

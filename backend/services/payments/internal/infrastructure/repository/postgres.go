@@ -154,7 +154,7 @@ func (r *Postgres) SavePayoutAccount(ctx context.Context, account domain.PayoutA
 }
 
 const earningColumns = `trip_id, driver_id, payment_id, gross_cents, commission_cents, net_cents,
-	currency, status, processor_transfer_id, created_at, updated_at`
+	currency, status, processor_transfer_id, created_at, updated_at, reversed_cents`
 
 func scanEarning(row scanner) (*domain.Earning, error) {
 	var (
@@ -163,7 +163,8 @@ func scanEarning(row scanner) (*domain.Earning, error) {
 	)
 	err := row.Scan(&earning.TripID, &earning.DriverID, &earning.PaymentID,
 		&earning.GrossCents, &earning.CommissionCents, &earning.NetCents,
-		&earning.Currency, &status, &earning.ProcessorTransferID, &earning.CreatedAt, &earning.UpdatedAt)
+		&earning.Currency, &status, &earning.ProcessorTransferID, &earning.CreatedAt, &earning.UpdatedAt,
+		&earning.ReversedCents)
 	if err != nil {
 		return nil, err
 	}
@@ -241,8 +242,8 @@ func (r *Postgres) ListEarnings(ctx context.Context, filter domain.EarningFilter
 func (r *Postgres) EarningTotals(ctx context.Context, driverID string) (domain.EarningTotals, error) {
 	var totals domain.EarningTotals
 	err := r.pool.QueryRow(ctx, `
-		select coalesce(sum(net_cents) filter (where status = 'unpaid'), 0),
-		       coalesce(sum(net_cents) filter (where status = 'transferred'), 0)
+		select coalesce(sum(net_cents - reversed_cents) filter (where status = 'unpaid'), 0),
+		       coalesce(sum(net_cents - reversed_cents) filter (where status = 'transferred'), 0)
 		from earning where driver_id = $1`, driverID,
 	).Scan(&totals.OwedCents, &totals.PaidCents)
 	if err != nil {
@@ -301,6 +302,11 @@ func (r *Postgres) Apply(ctx context.Context, change domain.Change) error {
 		}
 		if change.Earning != nil {
 			if err := writeEarning(ctx, tx, change.Earning, change.EarningFrom); err != nil {
+				return err
+			}
+		}
+		if change.Refund != nil {
+			if err := writeRefund(ctx, tx, change.Refund); err != nil {
 				return err
 			}
 		}
@@ -370,12 +376,12 @@ func writeEarning(ctx context.Context, tx pgx.Tx, earning *domain.Earning, from 
 	if from == "" {
 		tag, err := tx.Exec(ctx, `
 			insert into earning (`+earningColumns+`)
-			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 			on conflict (trip_id) do nothing`,
 			earning.TripID, earning.DriverID, earning.PaymentID,
 			earning.GrossCents, earning.CommissionCents, earning.NetCents,
 			earning.Currency, string(earning.Status), earning.ProcessorTransferID,
-			earning.CreatedAt, earning.UpdatedAt)
+			earning.CreatedAt, earning.UpdatedAt, earning.ReversedCents)
 		if err != nil {
 			return err
 		}
