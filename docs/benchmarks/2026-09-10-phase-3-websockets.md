@@ -16,18 +16,18 @@ time — so a difference in the numbers is attributable to the transport.
 
 5,000 drivers, 10 ride requests/sec, all over sockets:
 
-| | |
-|---|---:|
-| WebSocket connections | 5,000 |
-| Deepest send queue | 0 |
-| Slow-consumer evictions | 0 |
-| Dial failures | 0 |
-| Stale / reordered pings | 0 |
-| Matched | 723 |
-| Abandoned | 50 |
-| Offers delivered to sockets | 1,059 |
-| Accepted / declined | 724 / 315 |
-| Double dispatch | **0** |
+|                             |           |
+| --------------------------- | --------: |
+| WebSocket connections       |     5,000 |
+| Deepest send queue          |         0 |
+| Slow-consumer evictions     |         0 |
+| Dial failures               |         0 |
+| Stale / reordered pings     |         0 |
+| Matched                     |       723 |
+| Abandoned                   |        50 |
+| Offers delivered to sockets |     1,059 |
+| Accepted / declined         | 724 / 315 |
+| Double dispatch             |     **0** |
 
 A 94% match rate, and the accept/decline split lands on the configured 0.7.
 
@@ -67,7 +67,7 @@ back to `Close` if the grace period lapses.
 ### 3. Sequence numbers cannot survive a transport that reorders
 
 The real one. Thirty per cent of all pings were being rejected as stale —
-212,056 of them classified as *reordered*, which should be impossible for
+212,056 of them classified as _reordered_, which should be impossible for
 records keyed by driver on a single partition.
 
 A reconnecting client briefly holds two sockets. The gateway reads them with two

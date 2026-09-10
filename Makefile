@@ -104,12 +104,12 @@ proto: ## Regenerate gRPC code from proto/
 	cd backend && gofmt -w shared/proto
 
 build: ## Build every Go binary
-	$(GO) build -o bin/simd ./simulator/cmd
-	$(GO) build -o bin/ingest ./ingest/cmd
-	$(GO) build -o bin/matcher ./matcher/cmd
-	$(GO) build -o bin/trip ./trip/cmd
-	$(GO) build -o bin/migrate ./migrate/cmd
-	$(GO) build -o bin/gateway ./gateway/cmd
+	$(GO) build -o bin/simd ./services/simulator/cmd
+	$(GO) build -o bin/ingest ./services/ingest/cmd
+	$(GO) build -o bin/matcher ./services/matcher/cmd
+	$(GO) build -o bin/trip ./services/trip/cmd
+	$(GO) build -o bin/gateway ./services/gateway/cmd
+	$(GO) build -o bin/migrate ./tools/migrate
 
 test: ## Run both test suites
 	$(GO) vet ./... && cd backend && go test ./...
