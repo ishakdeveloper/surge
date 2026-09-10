@@ -1,10 +1,12 @@
 import { Alert, AlertDescription } from "@/components/ui/alert.js";
+import { StripeRefused } from "@/lib/stripe.js";
 import type { ErrorCode } from "@surge/domain/api/Primitives";
 import { V1ErrorBody } from "@surge/domain/api/SurgeApi";
 import { Cause, Option, Schema } from "effect";
 import { TriangleAlert } from "lucide-react";
 
 const isErrorBody = Schema.is(V1ErrorBody);
+const isStripeRefused = Schema.is(StripeRefused);
 
 /**
  * The gateway's own answer, when the failure carries one.
@@ -21,7 +23,8 @@ export const errorCode = (cause: Cause.Cause<unknown>): Option.Option<ErrorCode>
   Option.map(errorBody(cause), (body) => body.error.code);
 
 /**
- * Why an action failed, in the server's words when it gave any.
+ * Why an action failed, in the server's words when it gave any — or Stripe's,
+ * for the writes the browser sends Stripe directly.
  *
  * Anything else — a dropped connection, a defect — is shown through
  * `Cause.pretty`, because the repo rule is that failure UI shows the real cause
@@ -36,9 +39,16 @@ export const ActionError = (props: { readonly cause: Cause.Cause<unknown>; }) =>
       {Option.match(errorBody(props.cause), {
         onSome: (body) =>
           body.error.message,
-        onNone: () => (
-          <span className="font-mono text-xs whitespace-pre-wrap">{Cause.pretty(props.cause)}</span>
-        ),
+        onNone: () =>
+          Option.match(Option.filter(Cause.findErrorOption(props.cause), isStripeRefused), {
+            onSome: (refusal) =>
+              refusal.detail,
+            onNone: () => (
+              <span className="font-mono text-xs whitespace-pre-wrap">
+                {Cause.pretty(props.cause)}
+              </span>
+            ),
+          }),
       })}
     </AlertDescription>
   </Alert>

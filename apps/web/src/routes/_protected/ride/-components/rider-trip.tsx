@@ -5,6 +5,7 @@ import { SplitView } from "@/components/app/split-view.js";
 import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
 import { Button } from "@/components/ui/button.js";
 import { formatCents, formatDistance, formatDuration, riderStatus } from "@/lib/format.js";
+import { HoldStep } from "@/routes/_protected/ride/-components/trip-payment.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
@@ -51,6 +52,10 @@ export const RiderTrip = () => {
             <p className="text-base font-medium">{riderStatus[trip.status]}</p>
             <p className="text-muted-foreground font-mono text-xs">{trip.status}</p>
           </output>
+
+          {trip.status === "TRIP_STATUS_PAYMENT_PENDING" && (
+            <HoldStep tripId={trip.id} totalCents={trip.totalCents} />
+          )}
 
           <dl className="grid grid-cols-[6rem_1fr] gap-1.5 text-sm">
             <dt className="text-muted-foreground">Driver</dt>

@@ -1,3 +1,4 @@
+import { cardAtom } from "@/atom/payment-atoms.js";
 import { bookTrip, previewTrip, tripsAtom } from "@/atom/trip-atoms.js";
 import { ActionError, errorCode } from "@/components/app/action-error.js";
 import { SplitView } from "@/components/app/split-view.js";
@@ -12,9 +13,12 @@ import {
   riderStatus,
 } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
+import { CardSummary } from "@/routes/_protected/ride/-components/card-summary.js";
+import { TripReceipt } from "@/routes/_protected/ride/-components/trip-payment.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { FareId } from "@surge/domain/api/Primitives";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
+import { Link } from "@tanstack/react-router";
 import { Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
@@ -66,6 +70,13 @@ export const BookRide = () => {
     tripsAtom,
     (trips) => AsyncResult.isSuccess(trips) ? trips.value[0] : undefined,
   );
+  // Only a known answer of "no card" holds the button back. A card query that
+  // failed says nothing about the card, and the trip service is the one that
+  // decides whether a booking needs one.
+  const noCard = useAtomValue(
+    cardAtom,
+    (card) => AsyncResult.isSuccess(card) && !card.value.saved,
+  );
 
   React.useEffect(() => {
     if (Option.isSome(pickup) && Option.isSome(dropoff)) {
@@ -113,15 +124,34 @@ export const BookRide = () => {
 
           {latest !== undefined
             && (latest.status === "TRIP_STATUS_UNMATCHED"
-              || latest.status === "TRIP_STATUS_CANCELLED")
+              || latest.status === "TRIP_STATUS_CANCELLED"
+              || latest.status === "TRIP_STATUS_COMPLETED")
             && (
               <Alert>
-                <AlertDescription>
-                  Your last trip: {riderStatus[latest.status].toLowerCase()}{" "}
-                  <span className="text-muted-foreground font-mono text-xs">{latest.status}</span>
+                <AlertDescription className="flex flex-col gap-3">
+                  <p>
+                    Your last trip: {riderStatus[latest.status].toLowerCase()}{" "}
+                    <span className="text-muted-foreground font-mono text-xs">{latest.status}</span>
+                  </p>
+                  <TripReceipt tripId={latest.id} />
                 </AlertDescription>
               </Alert>
             )}
+
+          <section className="flex flex-col gap-2" aria-labelledby="payment">
+            <div className="flex items-baseline justify-between">
+              <h2 id="payment" className="text-sm font-medium">Payment</h2>
+              <Link to="/ride/payment" className="text-sm underline underline-offset-4">
+                {noCard ? "Add a card" : "Change"}
+              </Link>
+            </div>
+            <CardSummary />
+            {noCard && (
+              <p className="text-muted-foreground text-sm">
+                Add a card before booking: the fare is held on it when you book.
+              </p>
+            )}
+          </section>
 
           <section className="flex flex-col gap-3" aria-labelledby="where">
             <h2 id="where" className="text-sm font-medium">Where</h2>
@@ -230,7 +260,7 @@ export const BookRide = () => {
 
                   <Button
                     type="button"
-                    disabled={Option.isNone(choice) || booking.waiting}
+                    disabled={Option.isNone(choice) || booking.waiting || noCard}
                     onClick={() => {
                       if (Option.isSome(choice)) book(choice.value);
                     }}

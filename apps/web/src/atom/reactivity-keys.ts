@@ -21,4 +21,6 @@ export const Keys = {
   drivers: "drivers",
   /** Simulator configuration — the knob, not its output. */
   sim: "sim",
+  /** A rider's card and holds; a driver's payout account, balance and earnings. */
+  payments: "payments",
 } as const;

@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator.js";
 import type { LinkProps } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { Car, Gauge, LayoutDashboard, Navigation } from "lucide-react";
+import { Car, CreditCard, Gauge, LayoutDashboard, Navigation, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Exported for the command palette, so the two cannot list different pages. */
@@ -15,8 +15,12 @@ export const nav: ReadonlyArray<{
   readonly exact?: boolean;
 }> = [
   { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
-  { to: "/ride", label: "Ride", icon: Car },
-  { to: "/drive", label: "Drive", icon: Navigation },
+  // Exact, or Ride would stay highlighted beside Payment, and Drive beside
+  // Earnings, while either child page is open.
+  { to: "/ride", label: "Ride", icon: Car, exact: true },
+  { to: "/ride/payment", label: "Payment", icon: CreditCard },
+  { to: "/drive", label: "Drive", icon: Navigation, exact: true },
+  { to: "/drive/earnings", label: "Earnings", icon: Wallet },
   { to: "/console", label: "Console", icon: Gauge },
   // /console joins these when the fleet feed exists to draw. Absent rather than
   // stubbed, because `to` is typed against the generated route tree and a link

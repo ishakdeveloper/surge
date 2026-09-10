@@ -58,7 +58,10 @@ describe("page modules", () => {
   const pages = [
     ["home", () => import("@/routes/_protected/index.js")],
     ["ride", () => import("@/routes/_protected/ride/index.js")],
+    ["ride/payment", () => import("@/routes/_protected/ride/payment.js")],
     ["drive", () => import("@/routes/_protected/drive/index.js")],
+    ["drive/earnings", () => import("@/routes/_protected/drive/earnings.js")],
+    ["drive/payouts/refresh", () => import("@/routes/_protected/drive/payouts/refresh.js")],
     ["console", () => import("@/routes/_protected/console/index.js")],
   ] as const;
 

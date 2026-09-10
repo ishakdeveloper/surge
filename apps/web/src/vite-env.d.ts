@@ -13,6 +13,12 @@ interface ImportMetaEnv {
   readonly VITE_SURGE_WS_URL?: string;
   /** The auth service, the only thing the browser asks of Node. */
   readonly VITE_AUTH_BASE_URL?: string;
+  /**
+   * Stripe's publishable key: public by design, it only lets Stripe.js collect
+   * a card for this account. Unset means the payments service runs its fake
+   * processor, and the pages save a test card and hide Stripe's own components.
+   */
+  readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
 }
 
 interface ImportMeta {

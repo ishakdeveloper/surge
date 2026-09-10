@@ -1,3 +1,4 @@
+import { paymentPushesAtom } from "@/atom/payment-atoms.js";
 import { sessionAtom } from "@/atom/session-atoms.js";
 import { activeTripAtom, tripPushesAtom } from "@/atom/trip-atoms.js";
 import { QueryError } from "@/components/app/query-error.js";
@@ -18,6 +19,9 @@ import { AsyncResult } from "effect/unstable/reactivity";
  */
 const Ride = () => {
   useAtomMount(tripPushesAtom);
+  // The hold, the bank's check and the receipt move by payment pushes, not
+  // trip ones.
+  useAtomMount(paymentPushesAtom);
   const role = useAtomValue(
     sessionAtom,
     (session) => AsyncResult.isSuccess(session) ? session.value.role : undefined,

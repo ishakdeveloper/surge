@@ -1,8 +1,10 @@
 import {
+  type PaymentsGetBalance200,
   PaymentsGetForTrip200,
   type PaymentsGetMethod200,
   type PaymentsGetPayoutAccount200,
   type PaymentsListEarnings200,
+  type PaymentsListWithdrawals200,
 } from "../api/SurgeApi.js";
 
 /**
@@ -23,6 +25,12 @@ export type PayoutAccount = PaymentsGetPayoutAccount200["account"];
 
 /** A driver's share of one trip. */
 export type Earning = PaymentsListEarnings200["earnings"][number];
+
+/** What a driver has, and whether they can take it out. */
+export type Balance = PaymentsGetBalance200["balance"];
+
+/** One payout to a driver's bank. */
+export type Withdrawal = PaymentsListWithdrawals200["withdrawals"][number];
 
 /**
  * Where a payment is. The protobuf enum names, verbatim, as a runtime schema
