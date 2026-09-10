@@ -23,6 +23,7 @@ type Clients struct {
 
 	trip      *grpc.ClientConn
 	simulator *grpc.ClientConn
+	payments  *grpc.ClientConn
 }
 
 // Dial connects to everything the gateway needs.
@@ -31,7 +32,7 @@ type Clients struct {
 // because the trip service is briefly down is a gateway that turns one
 // service's restart into a total outage. Requests made while it is down fail
 // individually, which is the right blast radius.
-func Dial(tripAddr, simulatorAddr string) (*Clients, error) {
+func Dial(tripAddr, simulatorAddr, paymentsAddr string) (*Clients, error) {
 	trip, err := dial("trip service", tripAddr)
 	if err != nil {
 		return nil, err
@@ -41,7 +42,16 @@ func Dial(tripAddr, simulatorAddr string) (*Clients, error) {
 		_ = trip.Close()
 		return nil, err
 	}
-	return &Clients{Trip: trippb.NewTripServiceClient(trip), trip: trip, simulator: simulator}, nil
+	payments, err := dial("payments service", paymentsAddr)
+	if err != nil {
+		_ = trip.Close()
+		_ = simulator.Close()
+		return nil, err
+	}
+	return &Clients{
+		Trip: trippb.NewTripServiceClient(trip),
+		trip: trip, simulator: simulator, payments: payments,
+	}, nil
 }
 
 func dial(name, addr string) (*grpc.ClientConn, error) {
@@ -77,10 +87,12 @@ func dial(name, addr string) (*grpc.ClientConn, error) {
 // calling Go methods.
 func (c *Clients) TripConn() *grpc.ClientConn      { return c.trip }
 func (c *Clients) SimulatorConn() *grpc.ClientConn { return c.simulator }
+func (c *Clients) PaymentsConn() *grpc.ClientConn  { return c.payments }
 
 func (c *Clients) Close() {
 	_ = c.trip.Close()
 	_ = c.simulator.Close()
+	_ = c.payments.Close()
 }
 
 // Timeout bounds a downstream call.

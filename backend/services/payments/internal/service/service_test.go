@@ -29,8 +29,9 @@ func newRig(t *testing.T) *rig {
 	ids := 0
 	svc, err := service.New(service.Options{
 		Repository: repo, Processor: processor, CommissionBps: 2000,
-		Now:   func() time.Time { return now },
-		NewID: func() string { ids++; return fmt.Sprintf("pay-%d", ids) },
+		WebURL: "https://surge.test",
+		Now:    func() time.Time { return now },
+		NewID:  func() string { ids++; return fmt.Sprintf("pay-%d", ids) },
 	})
 	if err != nil {
 		t.Fatalf("new: %v", err)
@@ -69,6 +70,10 @@ func (r *rig) balance(t *testing.T, account string) int64 {
 	t.Helper()
 	balance, _ := r.repo.LedgerBalance(context.Background(), account)
 	return balance
+}
+
+func serviceAccount(id, status string) service.ConnectedAccount {
+	return service.ConnectedAccount{ID: id, TransfersStatus: status}
 }
 
 func trip(id string) service.Trip {

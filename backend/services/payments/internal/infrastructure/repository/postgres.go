@@ -29,12 +29,13 @@ func notFound(err error) error {
 	return err
 }
 
-func (r *Postgres) Customer(ctx context.Context, userID string) (domain.Customer, error) {
+const customerColumns = `user_id, processor_customer_id, payment_method_id,
+	card_brand, card_last4, card_exp_month, card_exp_year, created_at, updated_at`
+
+func (r *Postgres) customerWhere(ctx context.Context, column, value string) (domain.Customer, error) {
 	var customer domain.Customer
-	err := r.pool.QueryRow(ctx, `
-		select user_id, processor_customer_id, payment_method_id,
-		       card_brand, card_last4, card_exp_month, card_exp_year, created_at, updated_at
-		from payment_customer where user_id = $1`, userID,
+	err := r.pool.QueryRow(ctx,
+		`select `+customerColumns+` from payment_customer where `+column+` = $1`, value,
 	).Scan(&customer.UserID, &customer.ProcessorCustomerID, &customer.PaymentMethodID,
 		&customer.Card.Brand, &customer.Card.Last4, &customer.Card.ExpMonth, &customer.Card.ExpYear,
 		&customer.CreatedAt, &customer.UpdatedAt)
@@ -42,6 +43,14 @@ func (r *Postgres) Customer(ctx context.Context, userID string) (domain.Customer
 		return domain.Customer{}, fmt.Errorf("repository: customer: %w", notFound(err))
 	}
 	return customer, nil
+}
+
+func (r *Postgres) Customer(ctx context.Context, userID string) (domain.Customer, error) {
+	return r.customerWhere(ctx, "user_id", userID)
+}
+
+func (r *Postgres) CustomerByProcessorID(ctx context.Context, processorCustomerID string) (domain.Customer, error) {
+	return r.customerWhere(ctx, "processor_customer_id", processorCustomerID)
 }
 
 func (r *Postgres) SaveCustomer(ctx context.Context, customer domain.Customer) error {
@@ -106,17 +115,25 @@ func (r *Postgres) PaymentByProcessorID(ctx context.Context, processorPaymentID 
 	return payment, nil
 }
 
-func (r *Postgres) PayoutAccount(ctx context.Context, driverID string) (domain.PayoutAccount, error) {
+func (r *Postgres) accountWhere(ctx context.Context, column, value string) (domain.PayoutAccount, error) {
 	var account domain.PayoutAccount
 	err := r.pool.QueryRow(ctx, `
 		select driver_id, processor_account_id, transfers_status, requirements_due, created_at, updated_at
-		from payout_account where driver_id = $1`, driverID,
+		from payout_account where `+column+` = $1`, value,
 	).Scan(&account.DriverID, &account.ProcessorAccountID, &account.TransfersStatus,
 		&account.RequirementsDue, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		return domain.PayoutAccount{}, fmt.Errorf("repository: payout account: %w", notFound(err))
 	}
 	return account, nil
+}
+
+func (r *Postgres) PayoutAccount(ctx context.Context, driverID string) (domain.PayoutAccount, error) {
+	return r.accountWhere(ctx, "driver_id", driverID)
+}
+
+func (r *Postgres) PayoutAccountByProcessorID(ctx context.Context, processorAccountID string) (domain.PayoutAccount, error) {
+	return r.accountWhere(ctx, "processor_account_id", processorAccountID)
 }
 
 func (r *Postgres) SavePayoutAccount(ctx context.Context, account domain.PayoutAccount) error {
@@ -181,6 +198,57 @@ func (r *Postgres) UnpaidEarnings(ctx context.Context, driverID string) ([]domai
 		earnings = append(earnings, *earning)
 	}
 	return earnings, rows.Err()
+}
+
+func (r *Postgres) ListEarnings(ctx context.Context, filter domain.EarningFilter) (domain.EarningPage, error) {
+	// One more than asked for, which is how a next page is discovered without
+	// counting the history. Keyset over (created_at, trip_id), matching the
+	// earning_driver_created index, as the trip listing does.
+	limit := filter.Limit + 1
+	rows, err := r.pool.Query(ctx, `
+		select `+earningColumns+` from earning
+		where driver_id = $1
+		  and ($2 = '' or (created_at, trip_id) < (select created_at, trip_id from earning where trip_id = $2))
+		order by created_at desc, trip_id desc
+		limit $3`,
+		filter.DriverID, filter.Cursor, limit)
+	if err != nil {
+		return domain.EarningPage{}, fmt.Errorf("repository: list earnings: %w", err)
+	}
+	defer rows.Close()
+
+	var earnings []domain.Earning
+	for rows.Next() {
+		earning, err := scanEarning(rows)
+		if err != nil {
+			return domain.EarningPage{}, fmt.Errorf("repository: list earnings: %w", err)
+		}
+		earnings = append(earnings, *earning)
+	}
+	if err := rows.Err(); err != nil {
+		return domain.EarningPage{}, fmt.Errorf("repository: list earnings: %w", err)
+	}
+
+	page := domain.EarningPage{}
+	if len(earnings) == limit {
+		earnings = earnings[:filter.Limit]
+		page.NextCursor = earnings[len(earnings)-1].TripID
+	}
+	page.Earnings = earnings
+	return page, nil
+}
+
+func (r *Postgres) EarningTotals(ctx context.Context, driverID string) (domain.EarningTotals, error) {
+	var totals domain.EarningTotals
+	err := r.pool.QueryRow(ctx, `
+		select coalesce(sum(net_cents) filter (where status = 'unpaid'), 0),
+		       coalesce(sum(net_cents) filter (where status = 'transferred'), 0)
+		from earning where driver_id = $1`, driverID,
+	).Scan(&totals.OwedCents, &totals.PaidCents)
+	if err != nil {
+		return domain.EarningTotals{}, fmt.Errorf("repository: earning totals: %w", err)
+	}
+	return totals, nil
 }
 
 func (r *Postgres) LedgerBalance(ctx context.Context, account string) (int64, error) {

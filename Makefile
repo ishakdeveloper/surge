@@ -122,10 +122,13 @@ migrate: build ## Apply migrations to both databases
 # drift.
 proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 	@command -v protoc >/dev/null || { echo "protoc not installed"; exit 1; }
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+	@# Pinned to the runtime versions in backend/go.mod rather than @latest, so a
+	@# regeneration changes what the proto changed and nothing else — a newer
+	@# generator rewrites every file's header and helpers, and buries the diff.
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.30.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.30.0
 	@mkdir -p docs/api
 	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=proto \
 		--go_out=backend/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
@@ -135,7 +138,7 @@ proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 		--grpc-gateway_opt=generate_unbound_methods=false \
 		--openapiv2_out=docs/api \
 		--openapiv2_opt=allow_merge=true,merge_file_name=surge,disable_default_errors=true \
-		proto/trip.proto proto/driver.proto proto/common.proto proto/sim.proto
+		proto/trip.proto proto/driver.proto proto/common.proto proto/sim.proto proto/payments.proto
 	cd backend && gofmt -w shared/proto
 	# The gateway embeds the document it serves, so a rebuild cannot leave the
 	# published spec describing an older API.

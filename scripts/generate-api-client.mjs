@@ -37,6 +37,7 @@ const FORMATS = {
   "fare-id": "FareId",
   "driver-id": "DriverId",
   "rider-id": "RiderId",
+  "payment-id": "PaymentId",
   "error-code": "ErrorCode",
   cents: "CentsFromString",
   int64: "Int64FromString",

@@ -32,6 +32,16 @@ type Processor interface {
 	Capture(ctx context.Context, request CaptureRequest) (Capture, error)
 	Release(ctx context.Context, processorPaymentID, idempotencyKey string) error
 	Transfer(ctx context.Context, request TransferRequest) (transferID string, err error)
+
+	// EnsureCustomer creates the processor's record of a rider.
+	EnsureCustomer(ctx context.Context, userID, email, idempotencyKey string) (customerID string, err error)
+	// CreateSetupIntent starts saving a card for a customer.
+	CreateSetupIntent(ctx context.Context, customerID string) (SetupIntent, error)
+	// CreateConnectedAccount creates the account a driver is paid into.
+	CreateConnectedAccount(ctx context.Context, driverID, email, idempotencyKey string) (ConnectedAccount, error)
+	// OnboardingLink is a single-use link into the processor's hosted
+	// onboarding for an account.
+	OnboardingLink(ctx context.Context, accountID, refreshURL, returnURL string) (string, error)
 }
 
 // Outcome is how a request for a hold was answered.
@@ -105,6 +115,7 @@ type Service struct {
 	repo          domain.Repository
 	processor     Processor
 	commissionBps int
+	webURL        string
 	now           func() time.Time
 	newID         func() string
 }
@@ -115,8 +126,11 @@ type Options struct {
 	// CommissionBps is the platform's share of a fare in basis points: 2000 is
 	// 20%.
 	CommissionBps int
-	Now           func() time.Time
-	NewID         func() string
+	// WebURL is the web app's origin, which onboarding links send a driver
+	// back to.
+	WebURL string
+	Now    func() time.Time
+	NewID  func() string
 }
 
 func New(options Options) (*Service, error) {
@@ -129,6 +143,7 @@ func New(options Options) (*Service, error) {
 		repo:          options.Repository,
 		processor:     options.Processor,
 		commissionBps: options.CommissionBps,
+		webURL:        options.WebURL,
 		now:           options.Now,
 		newID:         options.NewID,
 	}

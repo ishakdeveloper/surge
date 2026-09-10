@@ -16,6 +16,10 @@
     {
       "name": "SimulatorService",
       "description": "SimulatorService is the load generator's control panel: how many drivers,\nreporting how often.\n\nBehind the gateway like every other API, rather than on the simulator's own\nport, for two reasons. The console should reach one origin with one token.\nAnd turning the knob from 500 drivers to 50,000 is an operation on shared\ninfrastructure, so it is ops only — enforced by the simulator itself against\nthe caller the gateway forwards, the same way the trip service enforces who\nmay read a trip."
+    },
+    {
+      "name": "PaymentsService",
+      "description": "PaymentsService is what riders and drivers see of money.\n\nReads of what the payments service has stored, and the two moments a person\nhas to hand something over to the processor: a rider's card, and a driver's\nidentity for payouts. Neither ever passes through here. A card is typed into\nthe processor's own form in the browser, which this only starts; a driver's\ndetails go to the processor's hosted onboarding, which this only links to.\n\nNothing that moves money is an endpoint. Holds, captures and transfers\nhappen because a trip was requested or completed, not because a client\nasked — a client that could ask could ask twice.\n\nThe caller is never a field, as in trip.proto: it arrives as metadata from\nthe gateway's verified token."
     }
   ],
   "consumes": [
@@ -25,6 +29,189 @@
     "application/json"
   ],
   "paths": {
+    "/v1/payments/earnings": {
+      "get": {
+        "summary": "ListEarnings is a driver's share of each trip, newest first, and what is\nstill owed to them.",
+        "operationId": "listEarnings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListEarningsResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "description": "Clamped by the server.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageToken",
+            "description": "Opaque cursor from a previous response.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/method": {
+      "get": {
+        "summary": "GetPaymentMethod is the card a rider's holds are placed on.",
+        "operationId": "getMethod",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetPaymentMethodResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/payout-account": {
+      "get": {
+        "summary": "GetPayoutAccount is whether a driver can be paid yet.",
+        "operationId": "getPayoutAccount",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetPayoutAccountResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "payments"
+        ]
+      },
+      "post": {
+        "summary": "StartOnboarding creates the driver's payout account if there is none, and\nreturns a link into the processor's hosted onboarding.",
+        "description": "The return addresses are the server's, never the caller's: a link that\nredirects wherever a request said is an open redirect with a trusted\ndomain in front of it.",
+        "operationId": "startOnboarding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartOnboardingResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1StartOnboardingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/setup-intents": {
+      "post": {
+        "summary": "CreateSetupIntent starts saving a rider's card, and returns the secret the\nbrowser hands to Stripe.js to collect it.",
+        "operationId": "createSetupIntent",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateSetupIntentResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateSetupIntentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/trips/{tripId}": {
+      "get": {
+        "summary": "GetTripPayment is what became of a trip's hold: the rider's receipt, and\nthe secret for an authentication step while one is waiting.",
+        "operationId": "getForTrip",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetTripPaymentResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "payments"
+        ]
+      }
+    },
     "/v1/simulator": {
       "get": {
         "summary": "GetSimulator is the fleet's size and rate, as configured and as running.",
@@ -528,6 +715,25 @@
         }
       }
     },
+    "v1Card": {
+      "type": "object",
+      "properties": {
+        "brand": {
+          "type": "string"
+        },
+        "last4": {
+          "type": "string"
+        },
+        "expMonth": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "expYear": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "v1CompleteTripResponse": {
       "type": "object",
       "properties": {
@@ -571,6 +777,18 @@
       },
       "description": "Coordinate is WGS84. `lng` rather than `lon`, matching H3, Valhalla and the\nrest of this codebase — one spelling everywhere is worth more than any\nargument about which."
     },
+    "v1CreateSetupIntentRequest": {
+      "type": "object"
+    },
+    "v1CreateSetupIntentResponse": {
+      "type": "object",
+      "properties": {
+        "clientSecret": {
+          "type": "string",
+          "description": "Confirms this setup and nothing else, and is handed straight to Stripe.js."
+        }
+      }
+    },
     "v1CreateTripRequest": {
       "type": "object",
       "properties": {
@@ -591,6 +809,48 @@
           "$ref": "#/definitions/v1Trip"
         }
       }
+    },
+    "v1Earning": {
+      "type": "object",
+      "properties": {
+        "tripId": {
+          "type": "string",
+          "format": "trip-id"
+        },
+        "grossCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "commissionCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "netCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1EarningStatus"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1EarningStatus": {
+      "type": "string",
+      "enum": [
+        "EARNING_STATUS_UNSPECIFIED",
+        "EARNING_STATUS_UNPAID",
+        "EARNING_STATUS_TRANSFERRED",
+        "EARNING_STATUS_REVERSED"
+      ],
+      "default": "EARNING_STATUS_UNSPECIFIED",
+      "description": " - EARNING_STATUS_UNPAID: Owed, waiting for an account that can receive it.\n - EARNING_STATUS_REVERSED: Taken back after a refund or a dispute."
     },
     "v1Error": {
       "type": "object",
@@ -641,6 +901,26 @@
         }
       }
     },
+    "v1GetPaymentMethodResponse": {
+      "type": "object",
+      "properties": {
+        "saved": {
+          "type": "boolean",
+          "description": "False until the rider has saved a card. The card is then empty rather than\nabsent, like every unset field this API sends."
+        },
+        "card": {
+          "$ref": "#/definitions/v1Card"
+        }
+      }
+    },
+    "v1GetPayoutAccountResponse": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "$ref": "#/definitions/v1PayoutAccount"
+        }
+      }
+    },
     "v1GetSimulatorResponse": {
       "type": "object",
       "properties": {
@@ -649,11 +929,48 @@
         }
       }
     },
+    "v1GetTripPaymentResponse": {
+      "type": "object",
+      "properties": {
+        "payment": {
+          "$ref": "#/definitions/v1Payment"
+        }
+      }
+    },
     "v1GetTripResponse": {
       "type": "object",
       "properties": {
         "trip": {
           "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1ListEarningsResponse": {
+      "type": "object",
+      "properties": {
+        "earnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Earning"
+          }
+        },
+        "nextPageToken": {
+          "type": "string",
+          "description": "Empty when there are no more."
+        },
+        "owedCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "Earned and not yet sent to the driver's account, across all pages."
+        },
+        "paidCents": {
+          "type": "string",
+          "format": "cents",
+          "description": "Sent to the driver's account, across all pages."
+        },
+        "currency": {
+          "type": "string"
         }
       }
     },
@@ -672,6 +989,91 @@
           "description": "Empty when there are no more."
         }
       }
+    },
+    "v1Payment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "payment-id"
+        },
+        "tripId": {
+          "type": "string",
+          "format": "trip-id"
+        },
+        "status": {
+          "$ref": "#/definitions/v1PaymentStatus"
+        },
+        "amountCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "capturedCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "refundedCents": {
+          "type": "string",
+          "format": "cents"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "failureReason": {
+          "type": "string",
+          "description": "Why a failed payment failed: no_payment_method, declined,\nauthentication_failed or expired. Empty otherwise."
+        },
+        "clientSecret": {
+          "type": "string",
+          "description": "Set while the status is REQUIRES_ACTION, for Stripe.js to run the rider's\nauthentication step, and only for the rider. Empty otherwise."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1PaymentStatus": {
+      "type": "string",
+      "enum": [
+        "PAYMENT_STATUS_UNSPECIFIED",
+        "PAYMENT_STATUS_AUTHORIZING",
+        "PAYMENT_STATUS_REQUIRES_ACTION",
+        "PAYMENT_STATUS_AUTHORIZED",
+        "PAYMENT_STATUS_CAPTURED",
+        "PAYMENT_STATUS_RELEASED",
+        "PAYMENT_STATUS_FAILED",
+        "PAYMENT_STATUS_REFUNDED"
+      ],
+      "default": "PAYMENT_STATUS_UNSPECIFIED",
+      "description": "PaymentStatus is the payment state machine, as a client sees it."
+    },
+    "v1PayoutAccount": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/v1PayoutAccountStatus"
+        },
+        "requirementsDue": {
+          "type": "boolean",
+          "description": "The processor is waiting on the driver for something: send them back\nthrough onboarding."
+        }
+      }
+    },
+    "v1PayoutAccountStatus": {
+      "type": "string",
+      "enum": [
+        "PAYOUT_ACCOUNT_STATUS_UNSPECIFIED",
+        "PAYOUT_ACCOUNT_STATUS_NOT_STARTED",
+        "PAYOUT_ACCOUNT_STATUS_PENDING",
+        "PAYOUT_ACCOUNT_STATUS_ACTIVE"
+      ],
+      "default": "PAYOUT_ACCOUNT_STATUS_UNSPECIFIED",
+      "description": " - PAYOUT_ACCOUNT_STATUS_NOT_STARTED: No account yet. Earnings are recorded and owed.\n - PAYOUT_ACCOUNT_STATUS_PENDING: An account that cannot receive money yet.\n - PAYOUT_ACCOUNT_STATUS_ACTIVE: Paid as trips complete."
     },
     "v1PreviewTripRequest": {
       "type": "object",
@@ -743,6 +1145,18 @@
           "type": "number",
           "format": "double",
           "description": "Drivers divided by the interval: ingest's load, stated."
+        }
+      }
+    },
+    "v1StartOnboardingRequest": {
+      "type": "object"
+    },
+    "v1StartOnboardingResponse": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Single use and short-lived: redirect to it at once, and never send it\nanywhere else — it opens the driver's identity details to whoever follows\nit."
         }
       }
     },

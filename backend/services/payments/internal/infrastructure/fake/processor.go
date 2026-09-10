@@ -221,3 +221,65 @@ func (p *Processor) Transfer(_ context.Context, request service.TransferRequest)
 	p.answers[request.IdempotencyKey] = id
 	return id, nil
 }
+
+func (p *Processor) EnsureCustomer(_ context.Context, _, _, idempotencyKey string) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err := p.failing(); err != nil {
+		return "", err
+	}
+	if answer, ok := p.answers[idempotencyKey]; ok {
+		return answer.(string), nil
+	}
+	id := p.id("cus")
+	p.answers[idempotencyKey] = id
+	return id, nil
+}
+
+// CreateSetupIntent attaches a Visa on the spot. There is no browser form to
+// type a card into without Stripe.js, so the fake's "saved card" is the one
+// that always authorizes; the other test cards are for tests, which seed them.
+func (p *Processor) CreateSetupIntent(_ context.Context, _ string) (service.SetupIntent, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err := p.failing(); err != nil {
+		return service.SetupIntent{}, err
+	}
+	return service.SetupIntent{
+		ClientSecret: p.id("seti") + "_secret_fake",
+		Attached: &service.SavedMethod{
+			PaymentMethodID: CardVisa,
+			Card:            domain.Card{Brand: "visa", Last4: "4242", ExpMonth: 12, ExpYear: 2030},
+		},
+	}, nil
+}
+
+// CreateConnectedAccount opens an account that can be paid at once: the fake
+// has no identity to verify.
+func (p *Processor) CreateConnectedAccount(_ context.Context, _, _, idempotencyKey string) (service.ConnectedAccount, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err := p.failing(); err != nil {
+		return service.ConnectedAccount{}, err
+	}
+	if answer, ok := p.answers[idempotencyKey]; ok {
+		return answer.(service.ConnectedAccount), nil
+	}
+	account := service.ConnectedAccount{ID: p.id("acct"), TransfersStatus: domain.TransfersActive}
+	p.answers[idempotencyKey] = account
+	return account, nil
+}
+
+// OnboardingLink sends the driver straight back: there is nothing to fill in.
+func (p *Processor) OnboardingLink(_ context.Context, _, _, returnURL string) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err := p.failing(); err != nil {
+		return "", err
+	}
+	return returnURL, nil
+}

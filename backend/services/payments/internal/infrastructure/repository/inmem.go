@@ -122,6 +122,83 @@ func (r *InMemory) UnpaidEarnings(_ context.Context, driverID string) ([]domain.
 	return unpaid, nil
 }
 
+func (r *InMemory) CustomerByProcessorID(_ context.Context, processorCustomerID string) (domain.Customer, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, customer := range r.customers {
+		if customer.ProcessorCustomerID == processorCustomerID {
+			return customer, nil
+		}
+	}
+	return domain.Customer{}, domain.ErrNotFound
+}
+
+func (r *InMemory) PayoutAccountByProcessorID(_ context.Context, processorAccountID string) (domain.PayoutAccount, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, account := range r.accounts {
+		if account.ProcessorAccountID == processorAccountID {
+			return account, nil
+		}
+	}
+	return domain.PayoutAccount{}, domain.ErrNotFound
+}
+
+func (r *InMemory) ListEarnings(_ context.Context, filter domain.EarningFilter) (domain.EarningPage, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var found []domain.Earning
+	for _, earning := range r.earnings {
+		if earning.DriverID == filter.DriverID {
+			found = append(found, earning)
+		}
+	}
+	// Newest first, the trip id breaking ties, as the Postgres keyset does.
+	sort.Slice(found, func(a, b int) bool {
+		if !found[a].CreatedAt.Equal(found[b].CreatedAt) {
+			return found[a].CreatedAt.After(found[b].CreatedAt)
+		}
+		return found[a].TripID > found[b].TripID
+	})
+
+	if filter.Cursor != "" {
+		for i, earning := range found {
+			if earning.TripID == filter.Cursor {
+				found = found[i+1:]
+				break
+			}
+		}
+	}
+
+	page := domain.EarningPage{}
+	if len(found) > filter.Limit {
+		found = found[:filter.Limit]
+		page.NextCursor = found[len(found)-1].TripID
+	}
+	page.Earnings = found
+	return page, nil
+}
+
+func (r *InMemory) EarningTotals(_ context.Context, driverID string) (domain.EarningTotals, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var totals domain.EarningTotals
+	for _, earning := range r.earnings {
+		if earning.DriverID != driverID {
+			continue
+		}
+		switch earning.Status {
+		case domain.EarningUnpaid:
+			totals.OwedCents += earning.NetCents
+		case domain.EarningTransferred:
+			totals.PaidCents += earning.NetCents
+		}
+	}
+	return totals, nil
+}
+
 func (r *InMemory) LedgerBalance(_ context.Context, account string) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -1,0 +1,265 @@
+syntax = "proto3";
+
+package surge.payments.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/payments;payments";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// PaymentsService is what riders and drivers see of money.
+//
+// Reads of what the payments service has stored, and the two moments a person
+// has to hand something over to the processor: a rider's card, and a driver's
+// identity for payouts. Neither ever passes through here. A card is typed into
+// the processor's own form in the browser, which this only starts; a driver's
+// details go to the processor's hosted onboarding, which this only links to.
+//
+// Nothing that moves money is an endpoint. Holds, captures and transfers
+// happen because a trip was requested or completed, not because a client
+// asked — a client that could ask could ask twice.
+//
+// The caller is never a field, as in trip.proto: it arrives as metadata from
+// the gateway's verified token.
+service PaymentsService {
+  // CreateSetupIntent starts saving a rider's card, and returns the secret the
+  // browser hands to Stripe.js to collect it.
+  rpc CreateSetupIntent(CreateSetupIntentRequest) returns (CreateSetupIntentResponse) {
+    option (google.api.http) = {
+      post: "/v1/payments/setup-intents"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "createSetupIntent"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // GetPaymentMethod is the card a rider's holds are placed on.
+  rpc GetPaymentMethod(GetPaymentMethodRequest) returns (GetPaymentMethodResponse) {
+    option (google.api.http) = {get: "/v1/payments/method"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "getMethod"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // GetTripPayment is what became of a trip's hold: the rider's receipt, and
+  // the secret for an authentication step while one is waiting.
+  rpc GetTripPayment(GetTripPaymentRequest) returns (GetTripPaymentResponse) {
+    option (google.api.http) = {get: "/v1/payments/trips/{trip_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "getForTrip"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // GetPayoutAccount is whether a driver can be paid yet.
+  rpc GetPayoutAccount(GetPayoutAccountRequest) returns (GetPayoutAccountResponse) {
+    option (google.api.http) = {get: "/v1/payments/payout-account"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "getPayoutAccount"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // StartOnboarding creates the driver's payout account if there is none, and
+  // returns a link into the processor's hosted onboarding.
+  //
+  // The return addresses are the server's, never the caller's: a link that
+  // redirects wherever a request said is an open redirect with a trusted
+  // domain in front of it.
+  rpc StartOnboarding(StartOnboardingRequest) returns (StartOnboardingResponse) {
+    option (google.api.http) = {
+      post: "/v1/payments/payout-account"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "startOnboarding"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ListEarnings is a driver's share of each trip, newest first, and what is
+  // still owed to them.
+  rpc ListEarnings(ListEarningsRequest) returns (ListEarningsResponse) {
+    option (google.api.http) = {get: "/v1/payments/earnings"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "payments"
+      operation_id: "listEarnings"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+}
+
+message CreateSetupIntentRequest {}
+
+message CreateSetupIntentResponse {
+  // Confirms this setup and nothing else, and is handed straight to Stripe.js.
+  string client_secret = 1;
+}
+
+message GetPaymentMethodRequest {}
+
+message GetPaymentMethodResponse {
+  // False until the rider has saved a card. The card is then empty rather than
+  // absent, like every unset field this API sends.
+  bool saved = 1;
+  Card card = 2;
+}
+
+message Card {
+  string brand = 1;
+  string last4 = 2;
+  int32 exp_month = 3;
+  int32 exp_year = 4;
+}
+
+message GetTripPaymentRequest {
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+}
+
+message GetTripPaymentResponse {
+  Payment payment = 1;
+}
+
+message Payment {
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "payment-id"}];
+  string trip_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+  PaymentStatus status = 3;
+  int64 amount_cents = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  int64 captured_cents = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  int64 refunded_cents = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  string currency = 7;
+  // Why a failed payment failed: no_payment_method, declined,
+  // authentication_failed or expired. Empty otherwise.
+  string failure_reason = 8;
+  // Set while the status is REQUIRES_ACTION, for Stripe.js to run the rider's
+  // authentication step, and only for the rider. Empty otherwise.
+  string client_secret = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// PaymentStatus is the payment state machine, as a client sees it.
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_AUTHORIZING = 1;
+  PAYMENT_STATUS_REQUIRES_ACTION = 2;
+  PAYMENT_STATUS_AUTHORIZED = 3;
+  PAYMENT_STATUS_CAPTURED = 4;
+  PAYMENT_STATUS_RELEASED = 5;
+  PAYMENT_STATUS_FAILED = 6;
+  PAYMENT_STATUS_REFUNDED = 7;
+}
+
+message GetPayoutAccountRequest {}
+
+message GetPayoutAccountResponse {
+  PayoutAccount account = 1;
+}
+
+message PayoutAccount {
+  PayoutAccountStatus status = 1;
+  // The processor is waiting on the driver for something: send them back
+  // through onboarding.
+  bool requirements_due = 2;
+}
+
+enum PayoutAccountStatus {
+  PAYOUT_ACCOUNT_STATUS_UNSPECIFIED = 0;
+  // No account yet. Earnings are recorded and owed.
+  PAYOUT_ACCOUNT_STATUS_NOT_STARTED = 1;
+  // An account that cannot receive money yet.
+  PAYOUT_ACCOUNT_STATUS_PENDING = 2;
+  // Paid as trips complete.
+  PAYOUT_ACCOUNT_STATUS_ACTIVE = 3;
+}
+
+message StartOnboardingRequest {}
+
+message StartOnboardingResponse {
+  // Single use and short-lived: redirect to it at once, and never send it
+  // anywhere else — it opens the driver's identity details to whoever follows
+  // it.
+  string url = 1;
+}
+
+message ListEarningsRequest {
+  // Clamped by the server.
+  int32 page_size = 1;
+  // Opaque cursor from a previous response.
+  string page_token = 2;
+}
+
+message ListEarningsResponse {
+  repeated Earning earnings = 1;
+  // Empty when there are no more.
+  string next_page_token = 2;
+  // Earned and not yet sent to the driver's account, across all pages.
+  int64 owed_cents = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  // Sent to the driver's account, across all pages.
+  int64 paid_cents = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  string currency = 5;
+}
+
+message Earning {
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+  int64 gross_cents = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  int64 commission_cents = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  int64 net_cents = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "cents"}];
+  string currency = 5;
+  EarningStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+enum EarningStatus {
+  EARNING_STATUS_UNSPECIFIED = 0;
+  // Owed, waiting for an account that can receive it.
+  EARNING_STATUS_UNPAID = 1;
+  EARNING_STATUS_TRANSFERRED = 2;
+  // Taken back after a refund or a dispute.
+  EARNING_STATUS_REVERSED = 3;
+}

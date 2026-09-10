@@ -90,6 +90,31 @@ func NewEarning(payment *Payment, commissionBps int, now time.Time) Earning {
 	}
 }
 
+// DefaultCurrency is the one market's. Totals are only meaningful within a
+// currency, and until there is a second one this is the currency they are in.
+const DefaultCurrency = "eur"
+
+// EarningFilter pages a driver's earnings, newest first.
+type EarningFilter struct {
+	DriverID string
+	Limit    int
+	// Cursor is the trip id of the last earning on the previous page.
+	Cursor string
+}
+
+type EarningPage struct {
+	Earnings []Earning
+	// NextCursor is empty when there are no more.
+	NextCursor string
+}
+
+// EarningTotals is what a driver has earned, split by whether it has reached
+// them.
+type EarningTotals struct {
+	OwedCents int64
+	PaidCents int64
+}
+
 // Change is one atomic write: a payment moved, and everything that moves with
 // it.
 //
@@ -122,8 +147,14 @@ type Repository interface {
 	PayoutAccount(ctx context.Context, driverID string) (PayoutAccount, error)
 	SavePayoutAccount(ctx context.Context, account PayoutAccount) error
 
+	// The processor names customers and accounts by its own ids in webhooks.
+	CustomerByProcessorID(ctx context.Context, processorCustomerID string) (Customer, error)
+	PayoutAccountByProcessorID(ctx context.Context, processorAccountID string) (PayoutAccount, error)
+
 	Earning(ctx context.Context, tripID string) (*Earning, error)
 	UnpaidEarnings(ctx context.Context, driverID string) ([]Earning, error)
+	ListEarnings(ctx context.Context, filter EarningFilter) (EarningPage, error)
+	EarningTotals(ctx context.Context, driverID string) (EarningTotals, error)
 
 	// LedgerBalance sums an account's entries.
 	LedgerBalance(ctx context.Context, account string) (int64, error)

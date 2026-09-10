@@ -12,12 +12,12 @@ outbox, and payments answers on `payment.events` the same way.
 
 ## What a trip's facts do
 
-| fact on `trip.lifecycle` | payments                                                             |
-| ------------------------ | -------------------------------------------------------------------- |
-| `TripRequested`          | hold the fare on the rider's card (a manual-capture PaymentIntent)   |
+| fact on `trip.lifecycle` | payments                                                                 |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `TripRequested`          | hold the fare on the rider's card (a manual-capture PaymentIntent)       |
 | `TripCompleted`          | capture it, record the driver's earning, transfer it if they can receive |
-| `TripCancelled`          | release the hold                                                     |
-| `TripUnmatched`          | release the hold                                                     |
+| `TripCancelled`          | release the hold                                                         |
+| `TripUnmatched`          | release the hold                                                         |
 
 and what it says back on `payment.events`: `PaymentAuthorized`,
 `PaymentActionRequired` (a 3-D Secure challenge), `PaymentFailed` with a reason,
@@ -56,13 +56,13 @@ and what it says back on `payment.events`: `PaymentAuthorized`,
 
 ## Configuration
 
-| variable                  | default    |                                                            |
-| ------------------------- | ---------- | ---------------------------------------------------------- |
-| `DATABASE_URL`            | (required) | no in-memory fallback, on purpose                          |
-| `PAYMENTS_PROCESSOR`      | `stripe`   | `fake` simulates everything and charges nobody             |
-| `PAYMENTS_COMMISSION_BPS` | `2000`     | the platform's share, in basis points                      |
-| `PAYMENTS_GROUP`          | `payments` | consumer group on `trip.lifecycle`                         |
-| `PAYMENTS_METRICS_ADDR`   | `:9107`    |                                                            |
+| variable                  | default    |                                                |
+| ------------------------- | ---------- | ---------------------------------------------- |
+| `DATABASE_URL`            | (required) | no in-memory fallback, on purpose              |
+| `PAYMENTS_PROCESSOR`      | `stripe`   | `fake` simulates everything and charges nobody |
+| `PAYMENTS_COMMISSION_BPS` | `2000`     | the platform's share, in basis points          |
+| `PAYMENTS_GROUP`          | `payments` | consumer group on `trip.lifecycle`             |
+| `PAYMENTS_METRICS_ADDR`   | `:9107`    |                                                |
 
 Read through `shared/config`, which fails loudly: an unset variable may take a
 default, a set-but-unparseable one is always an error.

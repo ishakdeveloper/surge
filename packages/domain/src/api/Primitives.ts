@@ -39,6 +39,11 @@ export const RiderId = Schema.String.pipe(Schema.brand("RiderId")).annotate({
 });
 export type RiderId = typeof RiderId.Type;
 
+export const PaymentId = Schema.String.pipe(Schema.brand("PaymentId")).annotate({
+  identifier: "PaymentId",
+});
+export type PaymentId = typeof PaymentId.Type;
+
 /**
  * The gateway's error codes, as a closed set a client can branch on.
  *

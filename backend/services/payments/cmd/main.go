@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,15 +22,23 @@ import (
 
 	"github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/events"
 	"github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/fake"
+	paymentshandler "github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/grpc"
 	"github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/repository"
 	"github.com/ishakdeveloper/surge/services/payments/internal/service"
+	"github.com/ishakdeveloper/surge/shared/authz"
 	"github.com/ishakdeveloper/surge/shared/config"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	"github.com/ishakdeveloper/surge/shared/obs"
 	"github.com/ishakdeveloper/surge/shared/outbox"
+	paymentspb "github.com/ishakdeveloper/surge/shared/proto/payments"
 	"github.com/ishakdeveloper/surge/shared/tracing"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/stats/opentelemetry"
 )
 
 func main() {
@@ -45,7 +54,11 @@ func run() error {
 
 	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
 	metricsAddr := config.StringOr("PAYMENTS_METRICS_ADDR", ":9107")
+	// Listen address, not the address the gateway dials: the same split the
+	// trip service learned the hard way.
+	grpcAddr := config.StringOr("PAYMENTS_GRPC_LISTEN", ":8112")
 	group := config.StringOr("PAYMENTS_GROUP", "payments")
+	webURL := config.StringOr("PAYMENTS_WEB_URL", "http://localhost:5273")
 
 	commission, err := config.IntOr("PAYMENTS_COMMISSION_BPS", 2000)
 	if err != nil {
@@ -97,6 +110,7 @@ func run() error {
 		Repository:    repo,
 		Processor:     processor,
 		CommissionBps: commission,
+		WebURL:        webURL,
 	})
 	if err != nil {
 		return err
@@ -122,17 +136,40 @@ func run() error {
 	}
 	defer consumer.Close()
 
-	errs := make(chan error, 3)
+	server := grpc.NewServer(
+		opentelemetry.ServerOption(opentelemetry.Options{}),
+		// The caller the gateway verified, back out of metadata, so a handler
+		// reads who is asking from context and never from the request.
+		grpc.UnaryInterceptor(authz.UnaryServerInterceptor()),
+	)
+	paymentspb.RegisterPaymentsServiceServer(server, paymentshandler.NewHandler(payments))
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(server, healthServer)
+	healthServer.SetServingStatus("surge.payments.v1.PaymentsService", healthpb.HealthCheckResponse_SERVING)
+	reflection.Register(server)
+
+	listener, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		return fmt.Errorf("payments: listen %s: %w", grpcAddr, err)
+	}
+
+	errs := make(chan error, 4)
 	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
 	go func() { errs <- relay.Run(ctx) }()
 	go func() { errs <- consumer.Run(ctx) }()
+	go func() { errs <- server.Serve(listener) }()
 
-	slog.Info("payments running", "commission_bps", commission, "group", group)
+	slog.Info("payments running", "grpc", grpcAddr, "commission_bps", commission, "group", group)
 
 	select {
 	case <-ctx.Done():
+		server.GracefulStop()
 		return nil
 	case err := <-errs:
+		server.GracefulStop()
+		if errors.Is(err, grpc.ErrServerStopped) {
+			return nil
+		}
 		return err
 	}
 }

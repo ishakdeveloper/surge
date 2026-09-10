@@ -29,10 +29,141 @@ import {
   ErrorCode,
   FareId,
   Int64FromString,
+  PaymentId,
   RiderId,
   TripId,
 } from "./Primitives.js";
 // non-recursive definitions
+export type V1ListEarningsResponse = typeof V1ListEarningsResponse.Type;
+export const V1ListEarningsResponse = Schema.Struct({
+  "earnings": Schema.Array(Schema.Struct({
+    "tripId": TripId,
+    "grossCents": CentsFromString,
+    "commissionCents": CentsFromString,
+    "netCents": CentsFromString,
+    "currency": Schema.String,
+    "status": Schema.Literals([
+      "EARNING_STATUS_UNSPECIFIED",
+      "EARNING_STATUS_UNPAID",
+      "EARNING_STATUS_TRANSFERRED",
+      "EARNING_STATUS_REVERSED",
+    ]).annotate({
+      "description":
+        " - EARNING_STATUS_UNPAID: Owed, waiting for an account that can receive it.\n - EARNING_STATUS_REVERSED: Taken back after a refund or a dispute.",
+      "default": "EARNING_STATUS_UNSPECIFIED",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+  })),
+  "nextPageToken": Schema.String.annotate({ "description": "Empty when there are no more." }),
+  "owedCents": CentsFromString,
+  "paidCents": CentsFromString,
+  "currency": Schema.String,
+}).annotate({ "identifier": "v1ListEarningsResponse" });
+export type V1ErrorBody = typeof V1ErrorBody.Type;
+export const V1ErrorBody = Schema.Struct({
+  "error": Schema.Struct({
+    "code": ErrorCode,
+    "message": Schema.String.annotate({
+      "description":
+        "For a human reading a log. Deliberately vague for anything internal — the\ndetail stays in the trace rather than travelling to a browser.",
+    }),
+  }),
+}).annotate({
+  "description":
+    "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends.",
+  "identifier": "v1ErrorBody",
+});
+export type V1GetPaymentMethodResponse = typeof V1GetPaymentMethodResponse.Type;
+export const V1GetPaymentMethodResponse = Schema.Struct({
+  "saved": Schema.Boolean.annotate({
+    "description":
+      "False until the rider has saved a card. The card is then empty rather than\nabsent, like every unset field this API sends.",
+  }),
+  "card": Schema.Struct({
+    "brand": Schema.String,
+    "last4": Schema.String,
+    "expMonth": Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+    "expYear": Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  }),
+}).annotate({ "identifier": "v1GetPaymentMethodResponse" });
+export type V1GetPayoutAccountResponse = typeof V1GetPayoutAccountResponse.Type;
+export const V1GetPayoutAccountResponse = Schema.Struct({
+  "account": Schema.Struct({
+    "status": Schema.Literals([
+      "PAYOUT_ACCOUNT_STATUS_UNSPECIFIED",
+      "PAYOUT_ACCOUNT_STATUS_NOT_STARTED",
+      "PAYOUT_ACCOUNT_STATUS_PENDING",
+      "PAYOUT_ACCOUNT_STATUS_ACTIVE",
+    ]).annotate({
+      "description":
+        " - PAYOUT_ACCOUNT_STATUS_NOT_STARTED: No account yet. Earnings are recorded and owed.\n - PAYOUT_ACCOUNT_STATUS_PENDING: An account that cannot receive money yet.\n - PAYOUT_ACCOUNT_STATUS_ACTIVE: Paid as trips complete.",
+      "default": "PAYOUT_ACCOUNT_STATUS_UNSPECIFIED",
+    }),
+    "requirementsDue": Schema.Boolean.annotate({
+      "description":
+        "The processor is waiting on the driver for something: send them back\nthrough onboarding.",
+    }),
+  }),
+}).annotate({ "identifier": "v1GetPayoutAccountResponse" });
+export type V1StartOnboardingRequest = typeof V1StartOnboardingRequest.Type;
+export const V1StartOnboardingRequest = Schema.Struct({}).annotate({
+  "identifier": "v1StartOnboardingRequest",
+});
+export type V1StartOnboardingResponse = typeof V1StartOnboardingResponse.Type;
+export const V1StartOnboardingResponse = Schema.Struct({
+  "url": Schema.String.annotate({
+    "description":
+      "Single use and short-lived: redirect to it at once, and never send it\nanywhere else — it opens the driver's identity details to whoever follows\nit.",
+  }),
+}).annotate({ "identifier": "v1StartOnboardingResponse" });
+export type V1CreateSetupIntentRequest = typeof V1CreateSetupIntentRequest.Type;
+export const V1CreateSetupIntentRequest = Schema.Struct({}).annotate({
+  "identifier": "v1CreateSetupIntentRequest",
+});
+export type V1CreateSetupIntentResponse = typeof V1CreateSetupIntentResponse.Type;
+export const V1CreateSetupIntentResponse = Schema.Struct({
+  "clientSecret": Schema.String.annotate({
+    "description": "Confirms this setup and nothing else, and is handed straight to Stripe.js.",
+  }),
+}).annotate({ "identifier": "v1CreateSetupIntentResponse" });
+export type V1GetTripPaymentResponse = typeof V1GetTripPaymentResponse.Type;
+export const V1GetTripPaymentResponse = Schema.Struct({
+  "payment": Schema.Struct({
+    "id": PaymentId,
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "PAYMENT_STATUS_UNSPECIFIED",
+      "PAYMENT_STATUS_AUTHORIZING",
+      "PAYMENT_STATUS_REQUIRES_ACTION",
+      "PAYMENT_STATUS_AUTHORIZED",
+      "PAYMENT_STATUS_CAPTURED",
+      "PAYMENT_STATUS_RELEASED",
+      "PAYMENT_STATUS_FAILED",
+      "PAYMENT_STATUS_REFUNDED",
+    ]).annotate({
+      "description": "PaymentStatus is the payment state machine, as a client sees it.",
+      "default": "PAYMENT_STATUS_UNSPECIFIED",
+    }),
+    "amountCents": CentsFromString,
+    "capturedCents": CentsFromString,
+    "refundedCents": CentsFromString,
+    "currency": Schema.String,
+    "failureReason": Schema.String.annotate({
+      "description":
+        "Why a failed payment failed: no_payment_method, declined,\nauthentication_failed or expired. Empty otherwise.",
+    }),
+    "clientSecret": Schema.String.annotate({
+      "description":
+        "Set while the status is REQUIRES_ACTION, for Stripe.js to run the rider's\nauthentication step, and only for the rider. Empty otherwise.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1GetTripPaymentResponse" });
 export type V1GetSimulatorResponse = typeof V1GetSimulatorResponse.Type;
 export const V1GetSimulatorResponse = Schema.Struct({
   "simulator": Schema.Struct({
@@ -54,20 +185,6 @@ export const V1GetSimulatorResponse = Schema.Struct({
     }).check(Schema.isFinite().annotate({ "expected": "a finite number" })),
   }),
 }).annotate({ "identifier": "v1GetSimulatorResponse" });
-export type V1ErrorBody = typeof V1ErrorBody.Type;
-export const V1ErrorBody = Schema.Struct({
-  "error": Schema.Struct({
-    "code": ErrorCode,
-    "message": Schema.String.annotate({
-      "description":
-        "For a human reading a log. Deliberately vague for anything internal — the\ndetail stays in the trace rather than travelling to a browser.",
-    }),
-  }),
-}).annotate({
-  "description":
-    "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends.",
-  "identifier": "v1ErrorBody",
-});
 export type V1ConfigureSimulatorRequest = typeof V1ConfigureSimulatorRequest.Type;
 export const V1ConfigureSimulatorRequest = Schema.Struct({
   "drivers": Schema.Number.annotate({ "format": "int32" }).check(
@@ -574,6 +691,162 @@ export const V1PreviewTripResponse = Schema.Struct({
   }).annotate({ "description": "Route is a driveable path with its cost." }),
 }).annotate({ "identifier": "v1PreviewTripResponse" });
 // schemas
+export type PaymentsListEarningsParams = typeof PaymentsListEarningsParams.Type;
+export const PaymentsListEarningsParams = Schema.Struct({
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type PaymentsListEarningsQuery = typeof PaymentsListEarningsQuery.Type;
+export const PaymentsListEarningsQuery = Schema.Struct({
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type PaymentsListEarnings200 = typeof PaymentsListEarnings200.Type;
+export const PaymentsListEarnings200 = V1ListEarningsResponse;
+export type PaymentsListEarnings400 = typeof PaymentsListEarnings400.Type;
+export const PaymentsListEarnings400 = V1ErrorBody;
+export type PaymentsListEarnings401 = typeof PaymentsListEarnings401.Type;
+export const PaymentsListEarnings401 = V1ErrorBody;
+export type PaymentsListEarnings403 = typeof PaymentsListEarnings403.Type;
+export const PaymentsListEarnings403 = V1ErrorBody;
+export type PaymentsListEarnings404 = typeof PaymentsListEarnings404.Type;
+export const PaymentsListEarnings404 = V1ErrorBody;
+export type PaymentsListEarnings409 = typeof PaymentsListEarnings409.Type;
+export const PaymentsListEarnings409 = V1ErrorBody;
+export type PaymentsListEarnings429 = typeof PaymentsListEarnings429.Type;
+export const PaymentsListEarnings429 = V1ErrorBody;
+export type PaymentsListEarnings500 = typeof PaymentsListEarnings500.Type;
+export const PaymentsListEarnings500 = V1ErrorBody;
+export type PaymentsListEarnings501 = typeof PaymentsListEarnings501.Type;
+export const PaymentsListEarnings501 = V1ErrorBody;
+export type PaymentsListEarnings503 = typeof PaymentsListEarnings503.Type;
+export const PaymentsListEarnings503 = V1ErrorBody;
+export type PaymentsListEarnings504 = typeof PaymentsListEarnings504.Type;
+export const PaymentsListEarnings504 = V1ErrorBody;
+export type PaymentsGetMethod200 = typeof PaymentsGetMethod200.Type;
+export const PaymentsGetMethod200 = V1GetPaymentMethodResponse;
+export type PaymentsGetMethod400 = typeof PaymentsGetMethod400.Type;
+export const PaymentsGetMethod400 = V1ErrorBody;
+export type PaymentsGetMethod401 = typeof PaymentsGetMethod401.Type;
+export const PaymentsGetMethod401 = V1ErrorBody;
+export type PaymentsGetMethod403 = typeof PaymentsGetMethod403.Type;
+export const PaymentsGetMethod403 = V1ErrorBody;
+export type PaymentsGetMethod404 = typeof PaymentsGetMethod404.Type;
+export const PaymentsGetMethod404 = V1ErrorBody;
+export type PaymentsGetMethod409 = typeof PaymentsGetMethod409.Type;
+export const PaymentsGetMethod409 = V1ErrorBody;
+export type PaymentsGetMethod429 = typeof PaymentsGetMethod429.Type;
+export const PaymentsGetMethod429 = V1ErrorBody;
+export type PaymentsGetMethod500 = typeof PaymentsGetMethod500.Type;
+export const PaymentsGetMethod500 = V1ErrorBody;
+export type PaymentsGetMethod501 = typeof PaymentsGetMethod501.Type;
+export const PaymentsGetMethod501 = V1ErrorBody;
+export type PaymentsGetMethod503 = typeof PaymentsGetMethod503.Type;
+export const PaymentsGetMethod503 = V1ErrorBody;
+export type PaymentsGetMethod504 = typeof PaymentsGetMethod504.Type;
+export const PaymentsGetMethod504 = V1ErrorBody;
+export type PaymentsGetPayoutAccount200 = typeof PaymentsGetPayoutAccount200.Type;
+export const PaymentsGetPayoutAccount200 = V1GetPayoutAccountResponse;
+export type PaymentsGetPayoutAccount400 = typeof PaymentsGetPayoutAccount400.Type;
+export const PaymentsGetPayoutAccount400 = V1ErrorBody;
+export type PaymentsGetPayoutAccount401 = typeof PaymentsGetPayoutAccount401.Type;
+export const PaymentsGetPayoutAccount401 = V1ErrorBody;
+export type PaymentsGetPayoutAccount403 = typeof PaymentsGetPayoutAccount403.Type;
+export const PaymentsGetPayoutAccount403 = V1ErrorBody;
+export type PaymentsGetPayoutAccount404 = typeof PaymentsGetPayoutAccount404.Type;
+export const PaymentsGetPayoutAccount404 = V1ErrorBody;
+export type PaymentsGetPayoutAccount409 = typeof PaymentsGetPayoutAccount409.Type;
+export const PaymentsGetPayoutAccount409 = V1ErrorBody;
+export type PaymentsGetPayoutAccount429 = typeof PaymentsGetPayoutAccount429.Type;
+export const PaymentsGetPayoutAccount429 = V1ErrorBody;
+export type PaymentsGetPayoutAccount500 = typeof PaymentsGetPayoutAccount500.Type;
+export const PaymentsGetPayoutAccount500 = V1ErrorBody;
+export type PaymentsGetPayoutAccount501 = typeof PaymentsGetPayoutAccount501.Type;
+export const PaymentsGetPayoutAccount501 = V1ErrorBody;
+export type PaymentsGetPayoutAccount503 = typeof PaymentsGetPayoutAccount503.Type;
+export const PaymentsGetPayoutAccount503 = V1ErrorBody;
+export type PaymentsGetPayoutAccount504 = typeof PaymentsGetPayoutAccount504.Type;
+export const PaymentsGetPayoutAccount504 = V1ErrorBody;
+export type PaymentsStartOnboardingRequestJson = typeof PaymentsStartOnboardingRequestJson.Type;
+export const PaymentsStartOnboardingRequestJson = V1StartOnboardingRequest;
+export type PaymentsStartOnboarding200 = typeof PaymentsStartOnboarding200.Type;
+export const PaymentsStartOnboarding200 = V1StartOnboardingResponse;
+export type PaymentsStartOnboarding400 = typeof PaymentsStartOnboarding400.Type;
+export const PaymentsStartOnboarding400 = V1ErrorBody;
+export type PaymentsStartOnboarding401 = typeof PaymentsStartOnboarding401.Type;
+export const PaymentsStartOnboarding401 = V1ErrorBody;
+export type PaymentsStartOnboarding403 = typeof PaymentsStartOnboarding403.Type;
+export const PaymentsStartOnboarding403 = V1ErrorBody;
+export type PaymentsStartOnboarding404 = typeof PaymentsStartOnboarding404.Type;
+export const PaymentsStartOnboarding404 = V1ErrorBody;
+export type PaymentsStartOnboarding409 = typeof PaymentsStartOnboarding409.Type;
+export const PaymentsStartOnboarding409 = V1ErrorBody;
+export type PaymentsStartOnboarding429 = typeof PaymentsStartOnboarding429.Type;
+export const PaymentsStartOnboarding429 = V1ErrorBody;
+export type PaymentsStartOnboarding500 = typeof PaymentsStartOnboarding500.Type;
+export const PaymentsStartOnboarding500 = V1ErrorBody;
+export type PaymentsStartOnboarding501 = typeof PaymentsStartOnboarding501.Type;
+export const PaymentsStartOnboarding501 = V1ErrorBody;
+export type PaymentsStartOnboarding503 = typeof PaymentsStartOnboarding503.Type;
+export const PaymentsStartOnboarding503 = V1ErrorBody;
+export type PaymentsStartOnboarding504 = typeof PaymentsStartOnboarding504.Type;
+export const PaymentsStartOnboarding504 = V1ErrorBody;
+export type PaymentsCreateSetupIntentRequestJson = typeof PaymentsCreateSetupIntentRequestJson.Type;
+export const PaymentsCreateSetupIntentRequestJson = V1CreateSetupIntentRequest;
+export type PaymentsCreateSetupIntent200 = typeof PaymentsCreateSetupIntent200.Type;
+export const PaymentsCreateSetupIntent200 = V1CreateSetupIntentResponse;
+export type PaymentsCreateSetupIntent400 = typeof PaymentsCreateSetupIntent400.Type;
+export const PaymentsCreateSetupIntent400 = V1ErrorBody;
+export type PaymentsCreateSetupIntent401 = typeof PaymentsCreateSetupIntent401.Type;
+export const PaymentsCreateSetupIntent401 = V1ErrorBody;
+export type PaymentsCreateSetupIntent403 = typeof PaymentsCreateSetupIntent403.Type;
+export const PaymentsCreateSetupIntent403 = V1ErrorBody;
+export type PaymentsCreateSetupIntent404 = typeof PaymentsCreateSetupIntent404.Type;
+export const PaymentsCreateSetupIntent404 = V1ErrorBody;
+export type PaymentsCreateSetupIntent409 = typeof PaymentsCreateSetupIntent409.Type;
+export const PaymentsCreateSetupIntent409 = V1ErrorBody;
+export type PaymentsCreateSetupIntent429 = typeof PaymentsCreateSetupIntent429.Type;
+export const PaymentsCreateSetupIntent429 = V1ErrorBody;
+export type PaymentsCreateSetupIntent500 = typeof PaymentsCreateSetupIntent500.Type;
+export const PaymentsCreateSetupIntent500 = V1ErrorBody;
+export type PaymentsCreateSetupIntent501 = typeof PaymentsCreateSetupIntent501.Type;
+export const PaymentsCreateSetupIntent501 = V1ErrorBody;
+export type PaymentsCreateSetupIntent503 = typeof PaymentsCreateSetupIntent503.Type;
+export const PaymentsCreateSetupIntent503 = V1ErrorBody;
+export type PaymentsCreateSetupIntent504 = typeof PaymentsCreateSetupIntent504.Type;
+export const PaymentsCreateSetupIntent504 = V1ErrorBody;
+export type PaymentsGetForTripPathParams = typeof PaymentsGetForTripPathParams.Type;
+export const PaymentsGetForTripPathParams = Schema.Struct({ "tripId": TripId });
+export type PaymentsGetForTrip200 = typeof PaymentsGetForTrip200.Type;
+export const PaymentsGetForTrip200 = V1GetTripPaymentResponse;
+export type PaymentsGetForTrip400 = typeof PaymentsGetForTrip400.Type;
+export const PaymentsGetForTrip400 = V1ErrorBody;
+export type PaymentsGetForTrip401 = typeof PaymentsGetForTrip401.Type;
+export const PaymentsGetForTrip401 = V1ErrorBody;
+export type PaymentsGetForTrip403 = typeof PaymentsGetForTrip403.Type;
+export const PaymentsGetForTrip403 = V1ErrorBody;
+export type PaymentsGetForTrip404 = typeof PaymentsGetForTrip404.Type;
+export const PaymentsGetForTrip404 = V1ErrorBody;
+export type PaymentsGetForTrip409 = typeof PaymentsGetForTrip409.Type;
+export const PaymentsGetForTrip409 = V1ErrorBody;
+export type PaymentsGetForTrip429 = typeof PaymentsGetForTrip429.Type;
+export const PaymentsGetForTrip429 = V1ErrorBody;
+export type PaymentsGetForTrip500 = typeof PaymentsGetForTrip500.Type;
+export const PaymentsGetForTrip500 = V1ErrorBody;
+export type PaymentsGetForTrip501 = typeof PaymentsGetForTrip501.Type;
+export const PaymentsGetForTrip501 = V1ErrorBody;
+export type PaymentsGetForTrip503 = typeof PaymentsGetForTrip503.Type;
+export const PaymentsGetForTrip503 = V1ErrorBody;
+export type PaymentsGetForTrip504 = typeof PaymentsGetForTrip504.Type;
+export const PaymentsGetForTrip504 = V1ErrorBody;
 export type SimulatorGet200 = typeof SimulatorGet200.Type;
 export const SimulatorGet200 = V1GetSimulatorResponse;
 export type SimulatorGet400 = typeof SimulatorGet400.Type;
@@ -833,6 +1106,133 @@ export const TripsPreview503 = V1ErrorBody;
 export type TripsPreview504 = typeof TripsPreview504.Type;
 export const TripsPreview504 = V1ErrorBody;
 
+class PaymentsGroup extends HttpApiGroup.make("payments")
+  .add(
+    HttpApiEndpoint.get("listEarnings", "/v1/payments/earnings", {
+      query: PaymentsListEarningsQuery,
+      success: PaymentsListEarnings200,
+      error: [
+        PaymentsListEarnings400.pipe(HttpApiSchema.status(400)),
+        PaymentsListEarnings401.pipe(HttpApiSchema.status(401)),
+        PaymentsListEarnings403.pipe(HttpApiSchema.status(403)),
+        PaymentsListEarnings404.pipe(HttpApiSchema.status(404)),
+        PaymentsListEarnings409.pipe(HttpApiSchema.status(409)),
+        PaymentsListEarnings429.pipe(HttpApiSchema.status(429)),
+        PaymentsListEarnings500,
+        PaymentsListEarnings501.pipe(HttpApiSchema.status(501)),
+        PaymentsListEarnings503.pipe(HttpApiSchema.status(503)),
+        PaymentsListEarnings504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "listEarnings")
+      .annotate(
+        OpenApi.Summary,
+        "ListEarnings is a driver's share of each trip, newest first, and what is\nstill owed to them.",
+      ),
+    HttpApiEndpoint.get("getMethod", "/v1/payments/method", {
+      success: PaymentsGetMethod200,
+      error: [
+        PaymentsGetMethod400.pipe(HttpApiSchema.status(400)),
+        PaymentsGetMethod401.pipe(HttpApiSchema.status(401)),
+        PaymentsGetMethod403.pipe(HttpApiSchema.status(403)),
+        PaymentsGetMethod404.pipe(HttpApiSchema.status(404)),
+        PaymentsGetMethod409.pipe(HttpApiSchema.status(409)),
+        PaymentsGetMethod429.pipe(HttpApiSchema.status(429)),
+        PaymentsGetMethod500,
+        PaymentsGetMethod501.pipe(HttpApiSchema.status(501)),
+        PaymentsGetMethod503.pipe(HttpApiSchema.status(503)),
+        PaymentsGetMethod504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "getMethod")
+      .annotate(OpenApi.Summary, "GetPaymentMethod is the card a rider's holds are placed on."),
+    HttpApiEndpoint.get("getPayoutAccount", "/v1/payments/payout-account", {
+      success: PaymentsGetPayoutAccount200,
+      error: [
+        PaymentsGetPayoutAccount400.pipe(HttpApiSchema.status(400)),
+        PaymentsGetPayoutAccount401.pipe(HttpApiSchema.status(401)),
+        PaymentsGetPayoutAccount403.pipe(HttpApiSchema.status(403)),
+        PaymentsGetPayoutAccount404.pipe(HttpApiSchema.status(404)),
+        PaymentsGetPayoutAccount409.pipe(HttpApiSchema.status(409)),
+        PaymentsGetPayoutAccount429.pipe(HttpApiSchema.status(429)),
+        PaymentsGetPayoutAccount500,
+        PaymentsGetPayoutAccount501.pipe(HttpApiSchema.status(501)),
+        PaymentsGetPayoutAccount503.pipe(HttpApiSchema.status(503)),
+        PaymentsGetPayoutAccount504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "getPayoutAccount")
+      .annotate(OpenApi.Summary, "GetPayoutAccount is whether a driver can be paid yet."),
+    HttpApiEndpoint.post("startOnboarding", "/v1/payments/payout-account", {
+      payload: PaymentsStartOnboardingRequestJson,
+      success: PaymentsStartOnboarding200,
+      error: [
+        PaymentsStartOnboarding400.pipe(HttpApiSchema.status(400)),
+        PaymentsStartOnboarding401.pipe(HttpApiSchema.status(401)),
+        PaymentsStartOnboarding403.pipe(HttpApiSchema.status(403)),
+        PaymentsStartOnboarding404.pipe(HttpApiSchema.status(404)),
+        PaymentsStartOnboarding409.pipe(HttpApiSchema.status(409)),
+        PaymentsStartOnboarding429.pipe(HttpApiSchema.status(429)),
+        PaymentsStartOnboarding500,
+        PaymentsStartOnboarding501.pipe(HttpApiSchema.status(501)),
+        PaymentsStartOnboarding503.pipe(HttpApiSchema.status(503)),
+        PaymentsStartOnboarding504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "startOnboarding")
+      .annotate(
+        OpenApi.Summary,
+        "StartOnboarding creates the driver's payout account if there is none, and\nreturns a link into the processor's hosted onboarding.",
+      )
+      .annotate(
+        OpenApi.Description,
+        "The return addresses are the server's, never the caller's: a link that\nredirects wherever a request said is an open redirect with a trusted\ndomain in front of it.",
+      ),
+    HttpApiEndpoint.post("createSetupIntent", "/v1/payments/setup-intents", {
+      payload: PaymentsCreateSetupIntentRequestJson,
+      success: PaymentsCreateSetupIntent200,
+      error: [
+        PaymentsCreateSetupIntent400.pipe(HttpApiSchema.status(400)),
+        PaymentsCreateSetupIntent401.pipe(HttpApiSchema.status(401)),
+        PaymentsCreateSetupIntent403.pipe(HttpApiSchema.status(403)),
+        PaymentsCreateSetupIntent404.pipe(HttpApiSchema.status(404)),
+        PaymentsCreateSetupIntent409.pipe(HttpApiSchema.status(409)),
+        PaymentsCreateSetupIntent429.pipe(HttpApiSchema.status(429)),
+        PaymentsCreateSetupIntent500,
+        PaymentsCreateSetupIntent501.pipe(HttpApiSchema.status(501)),
+        PaymentsCreateSetupIntent503.pipe(HttpApiSchema.status(503)),
+        PaymentsCreateSetupIntent504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "createSetupIntent")
+      .annotate(
+        OpenApi.Summary,
+        "CreateSetupIntent starts saving a rider's card, and returns the secret the\nbrowser hands to Stripe.js to collect it.",
+      ),
+    HttpApiEndpoint.get("getForTrip", "/v1/payments/trips/:tripId", {
+      params: PaymentsGetForTripPathParams,
+      success: PaymentsGetForTrip200,
+      error: [
+        PaymentsGetForTrip400.pipe(HttpApiSchema.status(400)),
+        PaymentsGetForTrip401.pipe(HttpApiSchema.status(401)),
+        PaymentsGetForTrip403.pipe(HttpApiSchema.status(403)),
+        PaymentsGetForTrip404.pipe(HttpApiSchema.status(404)),
+        PaymentsGetForTrip409.pipe(HttpApiSchema.status(409)),
+        PaymentsGetForTrip429.pipe(HttpApiSchema.status(429)),
+        PaymentsGetForTrip500,
+        PaymentsGetForTrip501.pipe(HttpApiSchema.status(501)),
+        PaymentsGetForTrip503.pipe(HttpApiSchema.status(503)),
+        PaymentsGetForTrip504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "getForTrip")
+      .annotate(
+        OpenApi.Summary,
+        "GetTripPayment is what became of a trip's hold: the rider's receipt, and\nthe secret for an authentication step while one is waiting.",
+      ),
+  )
+{}
+
 class SimulatorGroup extends HttpApiGroup.make("simulator")
   .add(
     HttpApiEndpoint.get("get", "/v1/simulator", {
@@ -1061,5 +1461,5 @@ class TripsGroup extends HttpApiGroup.make("trips")
 export class SurgeApi extends HttpApi.make("SurgeApi")
   .annotate(OpenApi.Title, "trip.proto")
   .annotate(OpenApi.Version, "version not set")
-  .add(SimulatorGroup, TripsGroup)
+  .add(PaymentsGroup, SimulatorGroup, TripsGroup)
 {}
