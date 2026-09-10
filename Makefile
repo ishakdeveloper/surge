@@ -9,7 +9,7 @@ GO      := cd backend && go
 BIN     := backend/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures grant-ops bench-matching up up-core down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures grant-ops bench-matching check-handover up up-core down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -200,6 +200,9 @@ control: ## Simulator-only control run, pings discarded
 
 bench-matching: build ## Greedy vs batched matching on the same demand: make bench-matching RPS=20 MINUTES=4
 	@DRIVERS=$(or $(DRIVERS),300) RPS=$(or $(RPS),20) MINUTES=$(or $(MINUTES),4) scripts/bench-matching.sh
+
+check-handover: build ## Does a matcher that stops cleanly commit everything it processed? Expect zero lag
+	@scripts/check-handover.sh
 
 stats: ## Current simulator and ingest state
 	@echo "sim:    $$(curl -s localhost:8101/sim/stats)"

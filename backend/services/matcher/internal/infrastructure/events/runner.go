@@ -84,6 +84,12 @@ type worker struct {
 	// checkpoint and erase every reservation in it.
 	restored chan struct{}
 
+	// mark records a batch as processed, so the autocommit may advance past
+	// it. Called by the worker after handling, never by the poll loop on
+	// handing over: a record marked while still queued here would be committed
+	// before it was processed, and lost if the partition moved in between.
+	mark func(...*kgo.Record)
+
 	// solved carries travel times back from Runner.solve. Buffered for the one
 	// batch a shard has in flight, so the fetch never waits on the loop.
 	solved chan domain.BatchResult
@@ -125,13 +131,13 @@ func (r *Runner) Run(ctx context.Context, group string) error {
 
 	for {
 		if ctx.Err() != nil {
-			r.shutdown(context.WithoutCancel(ctx))
+			r.shutdown(context.WithoutCancel(ctx), client)
 			return nil
 		}
 
 		fetches := client.PollRecords(ctx, 20_000)
 		if fetches.IsClientClosed() {
-			r.shutdown(context.WithoutCancel(ctx))
+			r.shutdown(context.WithoutCancel(ctx), client)
 			return nil
 		}
 
@@ -162,16 +168,7 @@ func (r *Runner) Run(ctx context.Context, group string) error {
 			}
 		})
 
-		// Marked, not committed: the auto-committer advances only past records
-		// a worker has actually processed.
-		client.MarkCommitRecords(collect(fetches)...)
 	}
-}
-
-func collect(fetches kgo.Fetches) []*kgo.Record {
-	var records []*kgo.Record
-	fetches.EachRecord(func(record *kgo.Record) { records = append(records, record) })
-	return records
 }
 
 // assigned takes ownership at once and restores in the background.
@@ -209,6 +206,7 @@ func (r *Runner) assigned(ctx context.Context, client *kgo.Client, assigned map[
 			done:     make(chan struct{}),
 			restored: make(chan struct{}),
 			solved:   make(chan domain.BatchResult, 1),
+			mark:     client.MarkCommitRecords,
 		}
 		r.workers[partition] = w
 		fresh[partition] = w
@@ -288,6 +286,7 @@ func (r *Runner) revoked(ctx context.Context, client *kgo.Client, revoked map[st
 
 		r.release(ctx, w)
 	}
+	r.commit(ctx, client)
 
 	r.reportOwnership(partitions, false)
 	slog.Info("partitions revoked", "partitions", partitions, "owned", r.owned())
@@ -369,6 +368,7 @@ func (r *Runner) run(w *worker) {
 			for _, record := range batch {
 				r.handle(w, record)
 			}
+			w.mark(batch...)
 
 		case now := <-tick.C:
 			// Expiries have no inbound record to inherit a trace from, so they
@@ -595,7 +595,7 @@ func (r *Runner) checkpoint(ctx context.Context, shard *domain.Shard) {
 	}
 }
 
-func (r *Runner) shutdown(ctx context.Context) {
+func (r *Runner) shutdown(ctx context.Context, client *kgo.Client) {
 	r.mu.Lock()
 	workers := make([]*worker, 0, len(r.workers))
 	for partition, w := range r.workers {
@@ -606,6 +606,27 @@ func (r *Runner) shutdown(ctx context.Context) {
 
 	for _, w := range workers {
 		r.release(ctx, w)
+	}
+	r.commit(ctx, client)
+}
+
+// commit writes down, synchronously, how far each released shard got.
+//
+// After the checkpoint, never before. The checkpoint is the shard's state as of
+// its last processed record, and the offsets committed here are exactly the
+// records that state includes, so the next owner restores one and resumes from
+// the other and neither replays nor skips anything.
+//
+// franz-go's default OnPartitionsRevoked is itself a blocking commit; this
+// runner replaces it, and for a long time did not commit at all. A shard's last
+// few seconds of work were committed only if the 5s autocommit happened to land
+// first, and the next owner did them again: a benchmark saw four trips matched
+// a second time, to the same driver, in the millisecond a new matcher restored.
+func (r *Runner) commit(ctx context.Context, client *kgo.Client) {
+	commit, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := client.CommitMarkedOffsets(commit); err != nil {
+		slog.Warn("commit on release failed", "error", err)
 	}
 }
 

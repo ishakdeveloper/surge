@@ -124,19 +124,35 @@ What would have to change before batching can win, and what to measure next:
 
 `MATCH_STRATEGY` stays `greedy` by default.
 
-### Open: redelivered matches at a handover
+### Found afterwards: a clean handover replayed its last seconds
 
-Greedy's four redelivered matches are one event, not four. Each trip was offered
-once and matched to one driver; the second `TripMatched` for all four came from
-the _batched_ run's matcher in the millisecond it restored its partitions,
-19:46:39.176, three seconds after greedy's matcher revoked them cleanly. So the
-restore brought back offers that had already been accepted, and the accept
-replies were replayed because their offsets had not been committed. The revoke
-path does flush its checkpoint before handing over, so the gap is elsewhere —
-in which offsets get committed on revoke, or which cells a checkpoint
-supersedes. It is harmless downstream, since the trip service applies a match
-once, but a clean handover should not replay anything, and this is the next
-thing to chase in the matcher.
+Greedy's four redelivered matches were one event, not four. Each trip was
+offered once and matched to one driver; the second `TripMatched` for all four
+came from the _batched_ run's matcher in the millisecond it restored its
+partitions, three seconds after greedy's matcher revoked them cleanly.
+
+The cause was in the matcher's consumer, not its matching. franz-go's default
+`OnPartitionsRevoked` is a blocking commit of processed offsets; the runner
+replaces it with its own callback to write checkpoints, and that callback never
+committed. Whatever a shard had processed since the last 5s autocommit was
+replayed by the next owner: the rider's `MatchRequested` recreated the pending
+request, and the other shard's `ReserveResult: OK` matched it again, to the same
+driver. The poll loop also marked records for commit as it _queued_ them for a
+worker rather than once the worker had handled them, which could commit records
+nobody processed and lose them at a handover.
+
+Workers now mark a batch only after handling it, and revoke and shutdown commit
+synchronously after the checkpoint is flushed. `make check-handover` measures
+it: a fleet and a trickle of riders, then a clean stop the moment `geo.events`
+goes quiet, then the group's committed offsets.
+
+|        | partitions lagging | records processed but not committed |
+| ------ | -----------------: | ----------------------------------: |
+| before |   31 / 32, 27 / 32 |                            280, 277 |
+| after  |     0 / 32, 0 / 32 |                                0, 0 |
+
+The trip service applies a match once however often it hears of it, so nobody
+was ever sent two cars — but every handover was doing seconds of work twice.
 
 ## The first attempt, and why it does not count
 
