@@ -40,6 +40,23 @@ jobs:
 
   go:
     runs-on: ubuntu-latest
+    # The trip and payments repositories, the outbox and the ledger's
+    # constraints are Postgres behaviour, and shared/pgtest skips them when no
+    # database answers. Given one, each test migrates its own schema.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: surge
+          POSTGRES_USER: surge
+          POSTGRES_PASSWORD: surge
+        ports:
+          - 55433:5432
+        options: >-
+          --health-cmd "pg_isready -U surge"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
     steps:
       - uses: actions/checkout@v5
 
@@ -59,9 +76,15 @@ jobs:
         run: go vet ./...
 
       # The tests that need Redpanda, Valhalla or the auth service skip when
-      # those are absent rather than failing, so this runs the pure logic:
-      # geo, config, the position index, and the polyline decoder against a
-      # committed Valhalla fixture.
+      # those are absent rather than failing. Postgres is here, so everything
+      # behind shared/pgtest runs for real.
+      #
+      # The Stripe contract test runs only when the repository has a test-mode
+      # key as a secret. Forks and pull requests from them get no secrets, so
+      # there it skips — and it refuses a live key even if one is configured.
       - name: test
         working-directory: backend
+        env:
+          DATABASE_URL: postgresql://surge:surge@localhost:55433/surge
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
         run: go test ./...

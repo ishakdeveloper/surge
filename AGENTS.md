@@ -42,14 +42,15 @@ Dependencies point one way, from `apps/` into `packages/`.
 
 ## The shape of the system
 
-Four Go services earn their separation, and nothing else does.
+Five Go services earn their separation, and nothing else does.
 
-|           | why it is separate                                                  | scales on   |
-| --------- | ------------------------------------------------------------------- | ----------- |
-| `gateway` | stateful WebSockets: registry, backpressure, slow-consumer eviction | connections |
-| `ingest`  | write-heavy; H3 assignment and cell transitions                     | ping rate   |
-| `matcher` | sharded, single-writer per geography                                | geography   |
-| `trip`    | transactional state machine, outbox, idempotency                    | not much    |
+|            | why it is separate                                                   | scales on   |
+| ---------- | -------------------------------------------------------------------- | ----------- |
+| `gateway`  | stateful WebSockets: registry, backpressure, slow-consumer eviction  | connections |
+| `ingest`   | write-heavy; H3 assignment and cell transitions                      | ping rate   |
+| `matcher`  | sharded, single-writer per geography                                 | geography   |
+| `trip`     | transactional state machine, outbox, idempotency                     | not much    |
+| `payments` | the only holder of processor credentials; Stripe must not stall trip | not much    |
 
 `core` holds everything boring — users, vehicles, pricing — as one service until
 it hurts. `simd` is the load generator, not a product service.
@@ -67,6 +68,17 @@ cell and the Kafka key** (ownership), **res 9 is the driver index bucket**
 (search). `geo.ShardCell` derives from `geo.IndexCell` rather than computing
 independently, because H3 is not hierarchically consistent under `LatLngToCell`
 and two answers would mean two matchers each believing they own one driver.
+
+**Trip and payments never call each other.** Trip publishes `trip.lifecycle`
+facts (`TripRequested`, `TripCompleted`, …) and payments answers on
+`payment.events` (`PaymentAuthorized`, `PaymentFailed`, …), both keyed by trip
+and both written through a transactional outbox (`shared/outbox`) in the same
+transaction as the change they report. With `TRIP_REQUIRE_PAYMENT=true` a
+booking waits in `payment_pending` and is sent to the matcher only once the
+fare is held. Every processor call carries an idempotency key derived from the
+trip, the attempt and the operation, and the ledger is double entry: a
+transaction that does not sum to zero is a constraint violation. The details
+are in `backend/services/payments/README.md`.
 
 ## The API client is generated, never written
 
@@ -188,20 +200,23 @@ see Go files.
 
 Everything routine is a make target; `make help` lists them.
 
-|                                    |                                     |
-| ---------------------------------- | ----------------------------------- |
-| `make up` / `make down`            | infrastructure in Docker            |
-| `make up-core`                     | without the dashboards              |
-| `make bench-matching RPS=20`       | greedy vs batched matching, A/B     |
-| `make check-handover`              | a clean matcher stop leaves no lag  |
-| `make migrate`                     | apply database migrations           |
-| `make dev-auth`                    | the auth service                    |
-| `make dev-ingest` / `make dev-sim` | the Go services, on the host        |
-| `make load DRIVERS=40000`          | turn the knob                       |
-| `make control`                     | simulator-only run, pings discarded |
-| `make stats`                       | current simulator and ingest state  |
-| `make test`                        | both suites                         |
-| `make check`                       | `tsc -b`, oxlint, dprint            |
+|                                       |                                        |
+| ------------------------------------- | -------------------------------------- |
+| `make up` / `make down`               | infrastructure in Docker               |
+| `make up-core`                        | without the dashboards                 |
+| `make bench-matching RPS=20`          | greedy vs batched matching, A/B        |
+| `make check-handover`                 | a clean matcher stop leaves no lag     |
+| `make migrate`                        | apply database migrations              |
+| `make dev-auth`                       | the auth service                       |
+| `make dev-ingest` / `make dev-sim`    | the Go services, on the host           |
+| `make dev-trip` / `make dev-payments` | trip, and payments beside it           |
+| `make stripe-listen`                  | Stripe's webhooks to the gateway       |
+| `make bench-payments RPS=5`           | what holding the fare adds to dispatch |
+| `make load DRIVERS=40000`             | turn the knob                          |
+| `make control`                        | simulator-only run, pings discarded    |
+| `make stats`                          | current simulator and ingest state     |
+| `make test`                           | both suites                            |
+| `make check`                          | `tsc -b`, oxlint, dprint               |
 
 Go services run on the **host**, not in Docker: the reload loop is a compile
 rather than an image build, and the 8 GB Docker VM is left to the things that
@@ -229,7 +244,13 @@ server had it, and auth and the gateway each trust a single web origin.
 
 Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101
 (and 8111 for its gRPC control, which the gateway serves as `/v1/simulator`),
-`ingest` 8102/9102, `trip` gRPC on 8110.
+`ingest` 8102/9102, `trip` gRPC on 8110 and metrics on 9105, `payments` gRPC on
+8112 and metrics on 9107.
+
+`PAYMENTS_PROCESSOR` defaults to `stripe` and needs `STRIPE_SECRET_KEY` and
+`STRIPE_WEBHOOK_SECRET`, so a deploy that forgets to choose fails for want of a
+key rather than looking healthy while every ride is free. `fake` simulates
+Stripe's test cards and charges nobody; it is what benchmarks run on.
 
 ## Testing
 
@@ -244,10 +265,18 @@ cross a boundary no compiler checks:
   well-formed route that is wrong by a factor of ten.
 - `packages/client/test/platform-free.test.ts` enforces that nothing shared
   imports a platform package, so `apps/mobile` stays cheap.
+- `services/payments/internal/infrastructure/stripe` runs the adapter against
+  **Stripe's test mode**, and refuses anything but an `sk_test_` or `rk_test_`
+  key. The fake processor is what every other test uses, and this is the only
+  thing that can catch the two disagreeing.
 
-Tests needing Redpanda, Valhalla, Postgres or the auth service **skip** when it
-is absent rather than failing, so `go test ./...` and `pnpm test` stay useful on
-a bare machine.
+Tests needing Redpanda, Valhalla, Postgres, Stripe or the auth service **skip**
+when it is absent rather than failing, so `go test ./...` and `pnpm test` stay
+useful on a bare machine. The Go Postgres tests go through `shared/pgtest`,
+which reads `DATABASE_URL`, falls back to the dev database on 55433, and gives
+each test its own migrated schema. CI runs them against a Postgres service
+container, and runs the Stripe contract test when the repository has a
+`STRIPE_TEST_SECRET_KEY` secret.
 
 Use a fresh `INGEST_GROUP` for each benchmark run, or you measure the previous
 run's backlog. That mistake is documented in `docs/benchmarks` rather than

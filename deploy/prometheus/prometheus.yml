@@ -38,5 +38,5 @@ scrape_configs:
         labels: { service: gateway }
       - targets: ["host.docker.internal:9105"]
         labels: { service: trip }
-      - targets: ["host.docker.internal:9106"]
-        labels: { service: core }
+      - targets: ["host.docker.internal:9107"]
+        labels: { service: payments }
