@@ -293,21 +293,33 @@ jobs:
           setup_only: true
           version: 1.73.0
 
-      - name: the protos stay compatible with main
-        run: buf breaking proto --against ".git#branch=origin/main,subdir=proto"
+      # Against where this branch left main, not main's tip. Main moves on
+      # without it — a proto added there since would read as "deleted" here —
+      # and what this checks is whether this branch's own change breaks
+      # anything. Main's own run checks the merge.
+      - name: where this branch left main
+        id: base
+        run: echo "sha=$(git merge-base origin/main HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: the protos stay compatible with where this branch began
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+        run: buf breaking proto --against ".git#ref=$BASE,subdir=proto"
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      # The geo.events records main writes, decoded by this branch's code. A
+      # The geo.events records the base wrote, decoded by this branch's code. A
       # base from before the fixtures existed has none, and the test skips.
-      - name: main's geo.events records still decode
+      - name: the base's geo.events records still decode
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           base="$RUNNER_TEMP/base"
           mkdir -p "$base"
-          git archive origin/main backend/shared/wire/testdata | tar -x -C "$base" || true
+          git archive "$BASE" backend/shared/wire/testdata | tar -x -C "$base" || true
           cd backend
           GEO_FIXTURES="$base/backend/shared/wire/testdata/geo" \
             go test ./shared/wire -run TestGeoEventsDecodeFromFixtures -v
@@ -458,6 +470,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Nine images, the routing tiles and the whole stack's data do not fit
+      # on a runner as it comes: the first run filled the disk until Redpanda
+      # raised a storage alert and marked itself unhealthy. The runner ships
+      # SDKs nothing here uses; those go first.
+      - name: room on the disk
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/local/share/powershell
+          df -h /
+
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       # All nine from docker-bake.hcl, reading the layers the images job
@@ -493,6 +516,11 @@ jobs:
           load: true
           cache-from: type=gha,scope=valhalla
           cache-to: type=gha,mode=max,scope=valhalla
+
+      # Every image is loaded into Docker now, so the builder's own copy of
+      # them — and of the extract the tiles were built from — is only disk.
+      - name: drop the build cache
+        run: docker buildx prune --all --force && df -h /
 
       # Both migrators run first, as one-shot containers; everything else waits
       # for them and then for its own health check.

@@ -152,8 +152,11 @@ services:
     # rebuild dies, raise this for that one run.
     cpus: 2
     mem_limit: 1536m
+    # curl, because the image has no wget — a check written with it failed on
+    # every run, so nothing could ever wait on Valhalla being healthy. And
+    # 127.0.0.1 rather than localhost, which resolves to ::1 first here.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8002/status || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8002/status >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 60
