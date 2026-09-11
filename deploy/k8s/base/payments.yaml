@@ -1,0 +1,68 @@
+# payments
+#
+# Separate for isolation rather than scale: the only process holding processor
+# credentials, and the only one calling an external money API whose latency and
+# outages must never stall the trip state machine. Trip never calls it; they
+# trade facts over trip.lifecycle and payment.events.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments
+  namespace: surge
+  labels: { app: payments }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: payments }
+  template:
+    metadata:
+      labels: { app: payments }
+    spec:
+      containers:
+        - name: payments
+          image: surge/payments
+          envFrom:
+            - configMapRef: { name: surge-shared }
+            - configMapRef: { name: payments-config }
+            # STRIPE_SECRET_KEY and the webhook signing secrets.
+            - secretRef: { name: surge-secrets }
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: surge-database, key: DATABASE_URL } }
+          ports:
+            - name: grpc
+              containerPort: 8112
+            - name: metrics
+              containerPort: 9107
+          startupProbe:
+            httpGet: { path: /health, port: metrics }
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: { path: /health, port: metrics }
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            grpc: { port: 8112 }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+      terminationGracePeriodSeconds: 30
+---
+# Headless, for the same reason as trip: the gateway balances across pods.
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments
+  namespace: surge
+spec:
+  clusterIP: None
+  selector: { app: payments }
+  ports:
+    - name: grpc
+      port: 8112
+      targetPort: grpc
+    - name: metrics
+      port: 9107
+      targetPort: metrics

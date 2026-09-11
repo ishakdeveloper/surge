@@ -99,23 +99,6 @@ services:
       redpanda:
         condition: service_started
 
-  # The connection registry and per-instance push fanout for the WS gateway.
-  # Deliberately not Kafka: pushing to a socket that may already be gone gains
-  # nothing from durability.
-  redis:
-    image: redis:7-alpine
-    container_name: surge-redis
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    cpus: 0.5
-    mem_limit: 128m
-    ports:
-      - "56380:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   # Road geometry and the time/distance matrix that batched assignment needs.
   #
   # Native arm64, unlike osrm-backend. The FIRST boot downloads a 189MB extract

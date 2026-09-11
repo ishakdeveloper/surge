@@ -1,7 +1,7 @@
 # trip
-    #
-    # Scales on nothing much. Transactional, and Postgres is the limit
-    # long before the process is.
+#
+# Scales on nothing much. Transactional, and Postgres is the limit long before
+# the process is.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,41 +18,50 @@ spec:
     spec:
       containers:
         - name: trip
-          image: surge/trip:dev
-          # Never pulls: these images are built locally by Tilt or by `make
-          # images`, and a cluster that tried to fetch them from a registry
-          # would fail on every rollout.
-          imagePullPolicy: IfNotPresent
+          image: surge/trip
           envFrom:
-            - configMapRef: { name: surge-config }
-            - secretRef: { name: surge-secrets }
+            - configMapRef: { name: surge-shared }
+            - configMapRef: { name: trip-config }
+          env:
+            # Required here even though trip runs without one on a laptop: in a
+            # cluster, trips held in memory are trips lost on the next rollout.
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: surge-database, key: DATABASE_URL } }
           ports:
             - name: grpc
               containerPort: 8110
             - name: metrics
               containerPort: 9105
-          # Liveness only. A readiness probe on these would take a pod out of
-          # rotation when Kafka is briefly unavailable, which turns one broker
-          # hiccup into an outage — the service is fine, its dependency is not.
+          # Boot waits for Valhalla, which builds its tiles on a first start.
+          startupProbe:
+            httpGet: { path: /health, port: metrics }
+            periodSeconds: 10
+            failureThreshold: 90
           livenessProbe:
-            httpGet: { path: /health, port: 9105 }
-            initialDelaySeconds: 10
+            httpGet: { path: /health, port: metrics }
             periodSeconds: 20
             failureThreshold: 3
+          # The gRPC health service, which reports NOT_SERVING the moment
+          # shutdown begins, so the gateway stops being sent here before
+          # GracefulStop starts refusing.
+          readinessProbe:
+            grpc: { port: 8110 }
+            periodSeconds: 5
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 1Gi }
-      # Long enough for the matcher to checkpoint its in-flight offers on the
-      # way out. A shorter grace period turns every rollout into the ungraceful
-      # path, where recovery rests entirely on offer deadlines.
-      terminationGracePeriodSeconds: 45
+      terminationGracePeriodSeconds: 30
 ---
+# Headless: the name resolves to every pod rather than to one virtual IP, so the
+# gateway's round-robin balancer spreads calls across them. Behind a ClusterIP,
+# gRPC's single long-lived HTTP/2 connection would pin each gateway to one pod.
 apiVersion: v1
 kind: Service
 metadata:
   name: trip
   namespace: surge
 spec:
+  clusterIP: None
   selector: { app: trip }
   ports:
     - name: grpc

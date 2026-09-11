@@ -8,6 +8,9 @@
 # The simulator is here and only here. It exists to generate load, it mints its
 # own driver identities, and it has no business anywhere a real rider might be.
 #
+# Public addresses are localhost, because that is what a browser reaches through
+# Tilt's port-forwards: auth on 3200, the gateway on 8100, web on 5273.
+#
 #   kubectl apply -k deploy/k8s/development
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -23,35 +26,61 @@ resources:
 # to pull and fail.
 images:
   - { name: surge/auth, newTag: dev }
+  - { name: surge/web, newTag: dev }
   - { name: surge/gateway, newTag: dev }
   - { name: surge/ingest, newTag: dev }
   - { name: surge/matcher, newTag: dev }
   - { name: surge/trip, newTag: dev }
+  - { name: surge/payments, newTag: dev }
   - { name: surge/simulator, newTag: dev }
   - { name: surge/migrate, newTag: dev }
 
 configMapGenerator:
-  - name: surge-config
+  - name: surge-shared
     behavior: merge
     literals:
-      # In-cluster everything.
       - KAFKA_BROKERS=redpanda:9092
-      - REDIS_ADDR=redis:6379
-      - VALHALLA_URL=http://valhalla:8002
+      # One broker, so one replica: anything more fails to create.
+      - KAFKA_REPLICATION_FACTOR=1
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+  - name: auth-config
+    behavior: merge
+    literals:
+      - AUTH_BASE_URL=http://localhost:3200
+      - WEB_URL=http://localhost:5273
+  - name: web-config
+    behavior: merge
+    literals:
+      - SURGE_API_URL=http://localhost:8100
+      - SURGE_WS_URL=ws://localhost:8100/ws
+      - AUTH_BASE_URL=http://localhost:3200
+  - name: gateway-config
+    behavior: merge
+    literals:
+      # Must equal auth's AUTH_BASE_URL, which is what it signs as.
+      - AUTH_ISSUER=http://localhost:3200
+      - GATEWAY_ORIGINS=http://localhost:5273
+      - SIM_GRPC_ADDR=simulator:8111
+  - name: payments-config
+    behavior: merge
+    literals:
+      - PAYMENTS_PROCESSOR=fake
+      - PAYMENTS_WEB_URL=http://localhost:5273
+  - name: simulator-config
+    envs: [simulator.env]
+
+# Development credentials for the in-cluster Postgres, which are no secret —
+# they are in infra.yaml a few lines away. Generated here so the base can name
+# a Secret everywhere, and production supplies a real one under the same name.
+secretGenerator:
+  - name: surge-database
+    literals:
       - DATABASE_URL=postgresql://surge:surge@postgres:5432/surge
       - AUTH_DATABASE_URL=postgresql://surge:surge@postgres:5432/surge_auth
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-      # Sampled even here: exporting every span at ten thousand pings a second
-      # makes the collector the bottleneck and the service under test spend its
-      # time on telemetry.
-      - OTEL_TRACES_SAMPLER_ARG=0.01
-      - GATEWAY_ORIGINS=http://localhost:5273
-      - SIM_DRIVERS=1000
-      - SIM_REQUESTS_PER_SECOND=5
 
 patches:
-  # One replica of everything. Three matchers on a laptop is three copies of the
-  # same work competing for the same cores, and the sharding is just as
+  # Fewer replicas than production. Three matchers on a laptop is three copies
+  # of the same work competing for the same cores, and the sharding is just as
   # demonstrable at two.
   - target: { kind: Deployment, name: matcher }
     patch: |-
@@ -64,6 +93,16 @@ patches:
         path: /spec/replicas
         value: 1
   - target: { kind: Deployment, name: trip }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: { kind: Deployment, name: payments }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: { kind: Deployment, name: web }
     patch: |-
       - op: replace
         path: /spec/replicas

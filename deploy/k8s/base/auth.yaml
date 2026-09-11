@@ -9,14 +9,19 @@ kind: Service
 metadata: { name: auth, namespace: surge }
 spec:
   selector: { app: auth }
-  ports: [{ name: http, port: 3200, targetPort: 3200 }]
+  ports: [{ name: http, port: 3200, targetPort: http }]
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth
   namespace: surge
+  labels: { app: auth }
 spec:
+  # One, and not for want of load. The sign-in rate limiter keeps its counts in
+  # memory (apps/auth/src/Main.ts), and it is the security boundary for a
+  # six-digit code: two replicas would each allow the full rate. Scaling this
+  # out needs a shared limiter store first.
   replicas: 1
   selector: { matchLabels: { app: auth } }
   template:
@@ -24,31 +29,29 @@ spec:
     spec:
       containers:
         - name: auth
-          image: surge/auth:dev
-          imagePullPolicy: IfNotPresent
+          image: surge/auth
           envFrom:
-            - configMapRef: { name: surge-config }
+            - configMapRef: { name: surge-shared }
+            - configMapRef: { name: auth-config }
             - secretRef: { name: surge-secrets }
           env:
-            - { name: PORT, value: "3200" }
-            - { name: AUTH_BASE_URL, value: "http://auth:3200" }
-            - { name: WEB_URL, value: "http://localhost:5273" }
+            - name: AUTH_DATABASE_URL
+              valueFrom: { secretKeyRef: { name: surge-database, key: AUTH_DATABASE_URL } }
           ports: [{ name: http, containerPort: 3200 }]
           livenessProbe:
-            httpGet: { path: /health, port: 3200 }
+            httpGet: { path: /health, port: http }
             initialDelaySeconds: 15
             periodSeconds: 20
           # /ready checks Postgres, so it belongs on readiness rather than
           # liveness: a database outage should take this out of rotation, not
           # restart a process that is working perfectly and would recover.
           readinessProbe:
-            httpGet: { path: /ready, port: 3200 }
+            httpGet: { path: /ready, port: http }
             initialDelaySeconds: 10
             periodSeconds: 10
             # The default is one second, which this fails during a cold start:
             # /ready queries Postgres, and a just-scheduled Node process on a
             # busy node answers in a few hundred milliseconds on a good day.
-            # Marking it unready for that is a probe measuring its own impatience.
             timeoutSeconds: 5
           resources:
             requests: { cpu: 100m, memory: 256Mi }

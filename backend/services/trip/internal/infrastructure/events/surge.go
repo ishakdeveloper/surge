@@ -33,9 +33,8 @@ type SurgeBook struct {
 	cells map[string]wire.CellSurge
 }
 
-func NewSurgeBook(brokers []string) (*SurgeBook, error) {
-	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
+func NewSurgeBook(cluster kafkax.Cluster) (*SurgeBook, error) {
+	client, err := cluster.Client(
 		kgo.ConsumeTopics(kafkax.TopicSurgeCells),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
 	)

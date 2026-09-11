@@ -2,10 +2,11 @@
 #
 # Two instances starting together would both migrate. Every migration is
 # idempotent and there is no ledger, so re-running this Job is safe and is how
-# a cluster converges on the committed schema.
+# a cluster converges on the committed schema. A Job's template is immutable,
+# so a new image means deleting it first:
 #
 #   kubectl -n surge delete job migrate --ignore-not-found
-#   kubectl -n surge apply -f deploy/k8s/21-migrate-job.yaml
+#   kubectl apply -k deploy/k8s/development
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -18,9 +19,9 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: surge/migrate:dev
-          imagePullPolicy: IfNotPresent
-          # DATABASE_URL only. This job owns the trip schema and has no reason
-          # to hold a credential for the auth database.
-          envFrom:
-            - configMapRef: { name: surge-config }
+          image: surge/migrate
+          # DATABASE_URL only. This job owns the trip and payments schemas and
+          # has no reason to hold a credential for the auth database.
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: surge-database, key: DATABASE_URL } }

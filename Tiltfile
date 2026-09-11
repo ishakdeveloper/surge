@@ -31,51 +31,51 @@ k8s_yaml(kustomize('deploy/k8s/development'))
 # Infrastructure. Long startup budgets because Valhalla builds routing tiles
 # from a 189MB extract on first boot.
 k8s_resource('postgres', labels=['infra'], port_forwards='55433:5432')
-k8s_resource('redis', labels=['infra'], port_forwards='56380:6379')
 k8s_resource('redpanda', labels=['infra'], port_forwards='19092:9092')
 k8s_resource('valhalla', labels=['infra'], port_forwards='8002:8002')
 k8s_resource('jaeger', labels=['infra'], port_forwards=['16686:16686', '4318:4318'])
 
 # Migrations as jobs, before anything that reads the database. Two owners, two
-# jobs: better-auth's tables and the trip tables.
+# jobs: better-auth's tables, and the trip and payments tables.
 k8s_resource('migrate', labels=['infra'], resource_deps=['postgres'])
 k8s_resource('migrate-auth', labels=['infra'], resource_deps=['postgres'])
 
-# Authentication. Its own image because it is TypeScript, and its own rollout
-# because nothing in a request path depends on it being up.
-docker_build(
-    'surge/auth',
-    context='.',
-    dockerfile='apps/auth/Dockerfile',
-    only=['apps/auth/', 'packages/', 'package.json', 'pnpm-lock.yaml',
-          'pnpm-workspace.yaml', 'tsconfig.base.json'],
-)
+# The TypeScript images. Auth is its own rollout because nothing in a request
+# path depends on it being up; web renders pages and proxies nothing.
+workspace = ['packages/', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+             'tsconfig.base.json', 'scripts/', 'patches/']
+docker_build('surge/auth', context='.', dockerfile='apps/auth/Dockerfile',
+             only=['apps/auth/'] + workspace)
+docker_build('surge/web', context='.', dockerfile='apps/web/Dockerfile',
+             only=['apps/web/', 'apps/auth/package.json'] + workspace)
 k8s_resource('auth', labels=['services'], port_forwards='3200:3200',
              resource_deps=['migrate-auth'])
+k8s_resource('web', labels=['services'], port_forwards='5273:5273',
+             resource_deps=['auth', 'gateway'])
 
-# The Go services.
+# The Go services, all from deploy/docker/go.Dockerfile.
 #
 # Each image is a full multi-stage build rather than the usual Tilt trick of
 # compiling on the host and live-updating the binary in. That trick needs a
 # host-compiled Linux binary, and h3-go is a cgo binding to the H3 C library —
 # so a macOS host cannot produce one without a cross toolchain, and
-# CGO_ENABLED=0 fails outright. The Dockerfiles mount the module and build
+# CGO_ENABLED=0 fails outright. The Dockerfile mounts the module and build
 # caches instead, which keeps a rebuild to a few seconds.
 services = [
-    ('gateway',   ['redpanda', 'auth'],                          ['8100:8100', '9104:9104']),
-    ('ingest',    ['redpanda'],                                  ['8102:8102', '9102:9102']),
-    ('matcher',   ['redpanda'],                                  ['9103:9103']),
+    ('gateway',   ['redpanda', 'auth'],                            ['8100:8100', '9104:9104']),
+    ('ingest',    ['redpanda'],                                    ['9102:9102']),
+    ('matcher',   ['redpanda', 'valhalla'],                        ['9103:9103']),
     ('trip',      ['redpanda', 'postgres', 'valhalla', 'migrate'], ['8110:8110', '9105:9105']),
-    ('simulator', ['gateway', 'valhalla'],                       ['8101:8101', '9101:9101']),
+    ('payments',  ['redpanda', 'postgres', 'migrate'],             ['8112:8112', '9107:9107']),
+    ('simulator', ['gateway', 'valhalla'],                         ['8101:8101', '9101:9101']),
 ]
 
+go_only = ['backend/', 'deploy/docker/go.Dockerfile']
+
 for name, deps, ports in services:
-    docker_build(
-        'surge/%s' % name,
-        context='.',
-        dockerfile='deploy/docker/%s.Dockerfile' % name,
-        # Only the Go tree and the Dockerfiles matter; without this, editing a
-        # TypeScript file rebuilds every Go image.
-        only=['backend/', 'deploy/docker/'],
-    )
+    docker_build('surge/%s' % name, context='.', dockerfile='deploy/docker/go.Dockerfile',
+                 build_args={'PACKAGE': 'services/%s/cmd' % name}, only=go_only)
     k8s_resource(name, labels=['services'], port_forwards=ports, resource_deps=deps)
+
+docker_build('surge/migrate', context='.', dockerfile='deploy/docker/go.Dockerfile',
+             build_args={'PACKAGE': 'tools/migrate'}, only=go_only)

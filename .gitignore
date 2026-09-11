@@ -29,8 +29,9 @@ apps/mobile/android/
 # Go
 backend/bin/
 
-# Cluster secrets are created imperatively, never committed.
-deploy/k8s/11-secrets.yaml
+# Cluster secrets are created imperatively, never committed. This is a filled-in
+# copy of deploy/k8s/development/secrets.template.yaml, should one be made.
+deploy/k8s/**/secrets.yaml
 
 # Python bytecode from running the benchmark scripts.
 __pycache__/

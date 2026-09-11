@@ -8,8 +8,9 @@
 # the root lockfile and every sibling manifest, so the build context has to be
 # the whole repo whatever the Dockerfile's own location.
 #
-# On a platform that builds a Dockerfile for you, point it at this path —
-# Railway takes `RAILWAY_DOCKERFILE_PATH=apps/web/Dockerfile`.
+# No build arguments. Where the browser finds the gateway and auth is read from
+# the environment when a page is served (src/lib/public-config.ts), so one image
+# serves every environment and the image that was tested is the one that ships.
 #
 # This serves SSR and its own static assets. Behind a CDN the asset requests
 # should never reach it, but a boilerplate that only works behind one is not
@@ -35,16 +36,13 @@ COPY packages/common/package.json packages/common/
 COPY packages/database/package.json packages/database/
 COPY packages/domain/package.json packages/domain/
 COPY scripts/package.json scripts/
+# pnpm applies `patchedDependencies` during install, so the patches have to be
+# here before it runs, not with the source after it.
+COPY patches/ patches/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-# The API's address as the browser sees it, baked into the client bundle — Vite
-# substitutes `VITE_` values at build time, so this is a build argument and not
-# a runtime variable. It must be the API's *public* address: a browser resolves
-# it, not this container.
-ARG VITE_AUTH_BASE_URL=http://localhost:3000
-ENV VITE_AUTH_BASE_URL=$VITE_AUTH_BASE_URL
 RUN pnpm --filter @surge/web build
 
 # Alpine for the same reason as the API image: nothing installs here, and the
@@ -52,12 +50,12 @@ RUN pnpm --filter @surge/web build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-ENV PORT=5173
+ENV PORT=5273
 
 # Nitro turns the Start fetch handler into a server, so there is nothing to host
 # it with by hand: `.output` is self-contained, node_modules included.
 COPY --from=build /app/apps/web/.output ./apps/web/.output
 
 WORKDIR /app/apps/web
-EXPOSE 5173
+EXPOSE 5273
 CMD ["node", ".output/server/index.mjs"]

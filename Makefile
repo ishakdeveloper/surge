@@ -26,13 +26,23 @@ help: ## Show this help
 # machine has been a production GKE cluster before now.
 KCTX ?= orbstack
 
+# Every Go image comes from deploy/docker/go.Dockerfile; only the package differs.
+GO_IMAGES := gateway:services/gateway/cmd ingest:services/ingest/cmd \
+	matcher:services/matcher/cmd trip:services/trip/cmd \
+	payments:services/payments/cmd simulator:services/simulator/cmd \
+	migrate:tools/migrate
+
 images: ## Build every container image
-	@for s in gateway ingest matcher trip simulator migrate; do \
-		echo "  building $$s"; \
-		docker build -q -f deploy/docker/$$s.Dockerfile -t surge/$$s:dev . > /dev/null; \
+	@for image in $(GO_IMAGES); do \
+		name=$${image%%:*}; package=$${image#*:}; \
+		echo "  building $$name"; \
+		docker build -q -f deploy/docker/go.Dockerfile --build-arg PACKAGE=$$package \
+			-t surge/$$name:dev . > /dev/null || exit 1; \
 	done
 	@echo "  building auth"
 	@docker build -q -f apps/auth/Dockerfile -t surge/auth:dev . > /dev/null
+	@echo "  building web"
+	@docker build -q -f apps/web/Dockerfile -t surge/web:dev . > /dev/null
 
 K8S_ENV ?= development
 
@@ -90,7 +100,7 @@ up: ## Start all infrastructure: the system and its dashboards
 	@echo
 	@echo "  Valhalla builds tiles on first boot: 10-20 minutes. 'make logs' to watch."
 
-up-core: ## Only what the system needs to run (postgres, redpanda, redis, valhalla), no dashboards
+up-core: ## Only what the system needs to run (postgres, redpanda, valhalla), no dashboards
 	$(COMPOSE) up -d
 
 down: ## Stop infrastructure, keep the volumes

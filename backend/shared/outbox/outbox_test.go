@@ -20,11 +20,12 @@ import (
 
 var table = outbox.NewTable("test_outbox")
 
-func brokers() []string {
+func cluster() kafkax.Cluster {
+	brokers := []string{"localhost:19092"}
 	if raw := os.Getenv("KAFKA_BROKERS"); raw != "" {
-		return strings.Split(raw, ",")
+		brokers = strings.Split(raw, ",")
 	}
-	return []string{"localhost:19092"}
+	return kafkax.Cluster{Brokers: brokers, Replication: 1}
 }
 
 type rig struct {
@@ -50,14 +51,14 @@ func newRig(t *testing.T) *rig {
 		t.Fatalf("create outbox table: %v", err)
 	}
 
-	client, err := kgo.NewClient(kgo.SeedBrokers(brokers()...))
+	client, err := cluster().Client()
 	if err != nil {
 		t.Fatalf("kafka client: %v", err)
 	}
 	t.Cleanup(client.Close)
 	admin := kadm.NewClient(client)
 	if _, err := admin.ListBrokers(ctx); err != nil {
-		t.Skipf("no broker at %v: %v", brokers(), err)
+		t.Skipf("no broker at %v: %v", cluster().Brokers, err)
 	}
 
 	topic := "outbox-test-" + strconv.FormatInt(time.Now().UnixNano(), 36)
@@ -66,7 +67,7 @@ func newRig(t *testing.T) *rig {
 	}
 	t.Cleanup(func() { _, _ = admin.DeleteTopics(context.Background(), topic) })
 
-	producer, err := kafkax.NewProducer(brokers())
+	producer, err := kafkax.NewProducer(cluster())
 	if err != nil {
 		t.Fatalf("producer: %v", err)
 	}
@@ -113,8 +114,7 @@ func (r *rig) pending(t *testing.T) int {
 // consume reads `want` records from the start of the topic.
 func (r *rig) consume(t *testing.T, want int) []*kgo.Record {
 	t.Helper()
-	consumer, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers()...),
+	consumer, err := cluster().Client(
 		kgo.ConsumeTopics(r.topic),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
 	)

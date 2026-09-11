@@ -41,13 +41,15 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
 	group := config.StringOr("MATCHER_GROUP", "matcher")
 	metricsAddr := config.StringOr("MATCHER_METRICS_ADDR", ":9103")
 
 	settings := domain.DefaultConfig()
 
-	var err error
 	if settings.SearchRings, err = config.IntOr("MATCHER_SEARCH_RINGS", settings.SearchRings); err != nil {
 		return err
 	}
@@ -66,11 +68,11 @@ func run() error {
 		return err
 	}
 
-	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		return err
 	}
 
-	partitions, err := kafkax.TopicPartitions(ctx, brokers, kafkax.TopicGeoEvents)
+	partitions, err := kafkax.TopicPartitions(ctx, cluster, kafkax.TopicGeoEvents)
 	if err != nil {
 		return err
 	}
@@ -99,7 +101,7 @@ func run() error {
 	registry := obs.NewRegistry("matcher")
 	metrics := newMetrics(registry, settings.Strategy)
 
-	producer, err := kafkax.NewProducer(brokers)
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return err
 	}
@@ -121,7 +123,7 @@ func run() error {
 	}
 	defer dispatches.Close()
 
-	runner := events.NewRunner(brokers, settings, producer, router, instance, events.Hooks{
+	runner := events.NewRunner(cluster, settings, producer, router, instance, events.Hooks{
 		OnMatched: func(result domain.MatchResult) {
 			metrics.matched.Inc()
 			metrics.latency.Observe(result.Latency.Seconds())

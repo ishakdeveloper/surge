@@ -9,9 +9,6 @@
 # the whole repo whatever the Dockerfile's own location. Living next to the app
 # it builds is for the reader; the context is for pnpm.
 #
-# On a platform that builds a Dockerfile for you, point it at this path —
-# Railway takes `RAILWAY_DOCKERFILE_PATH=apps/auth/Dockerfile`.
-#
 # This image also carries the migration runner. Migrations are applied by a
 # script and never at boot — two instances starting together would both migrate —
 # so it is a separate command rather than an entrypoint:
@@ -35,6 +32,9 @@ COPY apps/web/package.json apps/web/
 COPY packages/database/package.json packages/database/
 COPY packages/domain/package.json packages/domain/
 COPY scripts/package.json scripts/
+# pnpm applies `patchedDependencies` during install, so the patches have to be
+# here before it runs, not with the source after it.
+COPY patches/ patches/
 # `prepare` patches TypeScript and oxlint with the Effect language service, which
 # the build needs and which pnpm runs as part of install.
 RUN pnpm install --frozen-lockfile

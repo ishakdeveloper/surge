@@ -65,7 +65,7 @@ func main() {
 }
 
 type settings struct {
-	brokers   []string
+	cluster   kafkax.Cluster
 	tripAddr  string
 	payAddr   string
 	held      bool
@@ -79,13 +79,16 @@ type settings struct {
 }
 
 func load() (settings, error) {
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return settings{}, err
+	}
 	s := settings{
-		brokers:  config.Strings("KAFKA_BROKERS", []string{"localhost:19092"}),
+		cluster:  cluster,
 		tripAddr: config.StringOr("TRIP_GRPC_ADDR", "localhost:8110"),
 		payAddr:  config.StringOr("PAYMENTS_GRPC_ADDR", "localhost:8112"),
 		out:      config.StringOr("BENCH_OUT", ""),
 	}
-	var err error
 	if s.held, err = config.BoolOr("BENCH_HELD", true); err != nil {
 		return s, err
 	}
@@ -160,7 +163,7 @@ func run() error {
 	}
 
 	facts := newFacts()
-	reader, err := tail(ctx, s.brokers)
+	reader, err := tail(ctx, s.cluster)
 	if err != nil {
 		return err
 	}
@@ -241,10 +244,10 @@ func dial(addr string) (*grpc.ClientConn, error) {
 // Not a consumer group: a group resolves "the end" whenever it gets round to
 // joining, and a booking made before that would lose its facts. Offsets listed
 // up front are the end as of before the first booking.
-func tail(ctx context.Context, brokers []string) (*kgo.Client, error) {
+func tail(ctx context.Context, cluster kafkax.Cluster) (*kgo.Client, error) {
 	topics := []string{kafkax.TopicTripLifecycle, kafkax.TopicPaymentEvents, kafkax.TopicGeoEvents}
 
-	admin, err := kgo.NewClient(kgo.SeedBrokers(brokers...))
+	admin, err := cluster.Client()
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +268,7 @@ func tail(ctx context.Context, brokers []string) (*kgo.Client, error) {
 		from[listed.Topic][listed.Partition] = kgo.NewOffset().At(listed.Offset)
 	})
 
-	return kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
+	return cluster.Client(
 		kgo.ConsumePartitions(from),
 		kgo.FetchMaxWait(50*time.Millisecond),
 	)

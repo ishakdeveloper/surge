@@ -31,36 +31,49 @@ What it does not do is the more interesting list:
 OrbStack. The production overlay has never been applied anywhere, and it shows.
 
 **`.railway/railway.ts`** came with the boilerplate the repo started from. It
-deploys auth and web only — no Go, no Kafka — and wires `DATABASE_URL` where
-auth reads `AUTH_DATABASE_URL`. It is not a deployment target; it should go.
+deployed auth and web only — no Go, no Kafka — and wired `DATABASE_URL` where
+auth reads `AUTH_DATABASE_URL`. It was not a deployment target, and Phase 0
+deleted it.
 
-## Phase 0 — what is already wrong
+## Phase 0 — what was already wrong
 
-Found while reading for this document. None of it needs a cloud account to fix,
-and all of it would bite on the first real deploy.
+Found while reading for this document, and fixed first: none of it needed a
+cloud account, and all of it would have bitten on the first real deploy. Both
+overlays now render and pass `kubeconform`, and every image builds. Rows marked
+_new_ were found while fixing the rest.
 
-| Defect                                                                                                                                                                                                                           | Where                                                     |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| The production `migrate` Job never gets `DATABASE_URL`. It reads only the ConfigMap, the value lives only in the Secret, and `patch-managed-services.yaml` targets the four services but not the Job.                            | `deploy/k8s/base/migrate-job.yaml`                        |
-| Production auth still has `AUTH_BASE_URL=http://auth:3200` and `WEB_URL=http://localhost:5273`, and `AUTH_ISSUER` is the in-cluster URL. Cookies, CORS and the token issuer would all be wrong.                                  | `deploy/k8s/base/auth.yaml`, `deploy/k8s/base/config.env` |
-| `EnsureTopics` hard-codes replication factor 1. A three-broker cluster will accept it and lose data on the first broker loss. Needs `KAFKA_REPLICATION_FACTOR` through `shared/config`, and SASL/TLS options for a real cluster. | `backend/shared/kafkax/topics.go`                         |
-| The production `imagePullPolicy` patch replaces `IfNotPresent` with `IfNotPresent`, and every image is `:latest`.                                                                                                                | `deploy/k8s/production/kustomization.yaml`                |
-| Web has no manifest, and `make images` does not build it.                                                                                                                                                                        | `deploy/k8s/base/`, `Makefile`                            |
-| The web image bakes `VITE_AUTH_BASE_URL` in at build time and has no build argument at all for the API and WebSocket URLs, so one image cannot serve two environments.                                                           | `apps/web/Dockerfile`                                     |
-| The gateway reaches the simulator on `SIM_GRPC_ADDR`, which nothing in k8s sets, and the simulator Service does not expose 8111. `/v1/simulator` cannot work in-cluster.                                                         | `deploy/k8s/development/simulator.yaml`                   |
-| The gateway's `/ready` returns `ready` unconditionally, and no Go service has a readiness or startup probe.                                                                                                                      | `backend/services/gateway/cmd/main.go`                    |
-| Prometheus scrapes `core` on 9106. There is no `core` service. Comments point at `11-secrets.yaml` and `21-migrate-job.yaml`, which no longer exist.                                                                             | `deploy/prometheus/prometheus.yml`, `deploy/k8s/`         |
-| `make proto` installs every protoc plugin `@latest`. Two machines a week apart generate different code, which makes a drift check impossible.                                                                                    | `Makefile`                                                |
-| Every workload reads one `surge-config` ConfigMap. Kustomize suffixes it with a content hash, so changing any one service's setting renames it and rolls all of them.                                                            | `deploy/k8s/base/kustomization.yaml`                      |
-| `.railway/railway.ts` and the `railway` devDependency.                                                                                                                                                                           | delete                                                    |
+| Defect                                                                                                                                                                                                                                     | Fix                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The production `migrate` Job never got `DATABASE_URL`: it read only the ConfigMap, the value lived only in the Secret, and the credential patch targeted four Deployments but not the Job. Auth and its migration never got theirs either. | A `surge-database` Secret, referenced by key and only by what uses it: trip, payments and `migrate` get `DATABASE_URL`; auth and `migrate-auth` get `AUTH_DATABASE_URL`. Development generates it, production supplies it.                                                                                       |
+| Production auth had `AUTH_BASE_URL=http://auth:3200` and `WEB_URL=http://localhost:5273`, and `AUTH_ISSUER` was the in-cluster URL. Cookies, CORS and the token issuer would all have been wrong.                                          | Public addresses live in the overlays. The issuer is the public address auth signs as; the JWKS is still fetched in-cluster.                                                                                                                                                                                     |
+| `EnsureTopics` hard-coded replication factor 1, which a three-broker cluster accepts and then loses data with.                                                                                                                             | `kafkax.Cluster`, read once from `KAFKA_BROKERS`, `KAFKA_REPLICATION_FACTOR`, `KAFKA_TLS` and `KAFKA_SASL_*`, and carried by every client in every service. Production asks for three.                                                                                                                           |
+| The `imagePullPolicy` patch replaced `IfNotPresent` with `IfNotPresent`, and every image was `:latest`.                                                                                                                                    | Gone. Production names registry images with no tag; the deploy pins each to a digest.                                                                                                                                                                                                                            |
+| Web had no manifest, and `make images` did not build it.                                                                                                                                                                                   | `base/web.yaml`; `make images` and Tilt build it.                                                                                                                                                                                                                                                                |
+| _New._ Payments had no Dockerfile, no manifest and no Tilt resource, and the gateway's `PAYMENTS_GRPC_ADDR` was unset in the cluster.                                                                                                      | All four, and a PDB. Production sets `TRIP_REQUIRE_PAYMENT=true`.                                                                                                                                                                                                                                                |
+| The web image baked `VITE_AUTH_BASE_URL` in at build time and had no way to set the API and WebSocket URLs, so one image could not serve two environments.                                                                                 | The server reads its environment and hands the browser the answer in the document, `apps/web/src/lib/public-config.ts`. Server-side session lookups use `AUTH_INTERNAL_URL` and never leave the cluster. The image has no build arguments.                                                                       |
+| The gateway reached the simulator on `SIM_GRPC_ADDR`, which nothing set, and the simulator Service did not expose 8111.                                                                                                                    | Set in development, and exposed.                                                                                                                                                                                                                                                                                 |
+| The gateway's `/ready` returned `ready` unconditionally, and no Go service had a readiness or startup probe.                                                                                                                               | `/ready` answers 503 until every subsystem has started and again from the moment shutdown begins, behind a `preStop` sleep. Trip and payments report `NOT_SERVING` before `GracefulStop`, which Kubernetes probes over gRPC natively. Every Go service has a startup probe, so liveness never races a slow boot. |
+| _New._ The gateway's gRPC clients used `pick_first` over a ClusterIP: one HTTP/2 connection to one trip pod, held for the life of the process, however many replicas there were.                                                           | Headless Services, `round_robin`, and a five-minute `MaxConnectionAge` on the servers so a scale-up is found.                                                                                                                                                                                                    |
+| Comments pointed at `11-secrets.yaml` and `21-migrate-job.yaml`, which no longer exist. (The first draft also listed a Prometheus scrape of a `core` service on 9106; there is none on `main`.)                                            | Fixed, `.gitignore` included.                                                                                                                                                                                                                                                                                    |
+| The first draft said `make proto` installs its plugins `@latest`. It does not — each is `go install`ed at a version — but nothing checks that version against `go.mod` either.                                                             | Left for Phase 1, which moves them to `tool` directives pinned by `go.sum`.                                                                                                                                                                                                                                      |
+| Every workload read one `surge-config` ConfigMap, so changing any one service's setting rolled all of them.                                                                                                                                | One ConfigMap per workload, plus `surge-shared` for what every Go service reads: the brokers, the replication factor, tracing.                                                                                                                                                                                   |
+| _New._ Redis ran in compose and in the development cluster, and `REDIS_ADDR` was set, but nothing read it.                                                                                                                                 | Removed.                                                                                                                                                                                                                                                                                                         |
+| _New._ Six Go Dockerfiles, identical but for the package path.                                                                                                                                                                             | One, `deploy/docker/go.Dockerfile`, with the package as a build argument.                                                                                                                                                                                                                                        |
+| _New._ Neither the auth nor the web image built: `pnpm install` applies `patchedDependencies`, and the install stage never copied `patches/`.                                                                                              | Copied before the install.                                                                                                                                                                                                                                                                                       |
+| `.railway/railway.ts` and the `railway` devDependency.                                                                                                                                                                                     | Deleted.                                                                                                                                                                                                                                                                                                         |
 
 The readiness point deserves a sentence, because the manifests left it off on
 purpose — "so a Kafka blip does not become an outage". That reasoning is right
-for **liveness**, which should stay dumb. Readiness is a different question:
-not "is this process wedged" but "should the load balancer send it traffic". A
-gateway that has not loaded the JWKS, or cannot reach trip, should not be in
-rotation. That check should cover only this pod's own prerequisites, never a
-shared dependency whose failure would drain every replica at once.
+for **liveness**, which stays dumb. Readiness is a different question: not "is
+this process wedged" but "should the load balancer send it traffic". It covers
+only this pod's own prerequisites — started, JWKS loaded, not on its way out —
+and never a shared dependency such as trip, whose bad minute would otherwise
+drain every gateway at once.
+
+**Auth stays at one replica.** Its sign-in rate limiter keeps its counts in
+memory, and for a six-digit code that limiter is the security boundary: two
+replicas would each allow the full rate. Auth scales only once the limiter has
+a shared store, which is the one real reason for Memorystore in Phase 4.
 
 ## One change, one rollout
 
@@ -75,16 +88,17 @@ exactly that:
   and every service rolls. Images are addressed by **digest** instead. A
   service whose inputs did not change builds to the same bytes, gets the same
   digest, and its Deployment is left alone.
-- **One shared ConfigMap.** See Phase 0: each service gets its own, generated
-  from its own `config.env`, and the few genuinely shared values (`AUTH_*`,
-  `KAFKA_BROKERS`) are the only thing in a shared one.
+- **One shared ConfigMap.** Fixed in Phase 0: each workload has its own,
+  generated from its own file under `deploy/k8s/base/config/`, and the few
+  genuinely shared values (`KAFKA_*`, tracing) are the only thing in
+  `surge-shared`.
 - **`backend/shared/`.** A change there should redeploy the services that import
   the changed package, and only those. `go list -deps ./services/<svc>/cmd`
   lists each service's packages exactly. On the TypeScript side
   `pnpm --filter "...[origin/main]"` does the same for auth and web.
 
 Same digest, no rollout, only works if builds are **reproducible**. Most of that
-is already true: the Go Dockerfiles build with `-trimpath`, and `.dockerignore`
+is already true: the Go Dockerfile builds with `-trimpath`, and `.dockerignore`
 excludes `.git`, so Go cannot stamp a commit into the binary. What is left is
 layer timestamps (`SOURCE_DATE_EPOCH` and buildx `rewrite-timestamp`) and the
 unpinned `apk add` in the runtime stage, which drifts when Alpine publishes.
@@ -165,10 +179,10 @@ directives to `go.mod`, so the four protoc plugins become
 `flake.nix` next to Node and pnpm, so there is one toolchain definition for the
 laptop and the runner.
 
-**Images.** Eight: gateway, ingest, matcher, trip, simulator, migrate, auth,
-web. Buildx with the GitHub Actions cache, a Trivy scan, amd64 only. h3-go is
-cgo, and the Dockerfiles already explain why that means Alpine rather than
-distroless; it also means cross-building arm64 under QEMU is slow enough to
+**Images.** Nine: gateway, ingest, matcher, trip, payments, simulator,
+migrate, auth, web. Buildx with the GitHub Actions cache, a Trivy scan, amd64
+only. h3-go is cgo, and `go.Dockerfile` already explains why that means Alpine
+rather than distroless; it also means cross-building arm64 under QEMU is slow enough to
 avoid. If Axion nodes are ever worth it, `ubuntu-24.04-arm` runners build them
 natively.
 
@@ -197,10 +211,9 @@ which is why it comes before the rest of the cloud.
   _One change, one rollout_. `latest` is never deployed.
 - `docker/build-push-action` emits SBOM and provenance attestations. cosign and
   Binary Authorization can come later; attestations cost nothing now.
-- **Web gets its URLs at runtime.** The Nitro server serves them to the client
-  from its own environment instead of Vite inlining them at build time. Without
-  this, staging and production need two web builds, and the image that was
-  tested is not the image that ships.
+- **Web gets its URLs at runtime** — done in Phase 0. Without it, staging and
+  production would need two web builds, and the image that was tested would not
+  be the image that ships.
 
 ## Phase 3 — Playwright against the whole stack
 
@@ -256,7 +269,7 @@ connection density wants raised ulimits and sysctls.
 | ---------------- | -------------------------------------------------------------------------------------------- |
 | Postgres         | Cloud SQL for Postgres 17, private IP, IAM auth; `surge` and `surge_auth`                    |
 | Redpanda         | Redpanda's Helm chart in-cluster: three brokers, RF 3, a dedicated node pool                 |
-| Redis            | Memorystore                                                                                  |
+| —                | Memorystore, once auth needs a shared rate-limit store to run a second replica               |
 | Valhalla         | a Deployment of `surge-valhalla-ams` — read-only tiles, stateless, scales like anything else |
 | Jaeger           | OTLP to Cloud Trace                                                                          |
 | Prometheus       | Google Managed Prometheus, `PodMonitoring` over the existing `/metrics`; dashboards kept     |
@@ -279,20 +292,20 @@ them, and templating would only hide what is applied.
 **Workloads:**
 
 - readiness and startup probes, separate from a liveness probe that stays dumb
+  — done in Phase 0
 - requests set from the benchmarks, not guessed
 - `topologySpreadConstraints` across zones; the PDBs and HPAs that exist
 - NetworkPolicies: only the gateway takes ingress; only trip talks to Postgres
-- the gateway gets a `preStop` delay so the ALB stops routing to it before it
-  closes sockets — and clients must reconnect regardless, because the ALB puts
-  a ceiling on how long a WebSocket lives
-- the matcher rolls with `maxUnavailable: 1` and never runs more replicas than
-  `geo.events` has partitions; a replica past that owns nothing
+- the gateway's `preStop` delay (Phase 0) is tuned so the ALB stops routing to
+  it before it closes sockets — and clients must reconnect regardless, because
+  the ALB puts a ceiling on how long a WebSocket lives
+- the matcher rolls with `maxUnavailable: 1` (Phase 0) and never runs more
+  replicas than `geo.events` has partitions; a replica past that owns nothing
 
 ## Phase 5 — infrastructure as code, and delivery
 
 **OpenTofu in `deploy/terraform/gcp/`**, state in a GCS bucket. Modules for
-project APIs, the VPC, GKE, Artifact Registry, Cloud SQL, Memorystore, the WIF
-pool, DNS, and Secret Manager secrets as **containers only** — values are set
+project APIs, the VPC, GKE, Artifact Registry, Cloud SQL, the WIF pool, DNS, and Secret Manager secrets as **containers only** — values are set
 out of band and never pass through state. `tofu plan` runs on PRs that touch it;
 `apply` waits for approval.
 
@@ -331,13 +344,13 @@ nodes for load tests.
 
 ## Order
 
-- [ ] **P0** fix the defects above, including per-service ConfigMaps; delete
+- [x] **P0** fix the defects above, including per-service ConfigMaps; delete
       Railway
 - [ ] **P1** the CI split, coverage gates, pinned codegen and the drift check,
       manifest validation, `buf breaking` and `geo.events` compatibility,
       affected-service detection, Renovate
 - [ ] **P2** Terraform bootstrap (registry, WIF), reproducible images deployed
-      by digest, runtime config for web
+      by digest
 - [ ] **P3** `surge-valhalla-ams`, the compose `app` profile, Playwright
 - [ ] **P4** GKE, Cloud SQL, Redpanda and the `gke` component; staging deploys
       from `main`

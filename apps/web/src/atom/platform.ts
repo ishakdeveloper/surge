@@ -1,4 +1,5 @@
 import { browserGeolocation } from "@/lib/browser-geolocation.js";
+import { publicConfig } from "@/lib/public-config.js";
 import { AuthToken } from "@surge/client/AuthToken";
 import type { Platform } from "@surge/common/atom/runtime";
 import { ConfigProvider, Layer } from "effect";
@@ -22,17 +23,16 @@ import { Socket } from "effect/unstable/socket";
 /**
  * The three values a browser is allowed to configure, and no more.
  *
- * Vite only exposes `VITE_`-prefixed variables to the client bundle, and it
- * replaces `import.meta.env.VITE_X` statically at build time — so the mapping
- * has to be written out rather than derived, and writing it out has the useful
- * side effect of being the list of what the browser knows. Unset falls through
- * to the defaults each service declares, which are the local ones.
+ * Read from `publicConfig`, which the server resolved from its environment when
+ * it rendered the page — so one image serves every environment. Writing the
+ * mapping out is the list of what the browser knows. Unset falls through to the
+ * defaults each service declares, which are the local ones.
  */
 const browserConfig = ConfigProvider.layer(
   ConfigProvider.fromEnvRecord({
-    SURGE_API_URL: import.meta.env.VITE_SURGE_API_URL,
-    SURGE_WS_URL: import.meta.env.VITE_SURGE_WS_URL,
-    AUTH_BASE_URL: import.meta.env.VITE_AUTH_BASE_URL,
+    SURGE_API_URL: publicConfig.SURGE_API_URL,
+    SURGE_WS_URL: publicConfig.SURGE_WS_URL,
+    AUTH_BASE_URL: publicConfig.AUTH_BASE_URL,
   }),
 );
 
