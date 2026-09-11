@@ -80,7 +80,7 @@ type ConversationStatus int32
 const (
 	ConversationStatus_CONVERSATION_STATUS_UNSPECIFIED ConversationStatus = 0
 	ConversationStatus_CONVERSATION_STATUS_OPEN        ConversationStatus = 1
-	// A trip conversation past its trip's grace window. Readable, not writable.
+	// A trip conversation past its trip's grace period. Readable, not writable.
 	ConversationStatus_CONVERSATION_STATUS_CLOSED ConversationStatus = 2
 	// A support conversation somebody resolved. Readable, not writable.
 	ConversationStatus_CONVERSATION_STATUS_RESOLVED ConversationStatus = 3
@@ -248,7 +248,7 @@ type Conversation struct {
 	LastSeq int32 `protobuf:"varint,8,opt,name=last_seq,json=lastSeq,proto3" json:"last_seq,omitempty"`
 	// Messages the caller has not read.
 	Unread int32 `protobuf:"varint,9,opt,name=unread,proto3" json:"unread,omitempty"`
-	// When sending stops, as RFC 3339: the trip's end plus a grace window. Empty
+	// When sending stops, as RFC 3339: the trip's end plus a grace period. Empty
 	// while the trip runs and for support, like every unset field this API sends.
 	ClosesAt     string         `protobuf:"bytes,10,opt,name=closes_at,json=closesAt,proto3" json:"closes_at,omitempty"`
 	Participants []*Participant `protobuf:"bytes,11,rep,name=participants,proto3" json:"participants,omitempty"`

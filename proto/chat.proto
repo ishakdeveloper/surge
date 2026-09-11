@@ -281,7 +281,7 @@ message Conversation {
   int32 last_seq = 8;
   // Messages the caller has not read.
   int32 unread = 9;
-  // When sending stops, as RFC 3339: the trip's end plus a grace window. Empty
+  // When sending stops, as RFC 3339: the trip's end plus a grace period. Empty
   // while the trip runs and for support, like every unset field this API sends.
   string closes_at = 10;
   repeated Participant participants = 11;
@@ -302,7 +302,7 @@ enum ConversationKind {
 enum ConversationStatus {
   CONVERSATION_STATUS_UNSPECIFIED = 0;
   CONVERSATION_STATUS_OPEN = 1;
-  // A trip conversation past its trip's grace window. Readable, not writable.
+  // A trip conversation past its trip's grace period. Readable, not writable.
   CONVERSATION_STATUS_CLOSED = 2;
   // A support conversation somebody resolved. Readable, not writable.
   CONVERSATION_STATUS_RESOLVED = 3;
