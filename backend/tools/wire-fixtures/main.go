@@ -76,6 +76,48 @@ func main() {
 		}},
 	}
 
+	// One `geo.events` record per variant. Go writes and reads these, so no
+	// second language holds them honest; time does. During every rollout an old
+	// matcher reads what a new ingest wrote, and CI decodes the fixtures on
+	// `main` with a branch's code to prove the next version can read the last.
+	const (
+		cell      = "871f1d492ffffff"
+		otherCell = "871f1d493ffffff"
+		indexCell = "891f1d4926bffff"
+		trip      = "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80"
+		at        = int64(1757512330000)
+	)
+	geo := map[string]wire.GeoEvent{
+		"geo/driver_moved.json": {Tag: wire.TagDriverMoved, Cell: cell, AtMs: at, Moved: &wire.DriverMovedPayload{
+			DriverID: "drv-000123", Epoch: 3, Seq: 41, Lat: 52.3702, Lng: 4.8952, Heading: 137.5,
+			Status: wire.StatusIdle, IndexCell: indexCell, SentAtMs: at - 20,
+		}},
+		"geo/driver_entered_cell.json": {Tag: wire.TagDriverEnteredCell, Cell: cell, AtMs: at, Entered: &wire.DriverEnteredPayload{
+			DriverID: "drv-000123", Epoch: 3, Seq: 42, Lat: 52.3711, Lng: 4.8963, Heading: 90,
+			Status: wire.StatusIdle, IndexCell: indexCell, SentAtMs: at - 20, From: otherCell,
+		}},
+		"geo/driver_left_cell.json": {Tag: wire.TagDriverLeftCell, Cell: otherCell, AtMs: at, Left: &wire.DriverLeftPayload{
+			DriverID: "drv-000123", Epoch: 3, Seq: 42, To: cell,
+		}},
+		"geo/match_requested.json": {Tag: wire.TagMatchRequested, Cell: cell, AtMs: at, Requested: &wire.MatchRequestPayload{
+			TripID: trip, RiderID: "rider-000456", PickupLat: 52.3702, PickupLng: 4.8952,
+			DropLat: 52.3584, DropLng: 4.8811, RequestedAtMs: at - 588, IdempotencyKey: trip + ":1",
+		}},
+		"geo/reserve_driver.json": {Tag: wire.TagReserveDriver, Cell: otherCell, AtMs: at, Reserve: &wire.ReservePayload{
+			DriverID: "drv-000123", TripID: trip, ReplyCell: cell, DeadlineMs: at + 15000,
+			RiderID: "rider-000456", PickupLat: 52.3702, PickupLng: 4.8952,
+		}},
+		"geo/reserve_result.json": {Tag: wire.TagReserveResult, Cell: cell, AtMs: at, Reserved: &wire.ReserveResultPayload{
+			DriverID: "drv-000123", TripID: trip, OK: false, Reason: wire.RejectBusy,
+		}},
+		"geo/offer_replied.json": {Tag: wire.TagOfferReplied, Cell: cell, AtMs: at, Replied: &wire.OfferRepliedPayload{
+			TripID: trip, DriverID: "drv-000123", Accepted: true,
+		}},
+	}
+	for name, event := range geo {
+		fixtures[name] = event
+	}
+
 	for name, value := range fixtures {
 		raw, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
@@ -83,6 +125,10 @@ func main() {
 			os.Exit(1)
 		}
 		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "mkdir %s: %v\n", filepath.Dir(path), err)
+			os.Exit(1)
+		}
 		if err := os.WriteFile(path, append(raw, '\n'), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "write %s: %v\n", path, err)
 			os.Exit(1)

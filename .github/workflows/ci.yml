@@ -1,25 +1,97 @@
 name: ci
 
 on:
-  # Every branch, not just main: a boilerplate is forked and worked on in
-  # branches long before anything merges, and CI that only runs on main is CI
-  # that tells you after the fact.
+  # Every branch, not just main: work happens in branches long before anything
+  # merges, and CI that only runs on main is CI that tells you after the fact.
   push:
   pull_request:
+
+# Read-only unless a job says otherwise.
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# One workflow, path-filtered, with one required check. Separate workflows with
+# `paths:` look simpler and are not: a required check from a workflow that never
+# triggered stays pending forever, so a docs-only change could never merge.
+# Every job below runs only when what it checks changed, and `ci-ok` is the one
+# status branch protection requires.
+#
+# Actions are pinned by commit, with the release in a comment. Renovate keeps
+# both current.
 jobs:
-  check:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # paths-filter lists a pull request's files through the API.
+      pull-requests: read
+    outputs:
+      ts: ${{ steps.filter.outputs.ts }}
+      go: ${{ steps.filter.outputs.go }}
+      proto: ${{ steps.filter.outputs.proto }}
+      deploy: ${{ steps.filter.outputs.deploy }}
+      wire: ${{ steps.filter.outputs.wire }}
+      ci: ${{ steps.filter.outputs.ci }}
+      images: ${{ steps.affected.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            ts:
+              - 'apps/**'
+              - 'packages/**'
+              - 'scripts/**'
+              - 'patches/**'
+              - '*.json'
+              - '*.ts'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '**/*.md'
+            go:
+              - 'backend/**'
+            proto:
+              - 'proto/**'
+            deploy:
+              - 'deploy/**'
+              - 'Tiltfile'
+              - 'Makefile'
+            wire:
+              - 'backend/shared/wire/**'
+            ci:
+              - '.github/**'
+              - 'scripts/**'
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # Which images this change touches: `go list -deps` for the Go services,
+      # the workspace graph for auth and web. See scripts/affected.mjs.
+      - id: affected
+        run: node scripts/affected.mjs "$BASE"
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+
+  ts:
+    needs: changes
+    if: needs.changes.outputs.ts == 'true' || needs.changes.outputs.proto == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -34,11 +106,16 @@ jobs:
 
       - run: pnpm lint
 
-      # Docker is available on ubuntu-latest, so the testcontainers-backed
-      # Postgres started by test/global-setup.ts runs here rather than skipping.
-      - run: pnpm test
+      # Coverage, not just the tests: the thresholds in vitest.config.ts are a
+      # ratchet, and this is what holds it. Docker is on the runner, so the
+      # testcontainers Postgres behind the auth and database tests is real —
+      # including the one that proves the committed auth migrations leave
+      # better-auth nothing to create.
+      - run: pnpm coverage
 
   go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.proto == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     # The trip and payments repositories, the outbox and the ledger's
     # constraints are Postgres behaviour, and shared/pgtest skips them when no
@@ -58,15 +135,31 @@ jobs:
           --health-timeout 5s
           --health-retries 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      # gofmt rather than a linter: the standard formatter is the whole
-      # convention, and a diff here is a one-command fix.
+      # A broker, so the Kafka tests run instead of skipping: topic
+      # provisioning, the compacted-checkpoint read, the outbox relay. Not a
+      # service container, because Actions cannot pass a service its arguments
+      # and Redpanda needs dev-container mode to start on a runner.
+      - name: redpanda
+        run: |
+          docker run -d --name redpanda -p 19092:19092 redpandadata/redpanda:v26.2.2 \
+            redpanda start --mode=dev-container --smp=1 --memory=1G \
+            --kafka-addr=external://0.0.0.0:19092 --advertise-kafka-addr=external://localhost:19092
+          for _ in $(seq 1 60); do
+            docker exec redpanda rpk cluster health 2>/dev/null | grep -qE 'Healthy:.+true' && exit 0
+            sleep 2
+          done
+          docker logs redpanda
+          exit 1
+
+      # gofmt rather than a linter for style: the standard formatter is the
+      # whole convention, and a diff here is a one-command fix.
       - name: gofmt
         working-directory: backend
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
@@ -75,16 +168,204 @@ jobs:
         working-directory: backend
         run: go vet ./...
 
-      # The tests that need Redpanda, Valhalla or the auth service skip when
-      # those are absent rather than failing. Postgres is here, so everything
-      # behind shared/pgtest runs for real.
-      #
-      # The Stripe contract test runs only when the repository has a test-mode
-      # key as a secret. Forks and pull requests from them get no secrets, so
-      # there it skips — and it refuses a live key even if one is configured.
+      # Valhalla and the auth service are not here, so the tests that need them
+      # skip. The Stripe contract test runs only when the repository has a
+      # test-mode key as a secret; forks and their pull requests get none, and
+      # it refuses a live key even if one is configured.
       - name: test
         working-directory: backend
         env:
           DATABASE_URL: postgresql://surge:surge@localhost:55433/surge
+          KAFKA_BROKERS: localhost:19092
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
-        run: go test ./...
+        run: go test -race -cover ./... | tee "$RUNNER_TEMP/go-test.txt"
+
+      # Each package's floor is in backend/coverage-floors.txt; a package not
+      # listed is new and held to 80%. See scripts/go-coverage-gate.sh.
+      - name: coverage floors
+        run: scripts/go-coverage-gate.sh backend/coverage-floors.txt < "$RUNNER_TEMP/go-test.txt"
+
+      # Correctness and known CVEs, not taste. Pinned by version rather than as
+      # go.mod tools, whose dependencies would join the services' module graph
+      # and change every image's bytes. Both need a newer Go than the module
+      # does, which `auto` fetches for them.
+      - name: staticcheck
+        working-directory: backend
+        env:
+          GOTOOLCHAIN: auto
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+
+      - name: govulncheck
+        working-directory: backend
+        env:
+          GOTOOLCHAIN: auto
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+  # Everything committed that a tool writes, written again and compared. A diff
+  # means someone changed the source and not the output, or the output by hand.
+  codegen:
+    needs: changes
+    if: needs.changes.outputs.proto == 'true' || needs.changes.outputs.go == 'true' || needs.changes.outputs.ts == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The version the committed code names in its headers. The plugins are
+      # pinned by go.sum, through the tool directives in backend/go.mod.
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          version: "33.0"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: make proto
+
+      - run: make wire-fixtures
+
+      - run: pnpm --filter @surge/web routes
+
+      - name: nothing generated differs from what is committed
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            git diff
+            echo "::error::generated output is stale: run make proto, make wire-fixtures and pnpm --filter @surge/web routes, and commit the result"
+            exit 1
+          fi
+
+  manifests:
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
+        with:
+          version: v1.33.4
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # Render every overlay and validate what would be applied against the
+      # Kubernetes schemas. A typo in a manifest fails here, not in a rollout.
+      - name: kustomize and kubeconform
+        run: |
+          for env in development production; do
+            kubectl kustomize "deploy/k8s/$env" > "$RUNNER_TEMP/$env.yaml"
+          done
+          go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0 \
+            -strict -summary -kubernetes-version 1.33.0 "$RUNNER_TEMP"/*.yaml
+
+  # Services roll one at a time, so the version being replaced and the version
+  # replacing it run side by side. What one writes, the other has to read.
+  compat:
+    needs: changes
+    if: (needs.changes.outputs.proto == 'true' || needs.changes.outputs.wire == 'true' || needs.changes.outputs.ci == 'true') && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # A checker only: `make proto` still generates with protoc.
+      - uses: bufbuild/buf-action@8c6a16e16f12ba20b6470afa9c2ba9b5ba8c97c3 # v1.5.0
+        with:
+          setup_only: true
+          version: 1.73.0
+
+      - name: the protos stay compatible with main
+        run: buf breaking proto --against ".git#branch=origin/main,subdir=proto"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # The geo.events records main writes, decoded by this branch's code. A
+      # base from before the fixtures existed has none, and the test skips.
+      - name: main's geo.events records still decode
+        run: |
+          base="$RUNNER_TEMP/base"
+          mkdir -p "$base"
+          git archive origin/main backend/shared/wire/testdata | tar -x -C "$base" || true
+          cd backend
+          GEO_FIXTURES="$base/backend/shared/wire/testdata/geo" \
+            go test ./shared/wire -run TestGeoEventsDecodeFromFixtures -v
+
+  # Only the images this change touches, built the way a release builds them
+  # and scanned. Pushing them anywhere arrives with the registry.
+  images:
+    needs: changes
+    if: needs.changes.outputs.images != '' && needs.changes.outputs.images != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: which Dockerfile
+        id: spec
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          case "$IMAGE" in
+            auth | web) echo "file=apps/$IMAGE/Dockerfile" >> "$GITHUB_OUTPUT"
+                        echo "args=" >> "$GITHUB_OUTPUT" ;;
+            migrate)    echo "file=deploy/docker/go.Dockerfile" >> "$GITHUB_OUTPUT"
+                        echo "args=PACKAGE=tools/migrate" >> "$GITHUB_OUTPUT" ;;
+            *)          echo "file=deploy/docker/go.Dockerfile" >> "$GITHUB_OUTPUT"
+                        echo "args=PACKAGE=services/$IMAGE/cmd" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ${{ steps.spec.outputs.file }}
+          build-args: ${{ steps.spec.outputs.args }}
+          tags: surge/${{ matrix.image }}:ci
+          load: true
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      # Known, fixable, serious. An unfixed CVE is not something this change
+      # can act on; a fixed one is a base image or a dependency to bump.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: surge/${{ matrix.image }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # The one required check. Skipped jobs count as passed — they had nothing to
+  # check — and anything failed or cancelled fails this.
+  ci-ok:
+    if: always()
+    needs: [changes, ts, go, codegen, manifests, compat, images]
+    runs-on: ubuntu-latest
+    steps:
+      - name: every job passed or had nothing to do
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null

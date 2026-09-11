@@ -117,8 +117,6 @@ migrate: build ## Apply migrations to both databases
 	pnpm --filter @surge/database migrate
 	@set -a; . ./.env; set +a; $(BIN)/migrate
 
-# Codegen. The plugins are go-installed rather than vendored, matching how the
-# Go toolchain expects protoc plugins to be found.
 # Codegen. Four plugins from one set of .proto files:
 #
 #   protoc-gen-go          the messages
@@ -130,17 +128,19 @@ migrate: build ## Apply migrations to both databases
 # That is the reason for the annotations: the REST surface, the gRPC contract
 # and the API documentation are one source of truth rather than three that
 # drift.
+#
+# The plugins are `tool` directives in backend/go.mod, so go.sum pins them and
+# two machines a week apart generate the same code — which is what lets CI fail
+# on a diff. They are built into backend/bin and put first on PATH, so a
+# protoc-gen-go installed some other way can never be the one that runs.
+# protoc itself is pinned in CI to 33.0, the version the committed code names.
+PROTOC_PLUGINS := $(abspath $(BIN)/protoc-plugins)
+
 proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 	@command -v protoc >/dev/null || { echo "protoc not installed"; exit 1; }
-	@# Pinned to the runtime versions in backend/go.mod rather than @latest, so a
-	@# regeneration changes what the proto changed and nothing else — a newer
-	@# generator rewrites every file's header and helpers, and buries the diff.
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
-	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.30.0
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.30.0
+	@cd backend && GOBIN=$(PROTOC_PLUGINS) go install tool
 	@mkdir -p docs/api
-	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=proto \
+	PATH="$(PROTOC_PLUGINS):$$PATH" protoc --proto_path=proto \
 		--go_out=backend/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		--go-grpc_out=backend/shared/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		--grpc-gateway_out=backend/shared/proto \

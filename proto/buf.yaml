@@ -1,0 +1,16 @@
+# buf is a checker here, never the generator: `make proto` still generates with
+# protoc. What this catches is a change one version of a service cannot read
+# from the next — during every rollout an old gateway talks to a new trip, and
+# the other way round.
+#
+#   buf breaking proto --against '.git#branch=main,subdir=proto'
+version: v2
+breaking:
+  # FILE is the strictest: it also refuses moving a message between files, which
+  # changes the generated Go package even when the wire format is unchanged.
+  use:
+    - FILE
+  # Vendored upstream definitions, not ours to break.
+  ignore:
+    - google
+    - protoc-gen-openapiv2

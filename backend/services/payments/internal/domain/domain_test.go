@@ -78,9 +78,11 @@ func TestTransitions(t *testing.T) {
 // names a new one.
 func TestIdempotencyKeys(t *testing.T) {
 	first := &domain.Payment{TripID: "trip-1", Attempt: 1}
+	// A retry is the same payment loaded again, not the same value in memory.
+	retried := &domain.Payment{TripID: "trip-1", Attempt: 1}
 	second := &domain.Payment{TripID: "trip-1", Attempt: 2}
 
-	if first.IdempotencyKey("capture") != first.IdempotencyKey("capture") {
+	if first.IdempotencyKey("capture") != retried.IdempotencyKey("capture") {
 		t.Error("the same operation produced two keys")
 	}
 	if first.IdempotencyKey("authorize") == second.IdempotencyKey("authorize") {

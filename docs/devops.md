@@ -156,28 +156,59 @@ job depends on all of them and is the only status check branch protection
 requires. Separate workflows with `paths:` look simpler and are not: a required
 check from a workflow that never triggered stays pending forever.
 
-| Job           | Runs when            | What                                                                                                                                  |
-| ------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `ts`          | TS, proto            | dprint, `pnpm check`, oxlint, **`pnpm coverage`**                                                                                     |
-| `go`          | Go, proto            | gofmt, `go vet`, `go test -race -coverprofile`, an 80% gate on non-generated packages, `staticcheck`, `govulncheck`                   |
-| `codegen`     | proto, Go, TS        | `make proto`, `make wire-fixtures`, auth migration and route tree regeneration, then `git diff --exit-code`                           |
-| `manifests`   | `deploy/`            | `kubectl kustomize` every overlay, piped through `kubeconform`                                                                        |
-| `compat`      | proto, `shared/wire` | `buf breaking` against `main`; the golden `geo.events` fixtures from `main` decode on the branch                                      |
-| `affected`    | always               | `go list -deps` per service and `pnpm --filter "...[origin/main]"`; outputs the services the other jobs build and test                |
-| `images`      | affected services    | build only those images, reproducibly; push on `main` only                                                                            |
-| `integration` | Go, TS               | Redpanda and Postgres as service containers, `KAFKA_BROKERS` and `TEST_DB_URL` set, so the tests that skip on a bare machine run here |
-| `e2e`         | web, backend, proto  | Phase 3                                                                                                                               |
+Built as `.github/workflows/ci.yml`:
+
+| Job         | Runs when            | What                                                                                                                                   |
+| ----------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `changes`   | always               | `dorny/paths-filter`, and `scripts/affected.mjs`: `go list -deps` per Go service and the workspace graph for auth and web              |
+| `ts`        | TS, proto            | dprint, `pnpm check`, oxlint, **`pnpm coverage`** against a ratchet                                                                    |
+| `go`        | Go, proto            | gofmt, `go vet`, `go test -race -cover` with Postgres and a Redpanda broker, per-package coverage floors, `staticcheck`, `govulncheck` |
+| `codegen`   | proto, Go, TS        | `make proto`, `make wire-fixtures` and the route tree, then nothing may differ from the commit                                         |
+| `manifests` | `deploy/`            | `kubectl kustomize` every overlay, piped through `kubeconform`                                                                         |
+| `compat`    | proto, `shared/wire` | `buf breaking` against `main`; the golden `geo.events` fixtures from `main` decode on the branch                                       |
+| `images`    | affected services    | build only those images, and fail on a fixable HIGH or CRITICAL CVE; pushing arrives with the registry in Phase 2                      |
+| `e2e`       | web, backend, proto  | Phase 3                                                                                                                                |
+| `ci-ok`     | always               | the one required check: every job above passed or had nothing to do                                                                    |
+
+Where it departs from the plan, and why:
+
+- **Coverage is a ratchet, not 80% yet.** Measured the day the gate arrived,
+  the TypeScript suite covered 65.6% of lines, 42.7% of functions and 36.6% of
+  branches, and the Go packages ranged from 94% to nothing — fourteen have no
+  tests at all. A gate that fails every run is a gate nobody keeps. So the
+  thresholds in `vitest.config.ts` are those numbers less a point, and every Go
+  package has a floor in `backend/coverage-floors.txt`, enforced by
+  `scripts/go-coverage-gate.sh`. A Go package not listed is new, and held to
+  80%. Floors rise and never fall; the gate says when one can.
+- **The auth migration is checked, not regenerated.** `compileAuthMigrations`
+  diffs against a live database, and `0002_phone_number.sql` extends
+  `0001_auth.sql` by hand, so regenerating `0001` has nothing to be compared
+  with. Instead `apps/auth/test/iam/Migrations.test.ts` applies every migration
+  and asserts better-auth has nothing left to create.
+- **No separate integration job.** The `go` job carries Postgres and a
+  Redpanda broker, so the Kafka tests run rather than skip; the TypeScript
+  database tests already had testcontainers. What still needs auth, the gateway
+  and the whole stack running is Phase 3.
+- **`geo.events` has golden fixtures now**, one per variant, written by
+  `make wire-fixtures` beside the WebSocket ones. Until they reach `main`, the
+  compat job has nothing on the base to decode and says so.
+- **The Node images lost their package managers.** Trivy found that the
+  `node:22-alpine` base's own npm, yarn and corepack carried most of its
+  CVEs, and the runtime stages never use them. They are deleted there, and the
+  OS packages take Alpine's published fixes.
 
 `gofmt` stays the style guide. `staticcheck` and `govulncheck` are there for
 correctness and known CVEs, not taste — which is why this is not
 golangci-lint with forty linters switched on.
 
-**The drift check needs reproducible codegen first.** Go 1.24 added `tool`
-directives to `go.mod`, so the four protoc plugins become
-`go tool protoc-gen-go` at a version `go.sum` pins, instead of whatever was
-`@latest` that day. protoc itself gets pinned in CI, and Go and protoc go into
-`flake.nix` next to Node and pnpm, so there is one toolchain definition for the
-laptop and the runner.
+**The drift check needs reproducible codegen first.** The four protoc plugins
+are `tool` directives in `backend/go.mod`, so `go.sum` pins them, and
+`make proto` builds them into `backend/bin` and puts them first on `PATH` — the
+old target appended `GOPATH` to it, so a Homebrew `protoc-gen-go` could win.
+protoc is pinned in CI to 33.0, the version the committed code names. With
+both pinned, `make proto` on a clean tree reproduces every committed file.
+`flake.nix` is unchanged: nix is not installed where this was built, and a
+toolchain definition nobody runs drifts without anyone noticing.
 
 **Images.** Nine: gateway, ingest, matcher, trip, payments, simulator,
 migrate, auth, web. Buildx with the GitHub Actions cache, a Trivy scan, amd64
@@ -194,9 +225,12 @@ natively.
   modules, Dockerfiles and actions in one config. `effect` and `@effect/*` are
   excluded from automatic bumps: each one is paired with a `git subtree pull`
   of `repos/effect`, and an rc bump without it is exactly the drift `AGENTS.md`
-  warns about.
+  warns about. `renovate.json` is committed; Renovate starts once its GitHub
+  app is installed on the repository.
+- **Branch protection on `main` requires `ci-ok`** — a repository setting, not
+  a file, so it is done by hand.
 - lefthook for gofmt and dprint on staged files — optional, since CI is the
-  real gate.
+  real gate, and not added.
 
 ## Phase 2 — images, built once and promoted
 
@@ -346,7 +380,7 @@ nodes for load tests.
 
 - [x] **P0** fix the defects above, including per-service ConfigMaps; delete
       Railway
-- [ ] **P1** the CI split, coverage gates, pinned codegen and the drift check,
+- [x] **P1** the CI split, coverage gates, pinned codegen and the drift check,
       manifest validation, `buf breaking` and `geo.events` compatibility,
       affected-service detection, Renovate
 - [ ] **P2** Terraform bootstrap (registry, WIF), reproducible images deployed

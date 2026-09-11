@@ -1,0 +1,11 @@
+{
+  "_tag": "DriverLeftCell",
+  "cell": "871f1d493ffffff",
+  "atMs": 1757512330000,
+  "left": {
+    "driverId": "drv-000123",
+    "epoch": 3,
+    "seq": 42,
+    "to": "871f1d492ffffff"
+  }
+}

@@ -48,6 +48,15 @@ RUN pnpm --filter @surge/web build
 # Alpine for the same reason as the API image: nothing installs here, and the
 # rootfs is 86MB smaller than the Debian base the build needed.
 FROM node:22-alpine AS runtime
+
+# This stage only ever runs `node` on the Nitro output. The image's own npm,
+# yarn and corepack are never used, and they carry most of its known CVEs, so
+# they go; the OS packages take whatever fixes Alpine has published since the
+# base was built. Once a rebuilt base includes them, the upgrade does nothing.
+RUN apk upgrade --no-cache \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=5273
