@@ -20,6 +20,10 @@
     {
       "name": "PaymentsService",
       "description": "PaymentsService is what riders and drivers see of money.\n\nReads of what the payments service has stored, and the two moments a person\nhas to hand something over to the processor: a rider's card, and a driver's\nidentity for payouts. Neither ever passes through here. A card is typed into\nthe processor's own form in the browser, which this only starts; a driver's\ndetails go to the processor's hosted onboarding, which this only links to.\n\nNothing that moves money is an endpoint. Holds, captures and transfers\nhappen because a trip was requested or completed, not because a client\nasked — a client that could ask could ask twice.\n\nThe caller is never a field, as in trip.proto: it arrives as metadata from\nthe gateway's verified token."
+    },
+    {
+      "name": "ChatService",
+      "description": "ChatService is the conversations riders and drivers have: with each other\nabout a trip, and with support.\n\nSending is here and delivery is not. A stored message is announced on the\nWebSocket as a doorbell, ChatChanged, carrying only the conversation and its\nnewest seq; the client then reads what it has not seen with ListMessages.\nThis API is the source of truth, and the socket only says when to look —\nwhich is also why a push that arrives late, twice or never loses nothing.\n\nThe caller is never a field, as in trip.proto: it arrives as metadata from\nthe gateway's verified token."
     }
   ],
   "consumes": [
@@ -29,6 +33,346 @@
     "application/json"
   ],
   "paths": {
+    "/v1/conversations": {
+      "get": {
+        "summary": "ListConversations is the caller's conversations, newest first. For\nsupport, kind SUPPORT is the queue: every support conversation, whoever\nholds it.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListConversationsResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "description": "Unspecified lists every kind.\n\n - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "CONVERSATION_KIND_UNSPECIFIED",
+              "CONVERSATION_KIND_TRIP",
+              "CONVERSATION_KIND_SUPPORT"
+            ],
+            "default": "CONVERSATION_KIND_UNSPECIFIED"
+          },
+          {
+            "name": "status",
+            "description": "Unspecified lists every status.\n\n - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "CONVERSATION_STATUS_UNSPECIFIED",
+              "CONVERSATION_STATUS_OPEN",
+              "CONVERSATION_STATUS_CLOSED",
+              "CONVERSATION_STATUS_RESOLVED"
+            ],
+            "default": "CONVERSATION_STATUS_UNSPECIFIED"
+          },
+          {
+            "name": "pageSize",
+            "description": "Clamped by the server.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageToken",
+            "description": "Opaque cursor from a previous response.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/conversations/{conversationId}": {
+      "get": {
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetConversationResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          }
+        ],
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/conversations/{conversationId}/messages": {
+      "get": {
+        "summary": "ListMessages is a page of a conversation, oldest first within the page.",
+        "description": "after_seq reads forward from a seq the client already holds — what it does\non every ChatChanged. before_seq reads back through history. With neither,\nit is the newest page.",
+        "operationId": "listMessages",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListMessagesResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "afterSeq",
+            "description": "Messages after this seq, oldest first. Zero for none.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "beforeSeq",
+            "description": "Messages before this seq, the newest page of them. Zero for none.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "description": "Clamped by the server.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "chat"
+        ]
+      },
+      "post": {
+        "summary": "SendMessage stores a message: text, or one of the conversation's quick\nreplies, never both.",
+        "description": "Takes an idempotency key, client_message_id or an Idempotency-Key header,\nbecause the caller is a phone: a send retried after a lost response is one\nmessage, returned again.",
+        "operationId": "send",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1SendMessageResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceSendMessageBody"
+            }
+          }
+        ],
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/conversations/{conversationId}/read": {
+      "post": {
+        "summary": "MarkRead moves the caller's read marker forward to seq, and tells the\nothers. A marker never moves back, so a late request is harmless.",
+        "operationId": "markRead",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1MarkReadResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceMarkReadBody"
+            }
+          }
+        ],
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/conversations/{conversationId}/typing": {
+      "post": {
+        "summary": "Typing tells the others the caller is typing. Stored nowhere, and sent on\nat most every few seconds however often it is called.",
+        "operationId": "typing",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1TypingResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceTypingBody"
+            }
+          }
+        ],
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/devices/push-token": {
+      "post": {
+        "summary": "RegisterPushToken lets this device be notified of messages the caller has\nnot read. A token signed in as someone else moves to the caller.",
+        "operationId": "registerPushToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RegisterPushTokenResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1RegisterPushTokenRequest"
+            }
+          }
+        ],
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/v1/devices/push-token/delete": {
+      "post": {
+        "summary": "UnregisterPushToken stops notifying this device, on sign-out. A POST\nrather than a DELETE because the gateway's CORS allows GET and POST only.",
+        "operationId": "unregisterPushToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UnregisterPushTokenResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1UnregisterPushTokenRequest"
+            }
+          }
+        ],
+        "tags": [
+          "devices"
+        ]
+      }
+    },
     "/v1/payments/account-sessions": {
       "post": {
         "summary": "CreateAccountSession lets the driver's browser render Stripe's embedded\ncomponents for their account: the notification banner that keeps it in\ngood standing as Stripe's requirements change.",
@@ -466,6 +810,199 @@
         ]
       }
     },
+    "/v1/support/conversations": {
+      "post": {
+        "summary": "CreateSupportConversation opens a conversation with support, riders and\ndrivers only, with its first message.",
+        "operationId": "create",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateSupportConversationResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateSupportConversationRequest"
+            }
+          }
+        ],
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/support/conversations/{conversationId}/claim": {
+      "post": {
+        "summary": "ClaimSupportConversation makes the caller, support only, the one handling\na conversation. Replying to an unclaimed conversation claims it too.",
+        "operationId": "claim",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ClaimSupportConversationResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceClaimSupportConversationBody"
+            }
+          }
+        ],
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/support/conversations/{conversationId}/resolve": {
+      "post": {
+        "summary": "ResolveSupportConversation closes a support conversation, by support or by\nwhoever opened it. It stays readable; anything more is a new one.",
+        "operationId": "resolve",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ResolveSupportConversationResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceResolveSupportConversationBody"
+            }
+          }
+        ],
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/support/conversations/{conversationId}:claim": {
+      "post": {
+        "summary": "ClaimSupportConversation makes the caller, support only, the one handling\na conversation. Replying to an unclaimed conversation claims it too.",
+        "operationId": "claim",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ClaimSupportConversationResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceClaimSupportConversationBody"
+            }
+          }
+        ],
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/support/conversations/{conversationId}:resolve": {
+      "post": {
+        "summary": "ResolveSupportConversation closes a support conversation, by support or by\nwhoever opened it. It stays readable; anything more is a new one.",
+        "operationId": "resolve",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ResolveSupportConversationResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "conversation-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ChatServiceResolveSupportConversationBody"
+            }
+          }
+        ],
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/v1/trips": {
       "get": {
         "summary": "ListTrips is the caller's history, newest first — the rides a rider booked,\nor the rides a driver was assigned. The token decides which.",
@@ -683,6 +1220,38 @@
         ]
       }
     },
+    "/v1/trips/{tripId}/conversation": {
+      "get": {
+        "summary": "GetTripConversation is the rider's and driver's conversation about a trip.\nIt exists once a driver has accepted, and answers FailedPrecondition before\nthen.",
+        "operationId": "getForTrip",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetTripConversationResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "trip-id"
+          }
+        ],
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/v1/trips/{tripId}/start": {
       "post": {
         "summary": "Start: the rider is in the car.",
@@ -890,6 +1459,41 @@
     }
   },
   "definitions": {
+    "ChatServiceClaimSupportConversationBody": {
+      "type": "object"
+    },
+    "ChatServiceMarkReadBody": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "ChatServiceResolveSupportConversationBody": {
+      "type": "object"
+    },
+    "ChatServiceSendMessageBody": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string",
+          "description": "Text, trimmed, up to 1000 characters. Empty when sending a quick reply."
+        },
+        "quickReply": {
+          "type": "string",
+          "description": "A code from the conversation's quick_replies. Empty when sending text."
+        },
+        "clientMessageId": {
+          "type": "string",
+          "description": "Generated client-side. The gateway also accepts an Idempotency-Key header."
+        }
+      }
+    },
+    "ChatServiceTypingBody": {
+      "type": "object"
+    },
     "PaymentsServiceRefundTripBody": {
       "type": "object",
       "properties": {
@@ -975,6 +1579,14 @@
         }
       }
     },
+    "v1ClaimSupportConversationResponse": {
+      "type": "object",
+      "properties": {
+        "conversation": {
+          "$ref": "#/definitions/v1Conversation"
+        }
+      }
+    },
     "v1CompleteTripResponse": {
       "type": "object",
       "properties": {
@@ -1003,6 +1615,97 @@
           "$ref": "#/definitions/v1Simulator"
         }
       }
+    },
+    "v1Conversation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "conversation-id"
+        },
+        "kind": {
+          "$ref": "#/definitions/v1ConversationKind"
+        },
+        "tripId": {
+          "type": "string",
+          "format": "trip-id",
+          "description": "The trip a trip conversation belongs to, or the one a support conversation\nis about. Empty when a support conversation is about no trip."
+        },
+        "status": {
+          "$ref": "#/definitions/v1ConversationStatus"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "requesterId": {
+          "type": "string",
+          "format": "user-id",
+          "description": "The rider of a trip conversation; whoever opened a support one."
+        },
+        "assigneeId": {
+          "type": "string",
+          "format": "user-id",
+          "description": "Who from support is handling it. Empty until claimed, and always for a\ntrip conversation."
+        },
+        "lastSeq": {
+          "type": "integer",
+          "format": "int32",
+          "description": "The seq of the newest message. Messages are numbered from 1 without gaps."
+        },
+        "unread": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Messages the caller has not read."
+        },
+        "closesAt": {
+          "type": "string",
+          "description": "When sending stops, as RFC 3339: the trip's end plus a grace window. Empty\nwhile the trip runs and for support, like every unset field this API sends."
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Participant"
+          }
+        },
+        "quickReplies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1QuickReply"
+          },
+          "description": "What the caller can send with one tap here. Empty once it is closed."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1ConversationKind": {
+      "type": "string",
+      "enum": [
+        "CONVERSATION_KIND_UNSPECIFIED",
+        "CONVERSATION_KIND_TRIP",
+        "CONVERSATION_KIND_SUPPORT"
+      ],
+      "default": "CONVERSATION_KIND_UNSPECIFIED",
+      "description": " - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support."
+    },
+    "v1ConversationStatus": {
+      "type": "string",
+      "enum": [
+        "CONVERSATION_STATUS_UNSPECIFIED",
+        "CONVERSATION_STATUS_OPEN",
+        "CONVERSATION_STATUS_CLOSED",
+        "CONVERSATION_STATUS_RESOLVED"
+      ],
+      "default": "CONVERSATION_STATUS_UNSPECIFIED",
+      "description": " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable."
     },
     "v1Coordinate": {
       "type": "object",
@@ -1051,6 +1754,36 @@
         "clientSecret": {
           "type": "string",
           "description": "Confirms this setup and nothing else, and is handed straight to Stripe.js."
+        }
+      }
+    },
+    "v1CreateSupportConversationRequest": {
+      "type": "object",
+      "properties": {
+        "tripId": {
+          "type": "string",
+          "format": "trip-id",
+          "description": "The trip it is about, which must be one the caller was on. Empty for none."
+        },
+        "subject": {
+          "type": "string",
+          "description": "Up to 120 characters, and may be empty."
+        },
+        "body": {
+          "type": "string",
+          "description": "The first message."
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "description": "Generated client-side. The gateway also accepts an Idempotency-Key header."
+        }
+      }
+    },
+    "v1CreateSupportConversationResponse": {
+      "type": "object",
+      "properties": {
+        "conversation": {
+          "$ref": "#/definitions/v1Conversation"
         }
       }
     },
@@ -1196,6 +1929,14 @@
         }
       }
     },
+    "v1GetConversationResponse": {
+      "type": "object",
+      "properties": {
+        "conversation": {
+          "$ref": "#/definitions/v1Conversation"
+        }
+      }
+    },
     "v1GetPaymentMethodResponse": {
       "type": "object",
       "properties": {
@@ -1224,6 +1965,14 @@
         }
       }
     },
+    "v1GetTripConversationResponse": {
+      "type": "object",
+      "properties": {
+        "conversation": {
+          "$ref": "#/definitions/v1Conversation"
+        }
+      }
+    },
     "v1GetTripPaymentResponse": {
       "type": "object",
       "properties": {
@@ -1237,6 +1986,22 @@
       "properties": {
         "trip": {
           "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1ListConversationsResponse": {
+      "type": "object",
+      "properties": {
+        "conversations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Conversation"
+          }
+        },
+        "nextPageToken": {
+          "type": "string",
+          "description": "Empty when there are no more."
         }
       }
     },
@@ -1266,6 +2031,23 @@
         },
         "currency": {
           "type": "string"
+        }
+      }
+    },
+    "v1ListMessagesResponse": {
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Message"
+          },
+          "description": "Oldest first."
+        },
+        "hasMore": {
+          "type": "boolean",
+          "description": "More exist in the direction asked for."
         }
       }
     },
@@ -1299,6 +2081,82 @@
           "type": "string"
         }
       }
+    },
+    "v1MarkReadResponse": {
+      "type": "object",
+      "properties": {
+        "lastReadSeq": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Where the marker is now: seq, or further if it already was."
+        }
+      }
+    },
+    "v1Message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "message-id"
+        },
+        "conversationId": {
+          "type": "string",
+          "format": "conversation-id"
+        },
+        "seq": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "senderId": {
+          "type": "string",
+          "format": "user-id"
+        },
+        "senderRole": {
+          "$ref": "#/definitions/v1ParticipantRole"
+        },
+        "quickReply": {
+          "type": "string",
+          "description": "The catalogue code when this was a quick reply, and empty for text."
+        },
+        "body": {
+          "type": "string"
+        },
+        "clientMessageId": {
+          "type": "string",
+          "description": "The key it was sent with, so a client can match the message it showed\noptimistically to the one stored."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1Participant": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "user-id"
+        },
+        "role": {
+          "$ref": "#/definitions/v1ParticipantRole"
+        },
+        "lastReadSeq": {
+          "type": "integer",
+          "format": "int32",
+          "description": "The newest seq they have read, which is what \"read\" under a message is."
+        }
+      }
+    },
+    "v1ParticipantRole": {
+      "type": "string",
+      "enum": [
+        "PARTICIPANT_ROLE_UNSPECIFIED",
+        "PARTICIPANT_ROLE_RIDER",
+        "PARTICIPANT_ROLE_DRIVER",
+        "PARTICIPANT_ROLE_SUPPORT"
+      ],
+      "default": "PARTICIPANT_ROLE_UNSPECIFIED"
     },
     "v1Payment": {
       "type": "object",
@@ -1413,6 +2271,28 @@
         }
       }
     },
+    "v1PushPlatform": {
+      "type": "string",
+      "enum": [
+        "PUSH_PLATFORM_UNSPECIFIED",
+        "PUSH_PLATFORM_IOS",
+        "PUSH_PLATFORM_ANDROID"
+      ],
+      "default": "PUSH_PLATFORM_UNSPECIFIED"
+    },
+    "v1QuickReply": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Stable, so a client can show the reply in its own language."
+        },
+        "text": {
+          "type": "string",
+          "description": "The English text, which is what the message body will be."
+        }
+      }
+    },
     "v1Refund": {
       "type": "object",
       "properties": {
@@ -1488,6 +2368,29 @@
         }
       }
     },
+    "v1RegisterPushTokenRequest": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "description": "An Expo push token: ExponentPushToken[…]."
+        },
+        "platform": {
+          "$ref": "#/definitions/v1PushPlatform"
+        }
+      }
+    },
+    "v1RegisterPushTokenResponse": {
+      "type": "object"
+    },
+    "v1ResolveSupportConversationResponse": {
+      "type": "object",
+      "properties": {
+        "conversation": {
+          "$ref": "#/definitions/v1Conversation"
+        }
+      }
+    },
     "v1Route": {
       "type": "object",
       "properties": {
@@ -1505,6 +2408,14 @@
         }
       },
       "description": "Route is a driveable path with its cost."
+    },
+    "v1SendMessageResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "$ref": "#/definitions/v1Message"
+        }
+      }
     },
     "v1Simulator": {
       "type": "object",
@@ -1611,6 +2522,20 @@
       ],
       "default": "TRIP_STATUS_UNSPECIFIED",
       "description": "TripStatus is the state machine, and the wire is the place it is written\ndown once. UNSPECIFIED is reserved by convention so an unset field is not\nsilently a valid state.\n\n - TRIP_STATUS_UNMATCHED: No driver was found before the request expired. Distinct from cancelled:\nnobody chose it, and the rider should be offered a retry rather than an\napology.\n - TRIP_STATUS_PAYMENT_PENDING: Waiting for the fare to be held on the rider's card. Nobody is dispatched to\na ride that cannot be paid for: payments answers within about a second, or\nthe trip is cancelled with the reason payment_failed. Numbered last rather\nthan first because enum numbers are the wire, and renumbering REQUESTED\nwould change what every stored and in-flight 1 means."
+    },
+    "v1TypingResponse": {
+      "type": "object"
+    },
+    "v1UnregisterPushTokenRequest": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        }
+      }
+    },
+    "v1UnregisterPushTokenResponse": {
+      "type": "object"
     },
     "v1Withdrawal": {
       "type": "object",

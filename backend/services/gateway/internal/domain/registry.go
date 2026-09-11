@@ -87,6 +87,25 @@ func (r *Registry) Get(userID string) (*Connection, bool) {
 	return connection, ok
 }
 
+// WithRole returns every connection held by someone with this role.
+//
+// A snapshot, taken shard by shard under read locks and returned to send to
+// outside them: a send can evict a slow consumer, and evicting takes the
+// write lock.
+func (r *Registry) WithRole(role string) []*Connection {
+	var connections []*Connection
+	for i := range r.shards {
+		r.shards[i].mu.RLock()
+		for _, connection := range r.shards[i].byUser {
+			if connection.Role == role {
+				connections = append(connections, connection)
+			}
+		}
+		r.shards[i].mu.RUnlock()
+	}
+	return connections
+}
+
 // Len is the total connection count.
 func (r *Registry) Len() int {
 	total := 0

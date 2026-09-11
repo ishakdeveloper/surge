@@ -32,6 +32,7 @@ images:
   - { name: surge/ingest, newName: ghcr.io/ishakdeveloper/surge-ingest, newTag: latest }
   - { name: surge/matcher, newName: ghcr.io/ishakdeveloper/surge-matcher, newTag: latest }
   - { name: surge/trip, newName: ghcr.io/ishakdeveloper/surge-trip, newTag: latest }
+  - { name: surge/chat, newName: ghcr.io/ishakdeveloper/surge-chat, newTag: latest }
   - { name: surge/migrate, newName: ghcr.io/ishakdeveloper/surge-migrate, newTag: latest }
 
 configMapGenerator:
@@ -43,6 +44,9 @@ configMapGenerator:
       # secret instead.
       - OTEL_TRACES_SAMPLER_ARG=0.01
       - GATEWAY_ORIGINS=https://app.surge.example
+      # Real phones. EXPO_ACCESS_TOKEN, if the project requires one, belongs in
+      # the secret.
+      - CHAT_PUSH_PROVIDER=expo
 
 patches:
   # Pull from a registry, unlike development where images are built locally and
@@ -75,6 +79,8 @@ patches:
   # Credentials come from the secret, overriding the development ConfigMap
   # values that point at in-cluster services.
   - target: { kind: Deployment, name: trip }
+    path: patch-managed-services.yaml
+  - target: { kind: Deployment, name: chat }
     path: patch-managed-services.yaml
   - target: { kind: Deployment, name: ingest }
     path: patch-managed-services.yaml

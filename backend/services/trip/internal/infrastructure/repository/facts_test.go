@@ -20,7 +20,7 @@ func TestEveryFactKindEncodes(t *testing.T) {
 	}
 
 	for _, kind := range []domain.FactKind{
-		domain.FactRequested, domain.FactCompleted, domain.FactCancelled, domain.FactUnmatched,
+		domain.FactRequested, domain.FactAccepted, domain.FactCompleted, domain.FactCancelled, domain.FactUnmatched,
 	} {
 		messages, err := encodeFacts([]domain.Fact{{Kind: kind, Trip: trip}})
 		if err != nil {
@@ -42,5 +42,13 @@ func TestAnUnpayableCompletionIsRefused(t *testing.T) {
 	trip := domain.Trip{ID: "trip-1", RiderID: "rider-1"}
 	if _, err := encodeFacts([]domain.Fact{{Kind: domain.FactCompleted, Trip: trip}}); err == nil {
 		t.Fatal("encoded a completed trip with no driver")
+	}
+}
+
+// An acceptance without a driver would open a conversation with nobody.
+func TestADriverlessAcceptanceIsRefused(t *testing.T) {
+	trip := domain.Trip{ID: "trip-1", RiderID: "rider-1"}
+	if _, err := encodeFacts([]domain.Fact{{Kind: domain.FactAccepted, Trip: trip}}); err == nil {
+		t.Fatal("encoded an accepted trip with no driver")
 	}
 }

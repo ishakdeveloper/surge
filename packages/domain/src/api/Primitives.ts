@@ -54,6 +54,26 @@ export const RefundId = Schema.String.pipe(Schema.brand("RefundId")).annotate({
 });
 export type RefundId = typeof RefundId.Type;
 
+export const ConversationId = Schema.String.pipe(Schema.brand("ConversationId")).annotate({
+  identifier: "ConversationId",
+});
+export type ConversationId = typeof ConversationId.Type;
+
+export const MessageId = Schema.String.pipe(Schema.brand("MessageId")).annotate({
+  identifier: "MessageId",
+});
+export type MessageId = typeof MessageId.Type;
+
+/**
+ * Anyone the auth service knows: the sender of a chat message is a rider, a
+ * driver or somebody from support. `iam/Identity.ts` takes it from here, so
+ * there is one brand for a person rather than one per file.
+ */
+export const UserId = Schema.String.pipe(Schema.brand("UserId")).annotate({
+  identifier: "UserId",
+});
+export type UserId = typeof UserId.Type;
+
 /**
  * The gateway's error codes, as a closed set a client can branch on.
  *

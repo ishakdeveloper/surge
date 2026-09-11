@@ -44,7 +44,7 @@ Dependencies point one way, from `apps/` into `packages/`.
 
 ## The shape of the system
 
-Five Go services earn their separation, and nothing else does.
+Six Go services earn their separation, and nothing else does.
 
 |            | why it is separate                                                   | scales on   |
 | ---------- | -------------------------------------------------------------------- | ----------- |
@@ -53,6 +53,14 @@ Five Go services earn their separation, and nothing else does.
 | `matcher`  | sharded, single-writer per geography                                 | geography   |
 | `trip`     | transactional state machine, outbox, idempotency                     | not much    |
 | `payments` | the only holder of processor credentials; Stripe must not stall trip | not much    |
+| `chat`     | the only holder of the push credential; Expo must not stall trip     | messages    |
+
+**Chat's socket traffic is doorbells.** A message is stored with a gapless
+per-conversation seq and announced on `ws.push` as `ChatChanged`, which names
+the conversation and its newest seq. The client then reads what it has not
+seen over REST, so a push that is lost or late costs nothing. A `ws.push` key
+of `role:ops` reaches every connected ops user, which is how support's queue
+stays live. The details are in `backend/services/chat/README.md`.
 
 `core` holds everything boring — users, vehicles, pricing — as one service until
 it hurts. `simd` is the load generator, not a product service.
@@ -213,6 +221,7 @@ Everything routine is a make target; `make help` lists them.
 | `make dev-mobile`                     | the Expo app, on a simulator or phone  |
 | `make dev-ingest` / `make dev-sim`    | the Go services, on the host           |
 | `make dev-trip` / `make dev-payments` | trip, and payments beside it           |
+| `make dev-chat`                       | chat, with notifications faked         |
 | `make stripe-listen`                  | Stripe's webhooks to the gateway       |
 | `make bench-payments RPS=5`           | what holding the fare adds to dispatch |
 | `make load DRIVERS=40000`             | turn the knob                          |
@@ -248,7 +257,11 @@ server had it, and auth and the gateway each trust a single web origin.
 Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101
 (and 8111 for its gRPC control, which the gateway serves as `/v1/simulator`),
 `ingest` 8102/9102, `trip` gRPC on 8110 and metrics on 9105, `payments` gRPC on
-8112 and metrics on 9107.
+8112 and metrics on 9107, `chat` gRPC on 8113 and metrics on 9108.
+
+`CHAT_PUSH_PROVIDER` has no default and takes `expo` or `fake`, for the same
+reason: a deploy that forgets to choose fails at boot rather than running
+while nobody's phone ever buzzes.
 
 `PAYMENTS_PROCESSOR` defaults to `stripe` and needs `STRIPE_SECRET_KEY` and
 `STRIPE_WEBHOOK_SECRET`, so a deploy that forgets to choose fails for want of a

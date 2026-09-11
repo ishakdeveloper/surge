@@ -10,6 +10,9 @@ const (
 	// FactTripRequested is a booking the rider has committed to. Payments
 	// places a hold for TotalCents on it.
 	FactTripRequested = "TripRequested"
+	// FactTripAccepted is a driver assigned to the trip. Chat opens the
+	// conversation between the rider and that driver on it.
+	FactTripAccepted = "TripAccepted"
 	// FactTripCompleted is a ride that happened. Payments captures on it.
 	FactTripCompleted = "TripCompleted"
 	// FactTripCancelled is a trip ended early, by the rider, by ops, or by a
@@ -51,6 +54,9 @@ func (f TripFact) Valid() bool {
 		return true
 	case FactTripCompleted:
 		// A completed trip had a driver, or there is nobody to pay.
+		return f.DriverID != ""
+	case FactTripAccepted:
+		// An acceptance is the driver; without one there is nobody to talk to.
 		return f.DriverID != ""
 	default:
 		return false

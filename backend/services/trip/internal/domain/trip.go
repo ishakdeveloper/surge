@@ -196,6 +196,7 @@ type FactKind string
 
 const (
 	FactRequested FactKind = "requested"
+	FactAccepted  FactKind = "accepted"
 	FactCompleted FactKind = "completed"
 	FactCancelled FactKind = "cancelled"
 	FactUnmatched FactKind = "unmatched"
@@ -204,10 +205,11 @@ const (
 // Fact is a change worth telling the rest of the system about, with the trip
 // as it stood once the change was made.
 //
-// Most transitions are not facts. Accepted, arrived and in-progress matter to
-// the people on the trip, who hear about them as pushes; a fact is the handful
-// of moves another service does something about — payments places a hold on a
-// request, captures on completion, and lets go on a cancel.
+// Most transitions are not facts. Arrived and in-progress matter to the people
+// on the trip, who hear about them as pushes; a fact is the handful of moves
+// another service does something about — payments places a hold on a request,
+// captures on completion, and lets go on a cancel, and chat opens the rider's
+// conversation with the driver on an acceptance.
 type Fact struct {
 	Kind FactKind
 	Trip Trip
@@ -231,6 +233,8 @@ func FactsOf(trip *Trip, from Status) []Fact {
 	switch {
 	case from == "", from == StatusUnmatched && trip.Status == StatusRequested:
 		kind = FactRequested
+	case trip.Status == StatusAccepted:
+		kind = FactAccepted
 	case trip.Status == StatusCompleted:
 		kind = FactCompleted
 	case trip.Status == StatusCancelled:

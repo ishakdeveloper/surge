@@ -17,6 +17,7 @@ resources:
   - ingest.yaml
   - matcher.yaml
   - trip.yaml
+  - chat.yaml
   - migrate-job.yaml
   - migrate-auth-job.yaml
 
