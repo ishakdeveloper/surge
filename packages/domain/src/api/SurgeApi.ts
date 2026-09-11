@@ -60,7 +60,7 @@ export const V1ListConversationsResponse = Schema.Struct({
       "CONVERSATION_STATUS_RESOLVED",
     ]).annotate({
       "description":
-        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
       "default": "CONVERSATION_STATUS_UNSPECIFIED",
     }),
     "subject": Schema.String,
@@ -76,7 +76,7 @@ export const V1ListConversationsResponse = Schema.Struct({
     }).check(Schema.isInt().annotate({ "expected": "an integer" })),
     "closesAt": Schema.String.annotate({
       "description":
-        "When sending stops, as RFC 3339: the trip's end plus a grace window. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
     }),
     "participants": Schema.Array(Schema.Struct({
       "userId": UserId,
@@ -143,7 +143,7 @@ export const V1GetConversationResponse = Schema.Struct({
       "CONVERSATION_STATUS_RESOLVED",
     ]).annotate({
       "description":
-        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
       "default": "CONVERSATION_STATUS_UNSPECIFIED",
     }),
     "subject": Schema.String,
@@ -159,7 +159,7 @@ export const V1GetConversationResponse = Schema.Struct({
     }).check(Schema.isInt().annotate({ "expected": "an integer" })),
     "closesAt": Schema.String.annotate({
       "description":
-        "When sending stops, as RFC 3339: the trip's end plus a grace window. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
     }),
     "participants": Schema.Array(Schema.Struct({
       "userId": UserId,
@@ -641,7 +641,7 @@ export const V1CreateSupportConversationResponse = Schema.Struct({
       "CONVERSATION_STATUS_RESOLVED",
     ]).annotate({
       "description":
-        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
       "default": "CONVERSATION_STATUS_UNSPECIFIED",
     }),
     "subject": Schema.String,
@@ -657,7 +657,7 @@ export const V1CreateSupportConversationResponse = Schema.Struct({
     }).check(Schema.isInt().annotate({ "expected": "an integer" })),
     "closesAt": Schema.String.annotate({
       "description":
-        "When sending stops, as RFC 3339: the trip's end plus a grace window. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
     }),
     "participants": Schema.Array(Schema.Struct({
       "userId": UserId,
@@ -714,7 +714,7 @@ export const V1ClaimSupportConversationResponse = Schema.Struct({
       "CONVERSATION_STATUS_RESOLVED",
     ]).annotate({
       "description":
-        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
       "default": "CONVERSATION_STATUS_UNSPECIFIED",
     }),
     "subject": Schema.String,
@@ -730,7 +730,7 @@ export const V1ClaimSupportConversationResponse = Schema.Struct({
     }).check(Schema.isInt().annotate({ "expected": "an integer" })),
     "closesAt": Schema.String.annotate({
       "description":
-        "When sending stops, as RFC 3339: the trip's end plus a grace window. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
     }),
     "participants": Schema.Array(Schema.Struct({
       "userId": UserId,
@@ -787,7 +787,7 @@ export const V1ResolveSupportConversationResponse = Schema.Struct({
       "CONVERSATION_STATUS_RESOLVED",
     ]).annotate({
       "description":
-        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
       "default": "CONVERSATION_STATUS_UNSPECIFIED",
     }),
     "subject": Schema.String,
@@ -803,7 +803,7 @@ export const V1ResolveSupportConversationResponse = Schema.Struct({
     }).check(Schema.isInt().annotate({ "expected": "an integer" })),
     "closesAt": Schema.String.annotate({
       "description":
-        "When sending stops, as RFC 3339: the trip's end plus a grace window. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
     }),
     "participants": Schema.Array(Schema.Struct({
       "userId": UserId,
@@ -1222,7 +1222,7 @@ export const V1GetTripConversationResponse = Schema.Struct({
       "CONVERSATION_STATUS_RESOLVED",
     ]).annotate({
       "description":
-        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace window. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
       "default": "CONVERSATION_STATUS_UNSPECIFIED",
     }),
     "subject": Schema.String,
@@ -1238,7 +1238,7 @@ export const V1GetTripConversationResponse = Schema.Struct({
     }).check(Schema.isInt().annotate({ "expected": "an integer" })),
     "closesAt": Schema.String.annotate({
       "description":
-        "When sending stops, as RFC 3339: the trip's end plus a grace window. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
     }),
     "participants": Schema.Array(Schema.Struct({
       "userId": UserId,

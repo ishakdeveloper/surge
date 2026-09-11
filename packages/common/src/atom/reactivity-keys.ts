@@ -23,4 +23,9 @@ export const Keys = {
   sim: "sim",
   /** A rider's card and holds; a driver's payout account, balance and earnings. */
   payments: "payments",
+  /**
+   * Lists of conversations: their unread counts, and support's queue. A live
+   * conversation is not keyed here — `Chat.live` keeps itself current.
+   */
+  chat: "chat",
 } as const;
