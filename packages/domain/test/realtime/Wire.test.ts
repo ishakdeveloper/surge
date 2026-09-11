@@ -183,6 +183,43 @@ describe("server messages", () => {
     expect(untied._tag).toBe("PaymentsChanged");
   });
 
+  /**
+   * Chat's doorbells carry no message: a conversation and its newest seq, a
+   * read marker, or who is typing. The messages themselves are read over REST.
+   */
+  it("decodes chat's doorbells", async () => {
+    const changed = await Effect.runPromise(decodeServer(fixture("server_chat_changed.json")));
+    if (changed._tag !== "ChatChanged") {
+      throw new Error(`expected a chat change, got ${changed._tag}`);
+    }
+    expect(changed.chat).toMatchObject({
+      conversationId: "5b1d7e2a-3c4f-4e8a-9b6d-2f7c1a0e8d43",
+      kind: "trip",
+      tripId: "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+      lastSeq: 7,
+    });
+
+    const read = await Effect.runPromise(decodeServer(fixture("server_chat_read.json")));
+    if (read._tag !== "ChatRead") {
+      throw new Error(`expected a read receipt, got ${read._tag}`);
+    }
+    expect(read.chatRead).toMatchObject({ userId: "drv-000123", seq: 7 });
+
+    const typing = await Effect.runPromise(decodeServer(fixture("server_chat_typing.json")));
+    if (typing._tag !== "ChatTyping") {
+      throw new Error(`expected typing, got ${typing._tag}`);
+    }
+    expect(typing.chatTyping.userId).toBe("rider-000456");
+  });
+
+  it("rejects a conversation of a kind it does not know", async () => {
+    const bogus = JSON.parse(fixture("server_chat_changed.json"));
+    bogus.chat.kind = "group";
+
+    const result = await Effect.runPromise(Effect.result(decodeServer(JSON.stringify(bogus))));
+    expect(result._tag).toBe("Failure");
+  });
+
   it("decodes an error frame", async () => {
     const message = await Effect.runPromise(decodeServer(fixture("server_error.json")));
 

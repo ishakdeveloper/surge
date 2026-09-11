@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { DriverId, RiderId, TripId } from "../api/Primitives.js";
+import { ConversationId, DriverId, RiderId, TripId, UserId } from "../api/Primitives.js";
 import { TripStatus } from "../trip/Trip.js";
 
 /**
@@ -329,6 +329,40 @@ export class PaymentsChange extends Schema.Class<PaymentsChange>("PaymentsChange
   atMs: Schema.Number,
 }) {}
 
+/**
+ * Chat's doorbell: a conversation has something new in it — a message, or a
+ * change of status, assignee or closing time.
+ *
+ * It carries no message. The client reads everything after the newest seq it
+ * holds with `chat.listMessages`, so a doorbell that arrives late, twice, out
+ * of order or not at all costs nothing, and the message has one shape — the
+ * generated one — rather than a second pushed copy.
+ */
+export class ChatChange extends Schema.Class<ChatChange>("ChatChange")({
+  conversationId: ConversationId,
+  kind: Schema.Literals(["trip", "support"]),
+  /** Empty when the conversation is about no trip. */
+  tripId: Schema.String,
+  /** The newest message's seq. A client already holding it has nothing to read. */
+  lastSeq: Schema.Number,
+  atMs: Schema.Number,
+}) {}
+
+/** Another participant has read up to `seq`. */
+export class ChatRead extends Schema.Class<ChatRead>("ChatRead")({
+  conversationId: ConversationId,
+  userId: UserId,
+  seq: Schema.Number,
+  atMs: Schema.Number,
+}) {}
+
+/** Another participant is typing, as of `atMs`. Show it for a few seconds and let it lapse. */
+export class ChatTyping extends Schema.Class<ChatTyping>("ChatTyping")({
+  conversationId: ConversationId,
+  userId: UserId,
+  atMs: Schema.Number,
+}) {}
+
 export const ServerMessage = Schema.Union([
   Schema.TaggedStruct("ServerWelcome", {}).annotate({ identifier: "ServerWelcome" }),
   Schema.TaggedStruct("Offer", { offer: Offer }).annotate({ identifier: "OfferMessage" }),
@@ -347,6 +381,13 @@ export const ServerMessage = Schema.Union([
   }),
   Schema.TaggedStruct("PaymentsChanged", { payments: PaymentsChange }).annotate({
     identifier: "PaymentsChanged",
+  }),
+  Schema.TaggedStruct("ChatChanged", { chat: ChatChange }).annotate({ identifier: "ChatChanged" }),
+  Schema.TaggedStruct("ChatRead", { chatRead: ChatRead }).annotate({
+    identifier: "ChatReadMessage",
+  }),
+  Schema.TaggedStruct("ChatTyping", { chatTyping: ChatTyping }).annotate({
+    identifier: "ChatTypingMessage",
   }),
 ]).annotate({ identifier: "ServerMessage" });
 export type ServerMessage = typeof ServerMessage.Type;

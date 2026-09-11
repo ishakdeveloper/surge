@@ -25,27 +25,89 @@ import {
 } from "effect/unstable/httpapi";
 import {
   CentsFromString,
+  ConversationId,
   DriverId,
   ErrorCode,
   FareId,
   Int64FromString,
+  MessageId,
   PaymentId,
   RefundId,
   RiderId,
   TripId,
+  UserId,
   WithdrawalId,
 } from "./Primitives.js";
 // non-recursive definitions
-export type V1CreateAccountSessionRequest = typeof V1CreateAccountSessionRequest.Type;
-export const V1CreateAccountSessionRequest = Schema.Struct({}).annotate({
-  "identifier": "v1CreateAccountSessionRequest",
-});
-export type V1CreateAccountSessionResponse = typeof V1CreateAccountSessionResponse.Type;
-export const V1CreateAccountSessionResponse = Schema.Struct({
-  "clientSecret": Schema.String.annotate({
-    "description": "Handed to Stripe's Connect.js, and good for one session.",
-  }),
-}).annotate({ "identifier": "v1CreateAccountSessionResponse" });
+export type V1ListConversationsResponse = typeof V1ListConversationsResponse.Type;
+export const V1ListConversationsResponse = Schema.Struct({
+  "conversations": Schema.Array(Schema.Struct({
+    "id": ConversationId,
+    "kind": Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support.",
+      "default": "CONVERSATION_KIND_UNSPECIFIED",
+    }),
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+      "default": "CONVERSATION_STATUS_UNSPECIFIED",
+    }),
+    "subject": Schema.String,
+    "requesterId": UserId,
+    "assigneeId": UserId,
+    "lastSeq": Schema.Number.annotate({
+      "description": "The seq of the newest message. Messages are numbered from 1 without gaps.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "unread": Schema.Number.annotate({
+      "description": "Messages the caller has not read.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "closesAt": Schema.String.annotate({
+      "description":
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+    }),
+    "participants": Schema.Array(Schema.Struct({
+      "userId": UserId,
+      "role": Schema.Literals([
+        "PARTICIPANT_ROLE_UNSPECIFIED",
+        "PARTICIPANT_ROLE_RIDER",
+        "PARTICIPANT_ROLE_DRIVER",
+        "PARTICIPANT_ROLE_SUPPORT",
+      ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+      "lastReadSeq": Schema.Number.annotate({
+        "description": "The newest seq they have read, which is what \"read\" under a message is.",
+        "format": "int32",
+      }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    })),
+    "quickReplies": Schema.Array(
+      Schema.Struct({
+        "code": Schema.String.annotate({
+          "description": "Stable, so a client can show the reply in its own language.",
+        }),
+        "text": Schema.String.annotate({
+          "description": "The English text, which is what the message body will be.",
+        }),
+      }),
+    ).annotate({
+      "description": "What the caller can send with one tap here. Empty once it is closed.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  })),
+  "nextPageToken": Schema.String.annotate({ "description": "Empty when there are no more." }),
+}).annotate({ "identifier": "v1ListConversationsResponse" });
 export type V1ErrorBody = typeof V1ErrorBody.Type;
 export const V1ErrorBody = Schema.Struct({
   "error": Schema.Struct({
@@ -60,6 +122,189 @@ export const V1ErrorBody = Schema.Struct({
     "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends.",
   "identifier": "v1ErrorBody",
 });
+export type V1GetConversationResponse = typeof V1GetConversationResponse.Type;
+export const V1GetConversationResponse = Schema.Struct({
+  "conversation": Schema.Struct({
+    "id": ConversationId,
+    "kind": Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support.",
+      "default": "CONVERSATION_KIND_UNSPECIFIED",
+    }),
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+      "default": "CONVERSATION_STATUS_UNSPECIFIED",
+    }),
+    "subject": Schema.String,
+    "requesterId": UserId,
+    "assigneeId": UserId,
+    "lastSeq": Schema.Number.annotate({
+      "description": "The seq of the newest message. Messages are numbered from 1 without gaps.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "unread": Schema.Number.annotate({
+      "description": "Messages the caller has not read.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "closesAt": Schema.String.annotate({
+      "description":
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+    }),
+    "participants": Schema.Array(Schema.Struct({
+      "userId": UserId,
+      "role": Schema.Literals([
+        "PARTICIPANT_ROLE_UNSPECIFIED",
+        "PARTICIPANT_ROLE_RIDER",
+        "PARTICIPANT_ROLE_DRIVER",
+        "PARTICIPANT_ROLE_SUPPORT",
+      ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+      "lastReadSeq": Schema.Number.annotate({
+        "description": "The newest seq they have read, which is what \"read\" under a message is.",
+        "format": "int32",
+      }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    })),
+    "quickReplies": Schema.Array(
+      Schema.Struct({
+        "code": Schema.String.annotate({
+          "description": "Stable, so a client can show the reply in its own language.",
+        }),
+        "text": Schema.String.annotate({
+          "description": "The English text, which is what the message body will be.",
+        }),
+      }),
+    ).annotate({
+      "description": "What the caller can send with one tap here. Empty once it is closed.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1GetConversationResponse" });
+export type V1ListMessagesResponse = typeof V1ListMessagesResponse.Type;
+export const V1ListMessagesResponse = Schema.Struct({
+  "messages": Schema.Array(Schema.Struct({
+    "id": MessageId,
+    "conversationId": ConversationId,
+    "seq": Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+    "senderId": UserId,
+    "senderRole": Schema.Literals([
+      "PARTICIPANT_ROLE_UNSPECIFIED",
+      "PARTICIPANT_ROLE_RIDER",
+      "PARTICIPANT_ROLE_DRIVER",
+      "PARTICIPANT_ROLE_SUPPORT",
+    ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+    "quickReply": Schema.String.annotate({
+      "description": "The catalogue code when this was a quick reply, and empty for text.",
+    }),
+    "body": Schema.String,
+    "clientMessageId": Schema.String.annotate({
+      "description":
+        "The key it was sent with, so a client can match the message it showed\noptimistically to the one stored.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+  })).annotate({ "description": "Oldest first." }),
+  "hasMore": Schema.Boolean.annotate({ "description": "More exist in the direction asked for." }),
+}).annotate({ "identifier": "v1ListMessagesResponse" });
+export type ChatServiceSendMessageBody = typeof ChatServiceSendMessageBody.Type;
+export const ChatServiceSendMessageBody = Schema.Struct({
+  "body": Schema.String.annotate({
+    "description": "Text, trimmed, up to 1000 characters. Empty when sending a quick reply.",
+  }),
+  "quickReply": Schema.String.annotate({
+    "description": "A code from the conversation's quick_replies. Empty when sending text.",
+  }),
+  "clientMessageId": Schema.String.annotate({
+    "description": "Generated client-side. The gateway also accepts an Idempotency-Key header.",
+  }),
+}).annotate({ "identifier": "ChatServiceSendMessageBody" });
+export type V1SendMessageResponse = typeof V1SendMessageResponse.Type;
+export const V1SendMessageResponse = Schema.Struct({
+  "message": Schema.Struct({
+    "id": MessageId,
+    "conversationId": ConversationId,
+    "seq": Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+    "senderId": UserId,
+    "senderRole": Schema.Literals([
+      "PARTICIPANT_ROLE_UNSPECIFIED",
+      "PARTICIPANT_ROLE_RIDER",
+      "PARTICIPANT_ROLE_DRIVER",
+      "PARTICIPANT_ROLE_SUPPORT",
+    ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+    "quickReply": Schema.String.annotate({
+      "description": "The catalogue code when this was a quick reply, and empty for text.",
+    }),
+    "body": Schema.String,
+    "clientMessageId": Schema.String.annotate({
+      "description":
+        "The key it was sent with, so a client can match the message it showed\noptimistically to the one stored.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1SendMessageResponse" });
+export type ChatServiceMarkReadBody = typeof ChatServiceMarkReadBody.Type;
+export const ChatServiceMarkReadBody = Schema.Struct({
+  "seq": Schema.Number.annotate({ "format": "int32" }).check(
+    Schema.isInt().annotate({ "expected": "an integer" }),
+  ),
+}).annotate({ "identifier": "ChatServiceMarkReadBody" });
+export type V1MarkReadResponse = typeof V1MarkReadResponse.Type;
+export const V1MarkReadResponse = Schema.Struct({
+  "lastReadSeq": Schema.Number.annotate({
+    "description": "Where the marker is now: seq, or further if it already was.",
+    "format": "int32",
+  }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+}).annotate({ "identifier": "v1MarkReadResponse" });
+export type ChatServiceTypingBody = typeof ChatServiceTypingBody.Type;
+export const ChatServiceTypingBody = Schema.Struct({}).annotate({
+  "identifier": "ChatServiceTypingBody",
+});
+export type V1TypingResponse = typeof V1TypingResponse.Type;
+export const V1TypingResponse = Schema.Struct({}).annotate({ "identifier": "v1TypingResponse" });
+export type V1RegisterPushTokenRequest = typeof V1RegisterPushTokenRequest.Type;
+export const V1RegisterPushTokenRequest = Schema.Struct({
+  "token": Schema.String.annotate({ "description": "An Expo push token: ExponentPushToken[…]." }),
+  "platform": Schema.Literals([
+    "PUSH_PLATFORM_UNSPECIFIED",
+    "PUSH_PLATFORM_IOS",
+    "PUSH_PLATFORM_ANDROID",
+  ]).annotate({ "default": "PUSH_PLATFORM_UNSPECIFIED" }),
+}).annotate({ "identifier": "v1RegisterPushTokenRequest" });
+export type V1RegisterPushTokenResponse = typeof V1RegisterPushTokenResponse.Type;
+export const V1RegisterPushTokenResponse = Schema.Struct({}).annotate({
+  "identifier": "v1RegisterPushTokenResponse",
+});
+export type V1UnregisterPushTokenRequest = typeof V1UnregisterPushTokenRequest.Type;
+export const V1UnregisterPushTokenRequest = Schema.Struct({ "token": Schema.String }).annotate({
+  "identifier": "v1UnregisterPushTokenRequest",
+});
+export type V1UnregisterPushTokenResponse = typeof V1UnregisterPushTokenResponse.Type;
+export const V1UnregisterPushTokenResponse = Schema.Struct({}).annotate({
+  "identifier": "v1UnregisterPushTokenResponse",
+});
+export type V1CreateAccountSessionRequest = typeof V1CreateAccountSessionRequest.Type;
+export const V1CreateAccountSessionRequest = Schema.Struct({}).annotate({
+  "identifier": "v1CreateAccountSessionRequest",
+});
+export type V1CreateAccountSessionResponse = typeof V1CreateAccountSessionResponse.Type;
+export const V1CreateAccountSessionResponse = Schema.Struct({
+  "clientSecret": Schema.String.annotate({
+    "description": "Handed to Stripe's Connect.js, and good for one session.",
+  }),
+}).annotate({ "identifier": "v1CreateAccountSessionResponse" });
 export type V1GetBalanceResponse = typeof V1GetBalanceResponse.Type;
 export const V1GetBalanceResponse = Schema.Struct({
   "balance": Schema.Struct({
@@ -366,6 +611,229 @@ export const V1ConfigureSimulatorResponse = Schema.Struct({
     }).check(Schema.isFinite().annotate({ "expected": "a finite number" })),
   }),
 }).annotate({ "identifier": "v1ConfigureSimulatorResponse" });
+export type V1CreateSupportConversationRequest = typeof V1CreateSupportConversationRequest.Type;
+export const V1CreateSupportConversationRequest = Schema.Struct({
+  "tripId": TripId,
+  "subject": Schema.String.annotate({ "description": "Up to 120 characters, and may be empty." }),
+  "body": Schema.String.annotate({ "description": "The first message." }),
+  "idempotencyKey": Schema.String.annotate({
+    "description": "Generated client-side. The gateway also accepts an Idempotency-Key header.",
+  }),
+}).annotate({ "identifier": "v1CreateSupportConversationRequest" });
+export type V1CreateSupportConversationResponse = typeof V1CreateSupportConversationResponse.Type;
+export const V1CreateSupportConversationResponse = Schema.Struct({
+  "conversation": Schema.Struct({
+    "id": ConversationId,
+    "kind": Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support.",
+      "default": "CONVERSATION_KIND_UNSPECIFIED",
+    }),
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+      "default": "CONVERSATION_STATUS_UNSPECIFIED",
+    }),
+    "subject": Schema.String,
+    "requesterId": UserId,
+    "assigneeId": UserId,
+    "lastSeq": Schema.Number.annotate({
+      "description": "The seq of the newest message. Messages are numbered from 1 without gaps.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "unread": Schema.Number.annotate({
+      "description": "Messages the caller has not read.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "closesAt": Schema.String.annotate({
+      "description":
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+    }),
+    "participants": Schema.Array(Schema.Struct({
+      "userId": UserId,
+      "role": Schema.Literals([
+        "PARTICIPANT_ROLE_UNSPECIFIED",
+        "PARTICIPANT_ROLE_RIDER",
+        "PARTICIPANT_ROLE_DRIVER",
+        "PARTICIPANT_ROLE_SUPPORT",
+      ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+      "lastReadSeq": Schema.Number.annotate({
+        "description": "The newest seq they have read, which is what \"read\" under a message is.",
+        "format": "int32",
+      }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    })),
+    "quickReplies": Schema.Array(
+      Schema.Struct({
+        "code": Schema.String.annotate({
+          "description": "Stable, so a client can show the reply in its own language.",
+        }),
+        "text": Schema.String.annotate({
+          "description": "The English text, which is what the message body will be.",
+        }),
+      }),
+    ).annotate({
+      "description": "What the caller can send with one tap here. Empty once it is closed.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1CreateSupportConversationResponse" });
+export type ChatServiceClaimSupportConversationBody =
+  typeof ChatServiceClaimSupportConversationBody.Type;
+export const ChatServiceClaimSupportConversationBody = Schema.Struct({}).annotate({
+  "identifier": "ChatServiceClaimSupportConversationBody",
+});
+export type V1ClaimSupportConversationResponse = typeof V1ClaimSupportConversationResponse.Type;
+export const V1ClaimSupportConversationResponse = Schema.Struct({
+  "conversation": Schema.Struct({
+    "id": ConversationId,
+    "kind": Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support.",
+      "default": "CONVERSATION_KIND_UNSPECIFIED",
+    }),
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+      "default": "CONVERSATION_STATUS_UNSPECIFIED",
+    }),
+    "subject": Schema.String,
+    "requesterId": UserId,
+    "assigneeId": UserId,
+    "lastSeq": Schema.Number.annotate({
+      "description": "The seq of the newest message. Messages are numbered from 1 without gaps.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "unread": Schema.Number.annotate({
+      "description": "Messages the caller has not read.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "closesAt": Schema.String.annotate({
+      "description":
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+    }),
+    "participants": Schema.Array(Schema.Struct({
+      "userId": UserId,
+      "role": Schema.Literals([
+        "PARTICIPANT_ROLE_UNSPECIFIED",
+        "PARTICIPANT_ROLE_RIDER",
+        "PARTICIPANT_ROLE_DRIVER",
+        "PARTICIPANT_ROLE_SUPPORT",
+      ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+      "lastReadSeq": Schema.Number.annotate({
+        "description": "The newest seq they have read, which is what \"read\" under a message is.",
+        "format": "int32",
+      }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    })),
+    "quickReplies": Schema.Array(
+      Schema.Struct({
+        "code": Schema.String.annotate({
+          "description": "Stable, so a client can show the reply in its own language.",
+        }),
+        "text": Schema.String.annotate({
+          "description": "The English text, which is what the message body will be.",
+        }),
+      }),
+    ).annotate({
+      "description": "What the caller can send with one tap here. Empty once it is closed.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1ClaimSupportConversationResponse" });
+export type ChatServiceResolveSupportConversationBody =
+  typeof ChatServiceResolveSupportConversationBody.Type;
+export const ChatServiceResolveSupportConversationBody = Schema.Struct({}).annotate({
+  "identifier": "ChatServiceResolveSupportConversationBody",
+});
+export type V1ResolveSupportConversationResponse = typeof V1ResolveSupportConversationResponse.Type;
+export const V1ResolveSupportConversationResponse = Schema.Struct({
+  "conversation": Schema.Struct({
+    "id": ConversationId,
+    "kind": Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support.",
+      "default": "CONVERSATION_KIND_UNSPECIFIED",
+    }),
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+      "default": "CONVERSATION_STATUS_UNSPECIFIED",
+    }),
+    "subject": Schema.String,
+    "requesterId": UserId,
+    "assigneeId": UserId,
+    "lastSeq": Schema.Number.annotate({
+      "description": "The seq of the newest message. Messages are numbered from 1 without gaps.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "unread": Schema.Number.annotate({
+      "description": "Messages the caller has not read.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "closesAt": Schema.String.annotate({
+      "description":
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+    }),
+    "participants": Schema.Array(Schema.Struct({
+      "userId": UserId,
+      "role": Schema.Literals([
+        "PARTICIPANT_ROLE_UNSPECIFIED",
+        "PARTICIPANT_ROLE_RIDER",
+        "PARTICIPANT_ROLE_DRIVER",
+        "PARTICIPANT_ROLE_SUPPORT",
+      ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+      "lastReadSeq": Schema.Number.annotate({
+        "description": "The newest seq they have read, which is what \"read\" under a message is.",
+        "format": "int32",
+      }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    })),
+    "quickReplies": Schema.Array(
+      Schema.Struct({
+        "code": Schema.String.annotate({
+          "description": "Stable, so a client can show the reply in its own language.",
+        }),
+        "text": Schema.String.annotate({
+          "description": "The English text, which is what the message body will be.",
+        }),
+      }),
+    ).annotate({
+      "description": "What the caller can send with one tap here. Empty once it is closed.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1ResolveSupportConversationResponse" });
 export type V1ListTripsResponse = typeof V1ListTripsResponse.Type;
 export const V1ListTripsResponse = Schema.Struct({
   "trips": Schema.Array(Schema.Struct({
@@ -733,6 +1201,74 @@ export const V1CompleteTripResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1CompleteTripResponse" });
+export type V1GetTripConversationResponse = typeof V1GetTripConversationResponse.Type;
+export const V1GetTripConversationResponse = Schema.Struct({
+  "conversation": Schema.Struct({
+    "id": ConversationId,
+    "kind": Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_KIND_TRIP: The rider and the driver of one trip.\n - CONVERSATION_KIND_SUPPORT: A rider or driver, and support.",
+      "default": "CONVERSATION_KIND_UNSPECIFIED",
+    }),
+    "tripId": TripId,
+    "status": Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({
+      "description":
+        " - CONVERSATION_STATUS_CLOSED: A trip conversation past its trip's grace period. Readable, not writable.\n - CONVERSATION_STATUS_RESOLVED: A support conversation somebody resolved. Readable, not writable.",
+      "default": "CONVERSATION_STATUS_UNSPECIFIED",
+    }),
+    "subject": Schema.String,
+    "requesterId": UserId,
+    "assigneeId": UserId,
+    "lastSeq": Schema.Number.annotate({
+      "description": "The seq of the newest message. Messages are numbered from 1 without gaps.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "unread": Schema.Number.annotate({
+      "description": "Messages the caller has not read.",
+      "format": "int32",
+    }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    "closesAt": Schema.String.annotate({
+      "description":
+        "When sending stops, as RFC 3339: the trip's end plus a grace period. Empty\nwhile the trip runs and for support, like every unset field this API sends.",
+    }),
+    "participants": Schema.Array(Schema.Struct({
+      "userId": UserId,
+      "role": Schema.Literals([
+        "PARTICIPANT_ROLE_UNSPECIFIED",
+        "PARTICIPANT_ROLE_RIDER",
+        "PARTICIPANT_ROLE_DRIVER",
+        "PARTICIPANT_ROLE_SUPPORT",
+      ]).annotate({ "default": "PARTICIPANT_ROLE_UNSPECIFIED" }),
+      "lastReadSeq": Schema.Number.annotate({
+        "description": "The newest seq they have read, which is what \"read\" under a message is.",
+        "format": "int32",
+      }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+    })),
+    "quickReplies": Schema.Array(
+      Schema.Struct({
+        "code": Schema.String.annotate({
+          "description": "Stable, so a client can show the reply in its own language.",
+        }),
+        "text": Schema.String.annotate({
+          "description": "The English text, which is what the message body will be.",
+        }),
+      }),
+    ).annotate({
+      "description": "What the caller can send with one tap here. Empty once it is closed.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }),
+}).annotate({ "identifier": "v1GetTripConversationResponse" });
 export type V1StartTripResponse = typeof V1StartTripResponse.Type;
 export const V1StartTripResponse = Schema.Struct({
   "trip": Schema.Struct({
@@ -849,6 +1385,287 @@ export const V1PreviewTripResponse = Schema.Struct({
   }).annotate({ "description": "Route is a driveable path with its cost." }),
 }).annotate({ "identifier": "v1PreviewTripResponse" });
 // schemas
+export type ChatListParams = typeof ChatListParams.Type;
+export const ChatListParams = Schema.Struct({
+  "kind": Schema.optionalKey(
+    Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({ "default": "CONVERSATION_KIND_UNSPECIFIED" }),
+  ),
+  "status": Schema.optionalKey(
+    Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({ "default": "CONVERSATION_STATUS_UNSPECIFIED" }),
+  ),
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type ChatListQuery = typeof ChatListQuery.Type;
+export const ChatListQuery = Schema.Struct({
+  "kind": Schema.optionalKey(
+    Schema.Literals([
+      "CONVERSATION_KIND_UNSPECIFIED",
+      "CONVERSATION_KIND_TRIP",
+      "CONVERSATION_KIND_SUPPORT",
+    ]).annotate({ "default": "CONVERSATION_KIND_UNSPECIFIED" }),
+  ),
+  "status": Schema.optionalKey(
+    Schema.Literals([
+      "CONVERSATION_STATUS_UNSPECIFIED",
+      "CONVERSATION_STATUS_OPEN",
+      "CONVERSATION_STATUS_CLOSED",
+      "CONVERSATION_STATUS_RESOLVED",
+    ]).annotate({ "default": "CONVERSATION_STATUS_UNSPECIFIED" }),
+  ),
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type ChatList200 = typeof ChatList200.Type;
+export const ChatList200 = V1ListConversationsResponse;
+export type ChatList400 = typeof ChatList400.Type;
+export const ChatList400 = V1ErrorBody;
+export type ChatList401 = typeof ChatList401.Type;
+export const ChatList401 = V1ErrorBody;
+export type ChatList403 = typeof ChatList403.Type;
+export const ChatList403 = V1ErrorBody;
+export type ChatList404 = typeof ChatList404.Type;
+export const ChatList404 = V1ErrorBody;
+export type ChatList409 = typeof ChatList409.Type;
+export const ChatList409 = V1ErrorBody;
+export type ChatList429 = typeof ChatList429.Type;
+export const ChatList429 = V1ErrorBody;
+export type ChatList500 = typeof ChatList500.Type;
+export const ChatList500 = V1ErrorBody;
+export type ChatList501 = typeof ChatList501.Type;
+export const ChatList501 = V1ErrorBody;
+export type ChatList503 = typeof ChatList503.Type;
+export const ChatList503 = V1ErrorBody;
+export type ChatList504 = typeof ChatList504.Type;
+export const ChatList504 = V1ErrorBody;
+export type ChatGetPathParams = typeof ChatGetPathParams.Type;
+export const ChatGetPathParams = Schema.Struct({ "conversationId": ConversationId });
+export type ChatGet200 = typeof ChatGet200.Type;
+export const ChatGet200 = V1GetConversationResponse;
+export type ChatGet400 = typeof ChatGet400.Type;
+export const ChatGet400 = V1ErrorBody;
+export type ChatGet401 = typeof ChatGet401.Type;
+export const ChatGet401 = V1ErrorBody;
+export type ChatGet403 = typeof ChatGet403.Type;
+export const ChatGet403 = V1ErrorBody;
+export type ChatGet404 = typeof ChatGet404.Type;
+export const ChatGet404 = V1ErrorBody;
+export type ChatGet409 = typeof ChatGet409.Type;
+export const ChatGet409 = V1ErrorBody;
+export type ChatGet429 = typeof ChatGet429.Type;
+export const ChatGet429 = V1ErrorBody;
+export type ChatGet500 = typeof ChatGet500.Type;
+export const ChatGet500 = V1ErrorBody;
+export type ChatGet501 = typeof ChatGet501.Type;
+export const ChatGet501 = V1ErrorBody;
+export type ChatGet503 = typeof ChatGet503.Type;
+export const ChatGet503 = V1ErrorBody;
+export type ChatGet504 = typeof ChatGet504.Type;
+export const ChatGet504 = V1ErrorBody;
+export type ChatListMessagesParams = typeof ChatListMessagesParams.Type;
+export const ChatListMessagesParams = Schema.Struct({
+  "afterSeq": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "beforeSeq": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+});
+export type ChatListMessagesPathParams = typeof ChatListMessagesPathParams.Type;
+export const ChatListMessagesPathParams = Schema.Struct({ "conversationId": ConversationId });
+export type ChatListMessagesQuery = typeof ChatListMessagesQuery.Type;
+export const ChatListMessagesQuery = Schema.Struct({
+  "afterSeq": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "beforeSeq": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+});
+export type ChatListMessages200 = typeof ChatListMessages200.Type;
+export const ChatListMessages200 = V1ListMessagesResponse;
+export type ChatListMessages400 = typeof ChatListMessages400.Type;
+export const ChatListMessages400 = V1ErrorBody;
+export type ChatListMessages401 = typeof ChatListMessages401.Type;
+export const ChatListMessages401 = V1ErrorBody;
+export type ChatListMessages403 = typeof ChatListMessages403.Type;
+export const ChatListMessages403 = V1ErrorBody;
+export type ChatListMessages404 = typeof ChatListMessages404.Type;
+export const ChatListMessages404 = V1ErrorBody;
+export type ChatListMessages409 = typeof ChatListMessages409.Type;
+export const ChatListMessages409 = V1ErrorBody;
+export type ChatListMessages429 = typeof ChatListMessages429.Type;
+export const ChatListMessages429 = V1ErrorBody;
+export type ChatListMessages500 = typeof ChatListMessages500.Type;
+export const ChatListMessages500 = V1ErrorBody;
+export type ChatListMessages501 = typeof ChatListMessages501.Type;
+export const ChatListMessages501 = V1ErrorBody;
+export type ChatListMessages503 = typeof ChatListMessages503.Type;
+export const ChatListMessages503 = V1ErrorBody;
+export type ChatListMessages504 = typeof ChatListMessages504.Type;
+export const ChatListMessages504 = V1ErrorBody;
+export type ChatSendPathParams = typeof ChatSendPathParams.Type;
+export const ChatSendPathParams = Schema.Struct({ "conversationId": ConversationId });
+export type ChatSendRequestJson = typeof ChatSendRequestJson.Type;
+export const ChatSendRequestJson = ChatServiceSendMessageBody;
+export type ChatSend200 = typeof ChatSend200.Type;
+export const ChatSend200 = V1SendMessageResponse;
+export type ChatSend400 = typeof ChatSend400.Type;
+export const ChatSend400 = V1ErrorBody;
+export type ChatSend401 = typeof ChatSend401.Type;
+export const ChatSend401 = V1ErrorBody;
+export type ChatSend403 = typeof ChatSend403.Type;
+export const ChatSend403 = V1ErrorBody;
+export type ChatSend404 = typeof ChatSend404.Type;
+export const ChatSend404 = V1ErrorBody;
+export type ChatSend409 = typeof ChatSend409.Type;
+export const ChatSend409 = V1ErrorBody;
+export type ChatSend429 = typeof ChatSend429.Type;
+export const ChatSend429 = V1ErrorBody;
+export type ChatSend500 = typeof ChatSend500.Type;
+export const ChatSend500 = V1ErrorBody;
+export type ChatSend501 = typeof ChatSend501.Type;
+export const ChatSend501 = V1ErrorBody;
+export type ChatSend503 = typeof ChatSend503.Type;
+export const ChatSend503 = V1ErrorBody;
+export type ChatSend504 = typeof ChatSend504.Type;
+export const ChatSend504 = V1ErrorBody;
+export type ChatMarkReadPathParams = typeof ChatMarkReadPathParams.Type;
+export const ChatMarkReadPathParams = Schema.Struct({ "conversationId": ConversationId });
+export type ChatMarkReadRequestJson = typeof ChatMarkReadRequestJson.Type;
+export const ChatMarkReadRequestJson = ChatServiceMarkReadBody;
+export type ChatMarkRead200 = typeof ChatMarkRead200.Type;
+export const ChatMarkRead200 = V1MarkReadResponse;
+export type ChatMarkRead400 = typeof ChatMarkRead400.Type;
+export const ChatMarkRead400 = V1ErrorBody;
+export type ChatMarkRead401 = typeof ChatMarkRead401.Type;
+export const ChatMarkRead401 = V1ErrorBody;
+export type ChatMarkRead403 = typeof ChatMarkRead403.Type;
+export const ChatMarkRead403 = V1ErrorBody;
+export type ChatMarkRead404 = typeof ChatMarkRead404.Type;
+export const ChatMarkRead404 = V1ErrorBody;
+export type ChatMarkRead409 = typeof ChatMarkRead409.Type;
+export const ChatMarkRead409 = V1ErrorBody;
+export type ChatMarkRead429 = typeof ChatMarkRead429.Type;
+export const ChatMarkRead429 = V1ErrorBody;
+export type ChatMarkRead500 = typeof ChatMarkRead500.Type;
+export const ChatMarkRead500 = V1ErrorBody;
+export type ChatMarkRead501 = typeof ChatMarkRead501.Type;
+export const ChatMarkRead501 = V1ErrorBody;
+export type ChatMarkRead503 = typeof ChatMarkRead503.Type;
+export const ChatMarkRead503 = V1ErrorBody;
+export type ChatMarkRead504 = typeof ChatMarkRead504.Type;
+export const ChatMarkRead504 = V1ErrorBody;
+export type ChatTypingPathParams = typeof ChatTypingPathParams.Type;
+export const ChatTypingPathParams = Schema.Struct({ "conversationId": ConversationId });
+export type ChatTypingRequestJson = typeof ChatTypingRequestJson.Type;
+export const ChatTypingRequestJson = ChatServiceTypingBody;
+export type ChatTyping200 = typeof ChatTyping200.Type;
+export const ChatTyping200 = V1TypingResponse;
+export type ChatTyping400 = typeof ChatTyping400.Type;
+export const ChatTyping400 = V1ErrorBody;
+export type ChatTyping401 = typeof ChatTyping401.Type;
+export const ChatTyping401 = V1ErrorBody;
+export type ChatTyping403 = typeof ChatTyping403.Type;
+export const ChatTyping403 = V1ErrorBody;
+export type ChatTyping404 = typeof ChatTyping404.Type;
+export const ChatTyping404 = V1ErrorBody;
+export type ChatTyping409 = typeof ChatTyping409.Type;
+export const ChatTyping409 = V1ErrorBody;
+export type ChatTyping429 = typeof ChatTyping429.Type;
+export const ChatTyping429 = V1ErrorBody;
+export type ChatTyping500 = typeof ChatTyping500.Type;
+export const ChatTyping500 = V1ErrorBody;
+export type ChatTyping501 = typeof ChatTyping501.Type;
+export const ChatTyping501 = V1ErrorBody;
+export type ChatTyping503 = typeof ChatTyping503.Type;
+export const ChatTyping503 = V1ErrorBody;
+export type ChatTyping504 = typeof ChatTyping504.Type;
+export const ChatTyping504 = V1ErrorBody;
+export type DevicesRegisterPushTokenRequestJson = typeof DevicesRegisterPushTokenRequestJson.Type;
+export const DevicesRegisterPushTokenRequestJson = V1RegisterPushTokenRequest;
+export type DevicesRegisterPushToken200 = typeof DevicesRegisterPushToken200.Type;
+export const DevicesRegisterPushToken200 = V1RegisterPushTokenResponse;
+export type DevicesRegisterPushToken400 = typeof DevicesRegisterPushToken400.Type;
+export const DevicesRegisterPushToken400 = V1ErrorBody;
+export type DevicesRegisterPushToken401 = typeof DevicesRegisterPushToken401.Type;
+export const DevicesRegisterPushToken401 = V1ErrorBody;
+export type DevicesRegisterPushToken403 = typeof DevicesRegisterPushToken403.Type;
+export const DevicesRegisterPushToken403 = V1ErrorBody;
+export type DevicesRegisterPushToken404 = typeof DevicesRegisterPushToken404.Type;
+export const DevicesRegisterPushToken404 = V1ErrorBody;
+export type DevicesRegisterPushToken409 = typeof DevicesRegisterPushToken409.Type;
+export const DevicesRegisterPushToken409 = V1ErrorBody;
+export type DevicesRegisterPushToken429 = typeof DevicesRegisterPushToken429.Type;
+export const DevicesRegisterPushToken429 = V1ErrorBody;
+export type DevicesRegisterPushToken500 = typeof DevicesRegisterPushToken500.Type;
+export const DevicesRegisterPushToken500 = V1ErrorBody;
+export type DevicesRegisterPushToken501 = typeof DevicesRegisterPushToken501.Type;
+export const DevicesRegisterPushToken501 = V1ErrorBody;
+export type DevicesRegisterPushToken503 = typeof DevicesRegisterPushToken503.Type;
+export const DevicesRegisterPushToken503 = V1ErrorBody;
+export type DevicesRegisterPushToken504 = typeof DevicesRegisterPushToken504.Type;
+export const DevicesRegisterPushToken504 = V1ErrorBody;
+export type DevicesUnregisterPushTokenRequestJson =
+  typeof DevicesUnregisterPushTokenRequestJson.Type;
+export const DevicesUnregisterPushTokenRequestJson = V1UnregisterPushTokenRequest;
+export type DevicesUnregisterPushToken200 = typeof DevicesUnregisterPushToken200.Type;
+export const DevicesUnregisterPushToken200 = V1UnregisterPushTokenResponse;
+export type DevicesUnregisterPushToken400 = typeof DevicesUnregisterPushToken400.Type;
+export const DevicesUnregisterPushToken400 = V1ErrorBody;
+export type DevicesUnregisterPushToken401 = typeof DevicesUnregisterPushToken401.Type;
+export const DevicesUnregisterPushToken401 = V1ErrorBody;
+export type DevicesUnregisterPushToken403 = typeof DevicesUnregisterPushToken403.Type;
+export const DevicesUnregisterPushToken403 = V1ErrorBody;
+export type DevicesUnregisterPushToken404 = typeof DevicesUnregisterPushToken404.Type;
+export const DevicesUnregisterPushToken404 = V1ErrorBody;
+export type DevicesUnregisterPushToken409 = typeof DevicesUnregisterPushToken409.Type;
+export const DevicesUnregisterPushToken409 = V1ErrorBody;
+export type DevicesUnregisterPushToken429 = typeof DevicesUnregisterPushToken429.Type;
+export const DevicesUnregisterPushToken429 = V1ErrorBody;
+export type DevicesUnregisterPushToken500 = typeof DevicesUnregisterPushToken500.Type;
+export const DevicesUnregisterPushToken500 = V1ErrorBody;
+export type DevicesUnregisterPushToken501 = typeof DevicesUnregisterPushToken501.Type;
+export const DevicesUnregisterPushToken501 = V1ErrorBody;
+export type DevicesUnregisterPushToken503 = typeof DevicesUnregisterPushToken503.Type;
+export const DevicesUnregisterPushToken503 = V1ErrorBody;
+export type DevicesUnregisterPushToken504 = typeof DevicesUnregisterPushToken504.Type;
+export const DevicesUnregisterPushToken504 = V1ErrorBody;
 export type PaymentsCreateAccountSessionRequestJson =
   typeof PaymentsCreateAccountSessionRequestJson.Type;
 export const PaymentsCreateAccountSessionRequestJson = V1CreateAccountSessionRequest;
@@ -1213,6 +2030,82 @@ export type SimulatorConfigure503 = typeof SimulatorConfigure503.Type;
 export const SimulatorConfigure503 = V1ErrorBody;
 export type SimulatorConfigure504 = typeof SimulatorConfigure504.Type;
 export const SimulatorConfigure504 = V1ErrorBody;
+export type SupportCreateRequestJson = typeof SupportCreateRequestJson.Type;
+export const SupportCreateRequestJson = V1CreateSupportConversationRequest;
+export type SupportCreate200 = typeof SupportCreate200.Type;
+export const SupportCreate200 = V1CreateSupportConversationResponse;
+export type SupportCreate400 = typeof SupportCreate400.Type;
+export const SupportCreate400 = V1ErrorBody;
+export type SupportCreate401 = typeof SupportCreate401.Type;
+export const SupportCreate401 = V1ErrorBody;
+export type SupportCreate403 = typeof SupportCreate403.Type;
+export const SupportCreate403 = V1ErrorBody;
+export type SupportCreate404 = typeof SupportCreate404.Type;
+export const SupportCreate404 = V1ErrorBody;
+export type SupportCreate409 = typeof SupportCreate409.Type;
+export const SupportCreate409 = V1ErrorBody;
+export type SupportCreate429 = typeof SupportCreate429.Type;
+export const SupportCreate429 = V1ErrorBody;
+export type SupportCreate500 = typeof SupportCreate500.Type;
+export const SupportCreate500 = V1ErrorBody;
+export type SupportCreate501 = typeof SupportCreate501.Type;
+export const SupportCreate501 = V1ErrorBody;
+export type SupportCreate503 = typeof SupportCreate503.Type;
+export const SupportCreate503 = V1ErrorBody;
+export type SupportCreate504 = typeof SupportCreate504.Type;
+export const SupportCreate504 = V1ErrorBody;
+export type SupportClaimPathParams = typeof SupportClaimPathParams.Type;
+export const SupportClaimPathParams = Schema.Struct({ "conversationId": ConversationId });
+export type SupportClaimRequestJson = typeof SupportClaimRequestJson.Type;
+export const SupportClaimRequestJson = ChatServiceClaimSupportConversationBody;
+export type SupportClaim200 = typeof SupportClaim200.Type;
+export const SupportClaim200 = V1ClaimSupportConversationResponse;
+export type SupportClaim400 = typeof SupportClaim400.Type;
+export const SupportClaim400 = V1ErrorBody;
+export type SupportClaim401 = typeof SupportClaim401.Type;
+export const SupportClaim401 = V1ErrorBody;
+export type SupportClaim403 = typeof SupportClaim403.Type;
+export const SupportClaim403 = V1ErrorBody;
+export type SupportClaim404 = typeof SupportClaim404.Type;
+export const SupportClaim404 = V1ErrorBody;
+export type SupportClaim409 = typeof SupportClaim409.Type;
+export const SupportClaim409 = V1ErrorBody;
+export type SupportClaim429 = typeof SupportClaim429.Type;
+export const SupportClaim429 = V1ErrorBody;
+export type SupportClaim500 = typeof SupportClaim500.Type;
+export const SupportClaim500 = V1ErrorBody;
+export type SupportClaim501 = typeof SupportClaim501.Type;
+export const SupportClaim501 = V1ErrorBody;
+export type SupportClaim503 = typeof SupportClaim503.Type;
+export const SupportClaim503 = V1ErrorBody;
+export type SupportClaim504 = typeof SupportClaim504.Type;
+export const SupportClaim504 = V1ErrorBody;
+export type SupportResolvePathParams = typeof SupportResolvePathParams.Type;
+export const SupportResolvePathParams = Schema.Struct({ "conversationId": ConversationId });
+export type SupportResolveRequestJson = typeof SupportResolveRequestJson.Type;
+export const SupportResolveRequestJson = ChatServiceResolveSupportConversationBody;
+export type SupportResolve200 = typeof SupportResolve200.Type;
+export const SupportResolve200 = V1ResolveSupportConversationResponse;
+export type SupportResolve400 = typeof SupportResolve400.Type;
+export const SupportResolve400 = V1ErrorBody;
+export type SupportResolve401 = typeof SupportResolve401.Type;
+export const SupportResolve401 = V1ErrorBody;
+export type SupportResolve403 = typeof SupportResolve403.Type;
+export const SupportResolve403 = V1ErrorBody;
+export type SupportResolve404 = typeof SupportResolve404.Type;
+export const SupportResolve404 = V1ErrorBody;
+export type SupportResolve409 = typeof SupportResolve409.Type;
+export const SupportResolve409 = V1ErrorBody;
+export type SupportResolve429 = typeof SupportResolve429.Type;
+export const SupportResolve429 = V1ErrorBody;
+export type SupportResolve500 = typeof SupportResolve500.Type;
+export const SupportResolve500 = V1ErrorBody;
+export type SupportResolve501 = typeof SupportResolve501.Type;
+export const SupportResolve501 = V1ErrorBody;
+export type SupportResolve503 = typeof SupportResolve503.Type;
+export const SupportResolve503 = V1ErrorBody;
+export type SupportResolve504 = typeof SupportResolve504.Type;
+export const SupportResolve504 = V1ErrorBody;
 export type TripsListParams = typeof TripsListParams.Type;
 export const TripsListParams = Schema.Struct({
   "pageSize": Schema.optionalKey(
@@ -1377,6 +2270,30 @@ export type TripsComplete503 = typeof TripsComplete503.Type;
 export const TripsComplete503 = V1ErrorBody;
 export type TripsComplete504 = typeof TripsComplete504.Type;
 export const TripsComplete504 = V1ErrorBody;
+export type ChatGetForTripPathParams = typeof ChatGetForTripPathParams.Type;
+export const ChatGetForTripPathParams = Schema.Struct({ "tripId": TripId });
+export type ChatGetForTrip200 = typeof ChatGetForTrip200.Type;
+export const ChatGetForTrip200 = V1GetTripConversationResponse;
+export type ChatGetForTrip400 = typeof ChatGetForTrip400.Type;
+export const ChatGetForTrip400 = V1ErrorBody;
+export type ChatGetForTrip401 = typeof ChatGetForTrip401.Type;
+export const ChatGetForTrip401 = V1ErrorBody;
+export type ChatGetForTrip403 = typeof ChatGetForTrip403.Type;
+export const ChatGetForTrip403 = V1ErrorBody;
+export type ChatGetForTrip404 = typeof ChatGetForTrip404.Type;
+export const ChatGetForTrip404 = V1ErrorBody;
+export type ChatGetForTrip409 = typeof ChatGetForTrip409.Type;
+export const ChatGetForTrip409 = V1ErrorBody;
+export type ChatGetForTrip429 = typeof ChatGetForTrip429.Type;
+export const ChatGetForTrip429 = V1ErrorBody;
+export type ChatGetForTrip500 = typeof ChatGetForTrip500.Type;
+export const ChatGetForTrip500 = V1ErrorBody;
+export type ChatGetForTrip501 = typeof ChatGetForTrip501.Type;
+export const ChatGetForTrip501 = V1ErrorBody;
+export type ChatGetForTrip503 = typeof ChatGetForTrip503.Type;
+export const ChatGetForTrip503 = V1ErrorBody;
+export type ChatGetForTrip504 = typeof ChatGetForTrip504.Type;
+export const ChatGetForTrip504 = V1ErrorBody;
 export type TripsStartPathParams = typeof TripsStartPathParams.Type;
 export const TripsStartPathParams = Schema.Struct({ "tripId": TripId });
 export type TripsStart200 = typeof TripsStart200.Type;
@@ -1425,6 +2342,213 @@ export type TripsPreview503 = typeof TripsPreview503.Type;
 export const TripsPreview503 = V1ErrorBody;
 export type TripsPreview504 = typeof TripsPreview504.Type;
 export const TripsPreview504 = V1ErrorBody;
+
+class ChatGroup extends HttpApiGroup.make("chat")
+  .add(
+    HttpApiEndpoint.get("list", "/v1/conversations", {
+      query: ChatListQuery,
+      success: ChatList200,
+      error: [
+        ChatList400.pipe(HttpApiSchema.status(400)),
+        ChatList401.pipe(HttpApiSchema.status(401)),
+        ChatList403.pipe(HttpApiSchema.status(403)),
+        ChatList404.pipe(HttpApiSchema.status(404)),
+        ChatList409.pipe(HttpApiSchema.status(409)),
+        ChatList429.pipe(HttpApiSchema.status(429)),
+        ChatList500,
+        ChatList501.pipe(HttpApiSchema.status(501)),
+        ChatList503.pipe(HttpApiSchema.status(503)),
+        ChatList504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "list")
+      .annotate(
+        OpenApi.Summary,
+        "ListConversations is the caller's conversations, newest first. For\nsupport, kind SUPPORT is the queue: every support conversation, whoever\nholds it.",
+      ),
+    HttpApiEndpoint.get("get", "/v1/conversations/:conversationId", {
+      params: ChatGetPathParams,
+      success: ChatGet200,
+      error: [
+        ChatGet400.pipe(HttpApiSchema.status(400)),
+        ChatGet401.pipe(HttpApiSchema.status(401)),
+        ChatGet403.pipe(HttpApiSchema.status(403)),
+        ChatGet404.pipe(HttpApiSchema.status(404)),
+        ChatGet409.pipe(HttpApiSchema.status(409)),
+        ChatGet429.pipe(HttpApiSchema.status(429)),
+        ChatGet500,
+        ChatGet501.pipe(HttpApiSchema.status(501)),
+        ChatGet503.pipe(HttpApiSchema.status(503)),
+        ChatGet504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "get"),
+    HttpApiEndpoint.get("listMessages", "/v1/conversations/:conversationId/messages", {
+      params: ChatListMessagesPathParams,
+      query: ChatListMessagesQuery,
+      success: ChatListMessages200,
+      error: [
+        ChatListMessages400.pipe(HttpApiSchema.status(400)),
+        ChatListMessages401.pipe(HttpApiSchema.status(401)),
+        ChatListMessages403.pipe(HttpApiSchema.status(403)),
+        ChatListMessages404.pipe(HttpApiSchema.status(404)),
+        ChatListMessages409.pipe(HttpApiSchema.status(409)),
+        ChatListMessages429.pipe(HttpApiSchema.status(429)),
+        ChatListMessages500,
+        ChatListMessages501.pipe(HttpApiSchema.status(501)),
+        ChatListMessages503.pipe(HttpApiSchema.status(503)),
+        ChatListMessages504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "listMessages")
+      .annotate(
+        OpenApi.Summary,
+        "ListMessages is a page of a conversation, oldest first within the page.",
+      )
+      .annotate(
+        OpenApi.Description,
+        "after_seq reads forward from a seq the client already holds — what it does\non every ChatChanged. before_seq reads back through history. With neither,\nit is the newest page.",
+      ),
+    HttpApiEndpoint.post("send", "/v1/conversations/:conversationId/messages", {
+      params: ChatSendPathParams,
+      payload: ChatSendRequestJson,
+      success: ChatSend200,
+      error: [
+        ChatSend400.pipe(HttpApiSchema.status(400)),
+        ChatSend401.pipe(HttpApiSchema.status(401)),
+        ChatSend403.pipe(HttpApiSchema.status(403)),
+        ChatSend404.pipe(HttpApiSchema.status(404)),
+        ChatSend409.pipe(HttpApiSchema.status(409)),
+        ChatSend429.pipe(HttpApiSchema.status(429)),
+        ChatSend500,
+        ChatSend501.pipe(HttpApiSchema.status(501)),
+        ChatSend503.pipe(HttpApiSchema.status(503)),
+        ChatSend504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "send")
+      .annotate(
+        OpenApi.Summary,
+        "SendMessage stores a message: text, or one of the conversation's quick\nreplies, never both.",
+      )
+      .annotate(
+        OpenApi.Description,
+        "Takes an idempotency key, client_message_id or an Idempotency-Key header,\nbecause the caller is a phone: a send retried after a lost response is one\nmessage, returned again.",
+      ),
+    HttpApiEndpoint.post("markRead", "/v1/conversations/:conversationId/read", {
+      params: ChatMarkReadPathParams,
+      payload: ChatMarkReadRequestJson,
+      success: ChatMarkRead200,
+      error: [
+        ChatMarkRead400.pipe(HttpApiSchema.status(400)),
+        ChatMarkRead401.pipe(HttpApiSchema.status(401)),
+        ChatMarkRead403.pipe(HttpApiSchema.status(403)),
+        ChatMarkRead404.pipe(HttpApiSchema.status(404)),
+        ChatMarkRead409.pipe(HttpApiSchema.status(409)),
+        ChatMarkRead429.pipe(HttpApiSchema.status(429)),
+        ChatMarkRead500,
+        ChatMarkRead501.pipe(HttpApiSchema.status(501)),
+        ChatMarkRead503.pipe(HttpApiSchema.status(503)),
+        ChatMarkRead504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "markRead")
+      .annotate(
+        OpenApi.Summary,
+        "MarkRead moves the caller's read marker forward to seq, and tells the\nothers. A marker never moves back, so a late request is harmless.",
+      ),
+    HttpApiEndpoint.post("typing", "/v1/conversations/:conversationId/typing", {
+      params: ChatTypingPathParams,
+      payload: ChatTypingRequestJson,
+      success: ChatTyping200,
+      error: [
+        ChatTyping400.pipe(HttpApiSchema.status(400)),
+        ChatTyping401.pipe(HttpApiSchema.status(401)),
+        ChatTyping403.pipe(HttpApiSchema.status(403)),
+        ChatTyping404.pipe(HttpApiSchema.status(404)),
+        ChatTyping409.pipe(HttpApiSchema.status(409)),
+        ChatTyping429.pipe(HttpApiSchema.status(429)),
+        ChatTyping500,
+        ChatTyping501.pipe(HttpApiSchema.status(501)),
+        ChatTyping503.pipe(HttpApiSchema.status(503)),
+        ChatTyping504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "typing")
+      .annotate(
+        OpenApi.Summary,
+        "Typing tells the others the caller is typing. Stored nowhere, and sent on\nat most every few seconds however often it is called.",
+      ),
+    HttpApiEndpoint.get("getForTrip", "/v1/trips/:tripId/conversation", {
+      params: ChatGetForTripPathParams,
+      success: ChatGetForTrip200,
+      error: [
+        ChatGetForTrip400.pipe(HttpApiSchema.status(400)),
+        ChatGetForTrip401.pipe(HttpApiSchema.status(401)),
+        ChatGetForTrip403.pipe(HttpApiSchema.status(403)),
+        ChatGetForTrip404.pipe(HttpApiSchema.status(404)),
+        ChatGetForTrip409.pipe(HttpApiSchema.status(409)),
+        ChatGetForTrip429.pipe(HttpApiSchema.status(429)),
+        ChatGetForTrip500,
+        ChatGetForTrip501.pipe(HttpApiSchema.status(501)),
+        ChatGetForTrip503.pipe(HttpApiSchema.status(503)),
+        ChatGetForTrip504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "getForTrip")
+      .annotate(
+        OpenApi.Summary,
+        "GetTripConversation is the rider's and driver's conversation about a trip.\nIt exists once a driver has accepted, and answers FailedPrecondition before\nthen.",
+      ),
+  )
+{}
+
+class DevicesGroup extends HttpApiGroup.make("devices")
+  .add(
+    HttpApiEndpoint.post("registerPushToken", "/v1/devices/push-token", {
+      payload: DevicesRegisterPushTokenRequestJson,
+      success: DevicesRegisterPushToken200,
+      error: [
+        DevicesRegisterPushToken400.pipe(HttpApiSchema.status(400)),
+        DevicesRegisterPushToken401.pipe(HttpApiSchema.status(401)),
+        DevicesRegisterPushToken403.pipe(HttpApiSchema.status(403)),
+        DevicesRegisterPushToken404.pipe(HttpApiSchema.status(404)),
+        DevicesRegisterPushToken409.pipe(HttpApiSchema.status(409)),
+        DevicesRegisterPushToken429.pipe(HttpApiSchema.status(429)),
+        DevicesRegisterPushToken500,
+        DevicesRegisterPushToken501.pipe(HttpApiSchema.status(501)),
+        DevicesRegisterPushToken503.pipe(HttpApiSchema.status(503)),
+        DevicesRegisterPushToken504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "registerPushToken")
+      .annotate(
+        OpenApi.Summary,
+        "RegisterPushToken lets this device be notified of messages the caller has\nnot read. A token signed in as someone else moves to the caller.",
+      ),
+    HttpApiEndpoint.post("unregisterPushToken", "/v1/devices/push-token/delete", {
+      payload: DevicesUnregisterPushTokenRequestJson,
+      success: DevicesUnregisterPushToken200,
+      error: [
+        DevicesUnregisterPushToken400.pipe(HttpApiSchema.status(400)),
+        DevicesUnregisterPushToken401.pipe(HttpApiSchema.status(401)),
+        DevicesUnregisterPushToken403.pipe(HttpApiSchema.status(403)),
+        DevicesUnregisterPushToken404.pipe(HttpApiSchema.status(404)),
+        DevicesUnregisterPushToken409.pipe(HttpApiSchema.status(409)),
+        DevicesUnregisterPushToken429.pipe(HttpApiSchema.status(429)),
+        DevicesUnregisterPushToken500,
+        DevicesUnregisterPushToken501.pipe(HttpApiSchema.status(501)),
+        DevicesUnregisterPushToken503.pipe(HttpApiSchema.status(503)),
+        DevicesUnregisterPushToken504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "unregisterPushToken")
+      .annotate(
+        OpenApi.Summary,
+        "UnregisterPushToken stops notifying this device, on sign-out. A POST\nrather than a DELETE because the gateway's CORS allows GET and POST only.",
+      ),
+  )
+{}
 
 class PaymentsGroup extends HttpApiGroup.make("payments")
   .add(
@@ -1727,6 +2851,76 @@ class SimulatorGroup extends HttpApiGroup.make("simulator")
   )
 {}
 
+class SupportGroup extends HttpApiGroup.make("support")
+  .add(
+    HttpApiEndpoint.post("create", "/v1/support/conversations", {
+      payload: SupportCreateRequestJson,
+      success: SupportCreate200,
+      error: [
+        SupportCreate400.pipe(HttpApiSchema.status(400)),
+        SupportCreate401.pipe(HttpApiSchema.status(401)),
+        SupportCreate403.pipe(HttpApiSchema.status(403)),
+        SupportCreate404.pipe(HttpApiSchema.status(404)),
+        SupportCreate409.pipe(HttpApiSchema.status(409)),
+        SupportCreate429.pipe(HttpApiSchema.status(429)),
+        SupportCreate500,
+        SupportCreate501.pipe(HttpApiSchema.status(501)),
+        SupportCreate503.pipe(HttpApiSchema.status(503)),
+        SupportCreate504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "create")
+      .annotate(
+        OpenApi.Summary,
+        "CreateSupportConversation opens a conversation with support, riders and\ndrivers only, with its first message.",
+      ),
+    HttpApiEndpoint.post("claim", "/v1/support/conversations/:conversationId/claim", {
+      params: SupportClaimPathParams,
+      payload: SupportClaimRequestJson,
+      success: SupportClaim200,
+      error: [
+        SupportClaim400.pipe(HttpApiSchema.status(400)),
+        SupportClaim401.pipe(HttpApiSchema.status(401)),
+        SupportClaim403.pipe(HttpApiSchema.status(403)),
+        SupportClaim404.pipe(HttpApiSchema.status(404)),
+        SupportClaim409.pipe(HttpApiSchema.status(409)),
+        SupportClaim429.pipe(HttpApiSchema.status(429)),
+        SupportClaim500,
+        SupportClaim501.pipe(HttpApiSchema.status(501)),
+        SupportClaim503.pipe(HttpApiSchema.status(503)),
+        SupportClaim504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "claim")
+      .annotate(
+        OpenApi.Summary,
+        "ClaimSupportConversation makes the caller, support only, the one handling\na conversation. Replying to an unclaimed conversation claims it too.",
+      ),
+    HttpApiEndpoint.post("resolve", "/v1/support/conversations/:conversationId/resolve", {
+      params: SupportResolvePathParams,
+      payload: SupportResolveRequestJson,
+      success: SupportResolve200,
+      error: [
+        SupportResolve400.pipe(HttpApiSchema.status(400)),
+        SupportResolve401.pipe(HttpApiSchema.status(401)),
+        SupportResolve403.pipe(HttpApiSchema.status(403)),
+        SupportResolve404.pipe(HttpApiSchema.status(404)),
+        SupportResolve409.pipe(HttpApiSchema.status(409)),
+        SupportResolve429.pipe(HttpApiSchema.status(429)),
+        SupportResolve500,
+        SupportResolve501.pipe(HttpApiSchema.status(501)),
+        SupportResolve503.pipe(HttpApiSchema.status(503)),
+        SupportResolve504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "resolve")
+      .annotate(
+        OpenApi.Summary,
+        "ResolveSupportConversation closes a support conversation, by support or by\nwhoever opened it. It stays readable; anything more is a new one.",
+      ),
+  )
+{}
+
 class TripsGroup extends HttpApiGroup.make("trips")
   .add(
     HttpApiEndpoint.get("list", "/v1/trips", {
@@ -1908,5 +3102,5 @@ class TripsGroup extends HttpApiGroup.make("trips")
 export class SurgeApi extends HttpApi.make("SurgeApi")
   .annotate(OpenApi.Title, "trip.proto")
   .annotate(OpenApi.Version, "version not set")
-  .add(PaymentsGroup, SimulatorGroup, TripsGroup)
+  .add(ChatGroup, DevicesGroup, PaymentsGroup, SimulatorGroup, SupportGroup, TripsGroup)
 {}

@@ -1,0 +1,476 @@
+syntax = "proto3";
+
+package surge.chat.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/chat;chat";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// ChatService is the conversations riders and drivers have: with each other
+// about a trip, and with support.
+//
+// Sending is here and delivery is not. A stored message is announced on the
+// WebSocket as a doorbell, ChatChanged, carrying only the conversation and its
+// newest seq; the client then reads what it has not seen with ListMessages.
+// This API is the source of truth, and the socket only says when to look —
+// which is also why a push that arrives late, twice or never loses nothing.
+//
+// The caller is never a field, as in trip.proto: it arrives as metadata from
+// the gateway's verified token.
+service ChatService {
+  // GetTripConversation is the rider's and driver's conversation about a trip.
+  // It exists once a driver has accepted, and answers FailedPrecondition before
+  // then.
+  rpc GetTripConversation(GetTripConversationRequest) returns (GetTripConversationResponse) {
+    option (google.api.http) = {get: "/v1/trips/{trip_id}/conversation"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "chat"
+      operation_id: "getForTrip"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ListConversations is the caller's conversations, newest first. For
+  // support, kind SUPPORT is the queue: every support conversation, whoever
+  // holds it.
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse) {
+    option (google.api.http) = {get: "/v1/conversations"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "chat"
+      operation_id: "list"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  rpc GetConversation(GetConversationRequest) returns (GetConversationResponse) {
+    option (google.api.http) = {get: "/v1/conversations/{conversation_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "chat"
+      operation_id: "get"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ListMessages is a page of a conversation, oldest first within the page.
+  //
+  // after_seq reads forward from a seq the client already holds — what it does
+  // on every ChatChanged. before_seq reads back through history. With neither,
+  // it is the newest page.
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse) {
+    option (google.api.http) = {get: "/v1/conversations/{conversation_id}/messages"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "chat"
+      operation_id: "listMessages"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // SendMessage stores a message: text, or one of the conversation's quick
+  // replies, never both.
+  //
+  // Takes an idempotency key, client_message_id or an Idempotency-Key header,
+  // because the caller is a phone: a send retried after a lost response is one
+  // message, returned again.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
+    option (google.api.http) = {
+      post: "/v1/conversations/{conversation_id}/messages"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "chat"
+      operation_id: "send"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // MarkRead moves the caller's read marker forward to seq, and tells the
+  // others. A marker never moves back, so a late request is harmless.
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse) {
+    option (google.api.http) = {
+      post: "/v1/conversations/{conversation_id}/read"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "chat"
+      operation_id: "markRead"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // Typing tells the others the caller is typing. Stored nowhere, and sent on
+  // at most every few seconds however often it is called.
+  rpc Typing(TypingRequest) returns (TypingResponse) {
+    option (google.api.http) = {
+      post: "/v1/conversations/{conversation_id}/typing"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "chat"
+      operation_id: "typing"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // CreateSupportConversation opens a conversation with support, riders and
+  // drivers only, with its first message.
+  rpc CreateSupportConversation(CreateSupportConversationRequest) returns (CreateSupportConversationResponse) {
+    option (google.api.http) = {
+      post: "/v1/support/conversations"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "support"
+      operation_id: "create"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ClaimSupportConversation makes the caller, support only, the one handling
+  // a conversation. Replying to an unclaimed conversation claims it too.
+  rpc ClaimSupportConversation(ClaimSupportConversationRequest) returns (ClaimSupportConversationResponse) {
+    option (google.api.http) = {
+      post: "/v1/support/conversations/{conversation_id}:claim"
+      body: "*"
+      additional_bindings: {
+        post: "/v1/support/conversations/{conversation_id}/claim"
+        body: "*"
+      }
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "support"
+      operation_id: "claim"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ResolveSupportConversation closes a support conversation, by support or by
+  // whoever opened it. It stays readable; anything more is a new one.
+  rpc ResolveSupportConversation(ResolveSupportConversationRequest) returns (ResolveSupportConversationResponse) {
+    option (google.api.http) = {
+      post: "/v1/support/conversations/{conversation_id}:resolve"
+      body: "*"
+      additional_bindings: {
+        post: "/v1/support/conversations/{conversation_id}/resolve"
+        body: "*"
+      }
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "support"
+      operation_id: "resolve"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // RegisterPushToken lets this device be notified of messages the caller has
+  // not read. A token signed in as someone else moves to the caller.
+  rpc RegisterPushToken(RegisterPushTokenRequest) returns (RegisterPushTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/devices/push-token"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "devices"
+      operation_id: "registerPushToken"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // UnregisterPushToken stops notifying this device, on sign-out. A POST
+  // rather than a DELETE because the gateway's CORS allows GET and POST only.
+  rpc UnregisterPushToken(UnregisterPushTokenRequest) returns (UnregisterPushTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/devices/push-token/delete"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "devices"
+      operation_id: "unregisterPushToken"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+}
+
+message Conversation {
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+  ConversationKind kind = 2;
+  // The trip a trip conversation belongs to, or the one a support conversation
+  // is about. Empty when a support conversation is about no trip.
+  string trip_id = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+  ConversationStatus status = 4;
+  string subject = 5;
+  // The rider of a trip conversation; whoever opened a support one.
+  string requester_id = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  // Who from support is handling it. Empty until claimed, and always for a
+  // trip conversation.
+  string assignee_id = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  // The seq of the newest message. Messages are numbered from 1 without gaps.
+  int32 last_seq = 8;
+  // Messages the caller has not read.
+  int32 unread = 9;
+  // When sending stops, as RFC 3339: the trip's end plus a grace period. Empty
+  // while the trip runs and for support, like every unset field this API sends.
+  string closes_at = 10;
+  repeated Participant participants = 11;
+  // What the caller can send with one tap here. Empty once it is closed.
+  repeated QuickReply quick_replies = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+enum ConversationKind {
+  CONVERSATION_KIND_UNSPECIFIED = 0;
+  // The rider and the driver of one trip.
+  CONVERSATION_KIND_TRIP = 1;
+  // A rider or driver, and support.
+  CONVERSATION_KIND_SUPPORT = 2;
+}
+
+enum ConversationStatus {
+  CONVERSATION_STATUS_UNSPECIFIED = 0;
+  CONVERSATION_STATUS_OPEN = 1;
+  // A trip conversation past its trip's grace period. Readable, not writable.
+  CONVERSATION_STATUS_CLOSED = 2;
+  // A support conversation somebody resolved. Readable, not writable.
+  CONVERSATION_STATUS_RESOLVED = 3;
+}
+
+message Participant {
+  string user_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  ParticipantRole role = 2;
+  // The newest seq they have read, which is what "read" under a message is.
+  int32 last_read_seq = 3;
+}
+
+enum ParticipantRole {
+  PARTICIPANT_ROLE_UNSPECIFIED = 0;
+  PARTICIPANT_ROLE_RIDER = 1;
+  PARTICIPANT_ROLE_DRIVER = 2;
+  PARTICIPANT_ROLE_SUPPORT = 3;
+}
+
+message QuickReply {
+  // Stable, so a client can show the reply in its own language.
+  string code = 1;
+  // The English text, which is what the message body will be.
+  string text = 2;
+}
+
+message Message {
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "message-id"}];
+  string conversation_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+  int32 seq = 3;
+  string sender_id = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  ParticipantRole sender_role = 5;
+  // The catalogue code when this was a quick reply, and empty for text.
+  string quick_reply = 6;
+  string body = 7;
+  // The key it was sent with, so a client can match the message it showed
+  // optimistically to the one stored.
+  string client_message_id = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message GetTripConversationRequest {
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+}
+
+message GetTripConversationResponse {
+  Conversation conversation = 1;
+}
+
+message ListConversationsRequest {
+  // Unspecified lists every kind.
+  ConversationKind kind = 1;
+  // Unspecified lists every status.
+  ConversationStatus status = 2;
+  // Clamped by the server.
+  int32 page_size = 3;
+  // Opaque cursor from a previous response.
+  string page_token = 4;
+}
+
+message ListConversationsResponse {
+  repeated Conversation conversations = 1;
+  // Empty when there are no more.
+  string next_page_token = 2;
+}
+
+message GetConversationRequest {
+  string conversation_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+}
+
+message GetConversationResponse {
+  Conversation conversation = 1;
+}
+
+message ListMessagesRequest {
+  string conversation_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+  // Messages after this seq, oldest first. Zero for none.
+  int32 after_seq = 2;
+  // Messages before this seq, the newest page of them. Zero for none.
+  int32 before_seq = 3;
+  // Clamped by the server.
+  int32 page_size = 4;
+}
+
+message ListMessagesResponse {
+  // Oldest first.
+  repeated Message messages = 1;
+  // More exist in the direction asked for.
+  bool has_more = 2;
+}
+
+message SendMessageRequest {
+  string conversation_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+  // Text, trimmed, up to 1000 characters. Empty when sending a quick reply.
+  string body = 2;
+  // A code from the conversation's quick_replies. Empty when sending text.
+  string quick_reply = 3;
+  // Generated client-side. The gateway also accepts an Idempotency-Key header.
+  string client_message_id = 4;
+}
+
+message SendMessageResponse {
+  Message message = 1;
+}
+
+message MarkReadRequest {
+  string conversation_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+  int32 seq = 2;
+}
+
+message MarkReadResponse {
+  // Where the marker is now: seq, or further if it already was.
+  int32 last_read_seq = 1;
+}
+
+message TypingRequest {
+  string conversation_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+}
+
+message TypingResponse {}
+
+message CreateSupportConversationRequest {
+  // The trip it is about, which must be one the caller was on. Empty for none.
+  string trip_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "trip-id"}];
+  // Up to 120 characters, and may be empty.
+  string subject = 2;
+  // The first message.
+  string body = 3;
+  // Generated client-side. The gateway also accepts an Idempotency-Key header.
+  string idempotency_key = 4;
+}
+
+message CreateSupportConversationResponse {
+  Conversation conversation = 1;
+}
+
+message ClaimSupportConversationRequest {
+  string conversation_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+}
+
+message ClaimSupportConversationResponse {
+  Conversation conversation = 1;
+}
+
+message ResolveSupportConversationRequest {
+  string conversation_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "conversation-id"}];
+}
+
+message ResolveSupportConversationResponse {
+  Conversation conversation = 1;
+}
+
+message RegisterPushTokenRequest {
+  // An Expo push token: ExponentPushToken[…].
+  string token = 1;
+  PushPlatform platform = 2;
+}
+
+message RegisterPushTokenResponse {}
+
+enum PushPlatform {
+  PUSH_PLATFORM_UNSPECIFIED = 0;
+  PUSH_PLATFORM_IOS = 1;
+  PUSH_PLATFORM_ANDROID = 2;
+}
+
+message UnregisterPushTokenRequest {
+  string token = 1;
+}
+
+message UnregisterPushTokenResponse {}

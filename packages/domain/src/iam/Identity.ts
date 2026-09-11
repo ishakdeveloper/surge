@@ -1,13 +1,12 @@
 import { Schema } from "effect";
+import { UserId } from "../api/Primitives.js";
 
 /**
- * Branded ids. Construct with `UserId.make(value)`, which validates — never
- * cast with `as`.
+ * Declared beside the API's other branded ids, because chat's responses carry
+ * them too. Construct with `UserId.make(value)`, which validates — never cast
+ * with `as`.
  */
-export const UserId = Schema.String.pipe(Schema.brand("UserId")).annotate({
-  identifier: "UserId",
-});
-export type UserId = typeof UserId.Type;
+export { UserId };
 
 /**
  * What a person is to this system. One market, no tenancy, so a role is a

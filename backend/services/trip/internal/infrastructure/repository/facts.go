@@ -12,6 +12,7 @@ import (
 // factTags is the one place a domain fact becomes a wire tag.
 var factTags = map[domain.FactKind]string{
 	domain.FactRequested: wire.FactTripRequested,
+	domain.FactAccepted:  wire.FactTripAccepted,
 	domain.FactCompleted: wire.FactTripCompleted,
 	domain.FactCancelled: wire.FactTripCancelled,
 	domain.FactUnmatched: wire.FactTripUnmatched,

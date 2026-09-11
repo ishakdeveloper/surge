@@ -27,6 +27,7 @@ images:
   - { name: surge/ingest, newTag: dev }
   - { name: surge/matcher, newTag: dev }
   - { name: surge/trip, newTag: dev }
+  - { name: surge/chat, newTag: dev }
   - { name: surge/simulator, newTag: dev }
   - { name: surge/migrate, newTag: dev }
 
@@ -48,6 +49,8 @@ configMapGenerator:
       - GATEWAY_ORIGINS=http://localhost:5273
       - SIM_DRIVERS=1000
       - SIM_REQUESTS_PER_SECOND=5
+      # A laptop notifies nobody's phone.
+      - CHAT_PUSH_PROVIDER=fake
 
 patches:
   # One replica of everything. Three matchers on a laptop is three copies of the
@@ -64,6 +67,11 @@ patches:
         path: /spec/replicas
         value: 1
   - target: { kind: Deployment, name: trip }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: { kind: Deployment, name: chat }
     patch: |-
       - op: replace
         path: /spec/replicas

@@ -67,6 +67,24 @@ func main() {
 			TripID: "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
 			AtMs:   1757512345000,
 		}},
+		"server_chat_changed.json": wire.ServerMessage{Tag: wire.TagChatChanged, Chat: &wire.ChatChange{
+			ConversationID: "5b1d7e2a-3c4f-4e8a-9b6d-2f7c1a0e8d43",
+			Kind:           "trip",
+			TripID:         "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+			LastSeq:        7,
+			AtMs:           1757512350000,
+		}},
+		"server_chat_read.json": wire.ServerMessage{Tag: wire.TagChatRead, ChatRead: &wire.ChatRead{
+			ConversationID: "5b1d7e2a-3c4f-4e8a-9b6d-2f7c1a0e8d43",
+			UserID:         "drv-000123",
+			Seq:            7,
+			AtMs:           1757512352000,
+		}},
+		"server_chat_typing.json": wire.ServerMessage{Tag: wire.TagChatTyping, ChatTyping: &wire.ChatTyping{
+			ConversationID: "5b1d7e2a-3c4f-4e8a-9b6d-2f7c1a0e8d43",
+			UserID:         "rider-000456",
+			AtMs:           1757512351000,
+		}},
 		"server_offer.json": wire.ServerMessage{Tag: wire.TagOffer, Offer: &wire.Offer{
 			Tag:            wire.TagOffer,
 			TripID:         "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
