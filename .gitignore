@@ -19,6 +19,13 @@ result-*
 .zed/
 .DS_Store
 
+# Expo: the dev server's cache, its generated types, and `expo prebuild`
+# output — the native projects are generated from app.json, never edited.
+.expo/
+expo-env.d.ts
+apps/mobile/ios/
+apps/mobile/android/
+
 # Go
 backend/bin/
 

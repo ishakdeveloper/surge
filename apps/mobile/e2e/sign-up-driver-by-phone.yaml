@@ -1,0 +1,44 @@
+# A new driver signs up with a phone code, stands at Centraal and goes online.
+#
+# The status the matcher is told is shown on the Drive tab as it is sent, so
+# `idle` appearing is the ping loop running with the driver available. Takes
+# the same -e overrides as the rider flow.
+appId: ${APP_ID || 'host.exp.Exponent'}
+---
+- runFlow: common/start-signed-out.yaml
+- tapOn:
+    id: "method-phone"
+- evalScript: ${output.phone = '+3161' + String(Date.now()).slice(-7)}
+- tapOn:
+    id: "field-phone"
+- inputText: ${output.phone}
+- tapOn:
+    id: "role-driver"
+- tapOn: "Text me a code"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 15000
+- runScript:
+    file: scripts/latest-code.js
+    env:
+      TO: ${output.phone}
+      AUTH_URL: ${AUTH_URL || 'http://localhost:3200'}
+- tapOn:
+    id: "field-code"
+- inputText: ${output.code}
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Shift"
+    timeout: 30000
+# The spots and the button sit below the map on a small phone, and a tap does
+# not scroll; the status is back up at the top of the card.
+- scrollUntilVisible:
+    element: "Centraal"
+- tapOn: "Centraal"
+- scrollUntilVisible:
+    element: "Go online"
+- tapOn: "Go online"
+- scrollUntilVisible:
+    element: "idle"
+    direction: UP
+    timeout: 10000

@@ -23,22 +23,53 @@ const origin = process.env["WEB_URL"] ?? "http://localhost:5273";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const target = path.join(root, "packages", "domain", "test", "api", "testdata", "responses.json");
 
+// Signed in the way a person is: a code to the address, read back from the
+// auth service's dev outbox rather than an inbox. An open outbox refuses a
+// question with no address; a closed one has no such route.
+if ((await fetch(`${auth}/dev/outbox`)).status !== 400) {
+  throw new Error(
+    "The auth service has no dev outbox to read a sign-in code from. Start it with AUTH_DEV_OUTBOX=true.",
+  );
+}
+
+const post = async (route, body) => {
+  const response = await fetch(`${auth}${route}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`${route} failed with ${response.status}: ${await response.text()}`);
+  }
+  return response;
+};
+
 const email = `fixture-${Date.now()}@surge.test`;
-const signup = await fetch(`${auth}/api/auth/sign-up/email`, {
-  method: "POST",
-  headers: { "content-type": "application/json", origin },
-  body: JSON.stringify({
-    email,
-    password: "correct-horse-battery",
-    name: "Fixture",
-    role: "rider",
-  }),
+const sentSince = Date.now();
+await post("/api/auth/email-otp/send-verification-otp", { email, type: "sign-in" });
+
+// Polled, because better-auth may answer before its sender has run.
+const codeSent = async () => {
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const response = await fetch(`${auth}/dev/outbox?to=${encodeURIComponent(email)}`);
+    if (response.ok) {
+      const sent = await response.json();
+      if (sent.code !== null && sent.atMs >= sentSince) return sent.code;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`no code reached the outbox for ${email}`);
+};
+
+const signedIn = await post("/api/auth/sign-in/email-otp", {
+  email,
+  otp: await codeSent(),
+  role: "rider",
 });
-if (!signup.ok) throw new Error(`sign-up failed with ${signup.status}: ${await signup.text()}`);
 
 // Only the name=value part; a full Set-Cookie carries attributes a Cookie
 // header must not.
-const cookie = signup.headers.getSetCookie().map((entry) => entry.split(";")[0]).join("; ");
+const cookie = signedIn.headers.getSetCookie().map((entry) => entry.split(";")[0]).join("; ");
 const { token } = await (await fetch(`${auth}/api/auth/token`, { headers: { cookie, origin } }))
   .json();
 

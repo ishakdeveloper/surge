@@ -1,7 +1,7 @@
-import { cardAtom } from "@/atom/payment-atoms.js";
 import { QueryError } from "@/components/app/query-error.js";
-import { formatExpiry } from "@/lib/format.js";
 import { useAtomValue } from "@effect/atom-react";
+import { cardAtom } from "@surge/common/atom/payment-atoms";
+import { formatExpiry } from "@surge/common/lib/format";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 /** The rider's saved card, as one line. Read where it is shown, not handed down. */

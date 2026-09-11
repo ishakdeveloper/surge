@@ -1,7 +1,7 @@
-import { paymentPushesAtom } from "@/atom/payment-atoms.js";
 import { sessionAtom } from "@/atom/session-atoms.js";
 import { EarningsView } from "@/routes/_protected/drive/-components/earnings-view.js";
 import { useAtomMount, useAtomValue } from "@effect/atom-react";
+import { paymentPushesAtom } from "@surge/common/atom/payment-atoms";
 import { createFileRoute } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 

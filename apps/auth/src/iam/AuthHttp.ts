@@ -6,17 +6,19 @@ import { Auth } from "./Auth.js";
 /**
  * Endpoints where throttling *is* the security boundary.
  *
- * A six-digit OTP carries about twenty bits, so it is only as strong as the
- * number of attempts allowed. The same limit protects credential stuffing on
- * sign-in and mail-bombing via magic link.
+ * Every way in is a six-digit code, about twenty bits, so it is only as strong
+ * as the number of attempts allowed — better-auth burns a code after three
+ * wrong answers, and this bounds how many codes a caller can ask for. The same
+ * limit is what stops a script turning the send endpoints into free email and,
+ * worse, paid SMS to numbers it chooses.
+ *
+ * `/sign-in` covers `/sign-in/email-otp`; `/phone-number` covers both
+ * `send-otp` and `verify`.
  */
 const CREDENTIAL_PATHS = [
   "/api/auth/sign-in",
-  "/api/auth/sign-up",
-  "/api/auth/magic-link",
   "/api/auth/email-otp",
-  "/api/auth/forget-password",
-  "/api/auth/reset-password",
+  "/api/auth/phone-number",
 ];
 
 const isCredentialPath = (url: string) => CREDENTIAL_PATHS.some((path) => url.startsWith(path));

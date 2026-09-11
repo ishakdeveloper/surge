@@ -13,7 +13,7 @@
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint",
     "dev": "pnpm --parallel --filter @surge/auth --filter @surge/web dev",
-    "build": "pnpm --filter @surge/domain --filter @surge/client --filter @surge/database --filter @surge/auth --filter @surge/web build",
+    "build": "pnpm --filter @surge/domain --filter @surge/client --filter @surge/common --filter @surge/database --filter @surge/auth --filter @surge/web build",
     "check": "tsc -b tsconfig.json && tsc -p tsconfig.tools.json",
     "check:watch": "tsc -b tsconfig.json --watch",
     "format": "dprint fmt",
@@ -46,6 +46,14 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "dprint"
-    ]
+    ],
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@effect/atom-react>react": "19.2.3"
+      }
+    },
+    "patchedDependencies": {
+      "@lucas-barake/effect-form@0.25.0-beta.6": "patches/@lucas-barake__effect-form@0.25.0-beta.6.patch"
+    }
   }
 }

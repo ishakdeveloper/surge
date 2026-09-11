@@ -13,8 +13,10 @@ import * as React from "react";
  */
 export const textField = (options: {
   readonly label: string;
-  readonly type?: "text" | "email" | "password";
+  readonly type?: "text" | "email" | "tel";
   readonly autoComplete?: string;
+  /** Which keyboard a phone shows — `numeric` for a code. */
+  readonly inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 }) =>
 (props: {
   readonly field: {
@@ -37,6 +39,7 @@ export const textField = (options: {
         id={id}
         type={options.type ?? "text"}
         autoComplete={options.autoComplete}
+        inputMode={options.inputMode}
         value={props.field.value}
         onChange={(event) => props.field.onChange(event.target.value)}
         onBlur={props.field.onBlur}

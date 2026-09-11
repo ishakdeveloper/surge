@@ -12,13 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
-import { Route as AuthMagicLinkRouteImport } from './routes/auth/magic-link'
-import { Route as AuthOtpRouteImport } from './routes/auth/otp'
-import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
-import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
-import { Route as AuthVerifiedRouteImport } from './routes/auth/verified'
 import { Route as ProtectedConsoleIndexRouteImport } from './routes/_protected/console/index'
 import { Route as ProtectedDriveIndexRouteImport } from './routes/_protected/drive/index'
 import { Route as ProtectedDriveEarningsRouteImport } from './routes/_protected/drive/earnings'
@@ -41,39 +35,9 @@ const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedRoute,
 } as any)
-const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthMagicLinkRoute = AuthMagicLinkRouteImport.update({
-  id: '/magic-link',
-  path: '/magic-link',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthOtpRoute = AuthOtpRouteImport.update({
-  id: '/otp',
-  path: '/otp',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthSignUpRoute = AuthSignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthVerifiedRoute = AuthVerifiedRouteImport.update({
-  id: '/verified',
-  path: '/verified',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const ProtectedConsoleIndexRoute = ProtectedConsoleIndexRouteImport.update({
@@ -117,13 +81,7 @@ const ProtectedDrivePayoutsReturnRoute =
 export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteRouteWithChildren
   '/': typeof ProtectedIndexRoute
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
-  '/auth/magic-link': typeof AuthMagicLinkRoute
-  '/auth/otp': typeof AuthOtpRoute
-  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
-  '/auth/sign-up': typeof AuthSignUpRoute
-  '/auth/verified': typeof AuthVerifiedRoute
   '/drive/earnings': typeof ProtectedDriveEarningsRoute
   '/ride/payment': typeof ProtectedRidePaymentRoute
   '/console/': typeof ProtectedConsoleIndexRoute
@@ -134,13 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
-  '/auth/magic-link': typeof AuthMagicLinkRoute
-  '/auth/otp': typeof AuthOtpRoute
-  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
-  '/auth/sign-up': typeof AuthSignUpRoute
-  '/auth/verified': typeof AuthVerifiedRoute
   '/': typeof ProtectedIndexRoute
   '/drive/earnings': typeof ProtectedDriveEarningsRoute
   '/ride/payment': typeof ProtectedRidePaymentRoute
@@ -154,13 +106,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/auth': typeof AuthRouteRouteWithChildren
   '/_protected': typeof ProtectedRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
-  '/auth/magic-link': typeof AuthMagicLinkRoute
-  '/auth/otp': typeof AuthOtpRoute
-  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
-  '/auth/sign-up': typeof AuthSignUpRoute
-  '/auth/verified': typeof AuthVerifiedRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/_protected/drive/earnings': typeof ProtectedDriveEarningsRoute
   '/_protected/ride/payment': typeof ProtectedRidePaymentRoute
@@ -175,13 +121,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/auth'
     | '/'
-    | '/auth/forgot-password'
-    | '/auth/magic-link'
-    | '/auth/otp'
-    | '/auth/reset-password'
     | '/auth/sign-in'
-    | '/auth/sign-up'
-    | '/auth/verified'
     | '/drive/earnings'
     | '/ride/payment'
     | '/console/'
@@ -192,13 +132,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
-    | '/auth/forgot-password'
-    | '/auth/magic-link'
-    | '/auth/otp'
-    | '/auth/reset-password'
     | '/auth/sign-in'
-    | '/auth/sign-up'
-    | '/auth/verified'
     | '/'
     | '/drive/earnings'
     | '/ride/payment'
@@ -211,13 +145,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/auth'
     | '/_protected'
-    | '/auth/forgot-password'
-    | '/auth/magic-link'
-    | '/auth/otp'
-    | '/auth/reset-password'
     | '/auth/sign-in'
-    | '/auth/sign-up'
-    | '/auth/verified'
     | '/_protected/'
     | '/_protected/drive/earnings'
     | '/_protected/ride/payment'
@@ -256,53 +184,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRoute
     }
-    '/auth/forgot-password': {
-      id: '/auth/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/auth/forgot-password'
-      preLoaderRoute: typeof AuthForgotPasswordRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/auth/magic-link': {
-      id: '/auth/magic-link'
-      path: '/magic-link'
-      fullPath: '/auth/magic-link'
-      preLoaderRoute: typeof AuthMagicLinkRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/auth/otp': {
-      id: '/auth/otp'
-      path: '/otp'
-      fullPath: '/auth/otp'
-      preLoaderRoute: typeof AuthOtpRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/auth/reset-password': {
-      id: '/auth/reset-password'
-      path: '/reset-password'
-      fullPath: '/auth/reset-password'
-      preLoaderRoute: typeof AuthResetPasswordRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
     '/auth/sign-in': {
       id: '/auth/sign-in'
       path: '/sign-in'
       fullPath: '/auth/sign-in'
       preLoaderRoute: typeof AuthSignInRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/auth/sign-up': {
-      id: '/auth/sign-up'
-      path: '/sign-up'
-      fullPath: '/auth/sign-up'
-      preLoaderRoute: typeof AuthSignUpRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/auth/verified': {
-      id: '/auth/verified'
-      path: '/verified'
-      fullPath: '/auth/verified'
-      preLoaderRoute: typeof AuthVerifiedRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_protected/console/': {
@@ -358,23 +244,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteRouteChildren {
-  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
-  AuthMagicLinkRoute: typeof AuthMagicLinkRoute
-  AuthOtpRoute: typeof AuthOtpRoute
-  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
-  AuthSignUpRoute: typeof AuthSignUpRoute
-  AuthVerifiedRoute: typeof AuthVerifiedRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
-  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
-  AuthMagicLinkRoute: AuthMagicLinkRoute,
-  AuthOtpRoute: AuthOtpRoute,
-  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
-  AuthSignUpRoute: AuthSignUpRoute,
-  AuthVerifiedRoute: AuthVerifiedRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(

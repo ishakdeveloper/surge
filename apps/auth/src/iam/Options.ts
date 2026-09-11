@@ -1,16 +1,21 @@
+import { expo } from "@better-auth/expo";
+import { phoneAccountEmail } from "@surge/domain/iam/Contact";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
-import { emailOTP, magicLink } from "better-auth/plugins";
+import { emailOTP, phoneNumber } from "better-auth/plugins";
 import { jwt } from "better-auth/plugins/jwt";
 import type * as Pg from "pg";
 import type { EmailMessage } from "../email/Mailer.js";
 import * as Templates from "../email/Templates.js";
+import type { SmsMessage } from "../sms/Sms.js";
+import { changesRole, clampRole, DEFAULT_ROLE } from "./Roles.js";
 
 /**
  * Everything better-auth needs, resolved before it is constructed.
  *
  * This module imports nothing from `effect` on purpose: the Effect boundary
- * lives in `Auth.ts`, and `sendEmail` arrives already bound to a runtime.
+ * lives in `Auth.ts`, and the senders arrive already bound to a runtime.
  */
 export interface MakeAuthOptions {
   readonly pool: Pg.Pool;
@@ -25,12 +30,13 @@ export interface MakeAuthOptions {
    */
   readonly cookieDomain: string | undefined;
   readonly sendEmail: (message: EmailMessage) => Promise<void>;
+  readonly sendSms: (message: SmsMessage) => Promise<void>;
+  /**
+   * The web app's host, for the `@host #code` line that lets iOS and Android
+   * offer an SMS code for autofill.
+   */
+  readonly smsDomain: string;
 }
-
-/** The roles a caller may assign themselves. `ops` is granted, never claimed. */
-const SELF_ASSIGNABLE_ROLES = new Set(["rider", "driver"]);
-
-const DEFAULT_ROLE = "rider";
 
 /** What a verified session carries. Narrower than better-auth's own shape. */
 export interface AuthSession {
@@ -58,6 +64,18 @@ export interface AuthInstance {
   readonly getSession: (headers: Record<string, string>) => Promise<AuthSession | null>;
 }
 
+/**
+ * How long a code lives, and how many guesses it gets.
+ *
+ * Six digits is about twenty bits, so the attempt limit is what makes a code
+ * safe, together with the rate limit in `AuthHttp.ts`. Three wrong answers
+ * burn the code; five minutes is long enough to switch to a mail app and back.
+ */
+const CODE = { otpLength: 6, expiresIn: 300, allowedAttempts: 3 } as const;
+
+/** E.164: a plus, a country code, and at most fifteen digits in all. */
+const E164 = /^\+[1-9]\d{6,14}$/;
+
 /** Single source of truth for the runtime instance and for schema generation. */
 const authOptions = (options: MakeAuthOptions) => ({
   // The shared pool, so the process keeps one connection pool rather than two.
@@ -75,54 +93,78 @@ const authOptions = (options: MakeAuthOptions) => ({
   user: {
     additionalFields: {
       /**
-       * Which surface this account signed up for — `rider`, `driver` or `ops`.
+       * Which surface this account is for — `rider`, `driver` or `ops`.
        *
-       * Accepted as sign-up input because a driver has to be able to register
-       * as one, and clamped below: an account cannot make itself `ops` by
-       * asking. Promotion is an operator action against the database.
+       * Accepted as input because a driver has to be able to sign up as one,
+       * and clamped at both doors in `databaseHooks` below — see `Roles.ts`.
        */
       role: { type: "string" as const, required: false, input: true, defaultValue: DEFAULT_ROLE },
     },
   },
 
-  emailAndPassword: {
-    enabled: true,
-    sendResetPassword: async ({ user, url }: { user: { email: string; }; url: string; }) => {
-      await options.sendEmail({ to: user.email, ...Templates.resetPassword(url) });
-    },
-  },
-
-  emailVerification: {
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }: { user: { email: string; }; url: string; }) => {
-      await options.sendEmail({ to: user.email, ...Templates.verifyEmail(url) });
-    },
-  },
+  /**
+   * No passwords. Every account signs in with a one-time code sent to an email
+   * address or a phone number, and an account is made the first time a code is
+   * verified — so there is no separate sign-up, no reset, and no address to
+   * confirm afterwards: entering the code is the confirmation.
+   */
+  emailAndPassword: { enabled: false },
 
   socialProviders: options.google === undefined ? {} : { google: options.google },
+
+  hooks: {
+    /**
+     * The front door for role changes: `/update-user` parses every
+     * `input: true` field, and `role` is one, so a signed-in rider could
+     * otherwise ask to be `ops`. Refused with a 400 before better-auth parses
+     * anything; the database hook below is the backstop for any other path to
+     * the same write.
+     */
+    before: createAuthMiddleware(async (ctx) => {
+      const body: unknown = ctx.body;
+      if (
+        ctx.path === "/update-user" && typeof body === "object" && body !== null
+        && changesRole(body as Record<string, unknown>)
+      ) {
+        throw new APIError("BAD_REQUEST", {
+          message: "A role is chosen once, when the account is made.",
+        });
+      }
+    }),
+  },
 
   databaseHooks: {
     user: {
       create: {
         /**
-         * The clamp. `role` is client-supplied input, so anything outside the
-         * self-assignable set — `ops` above all — becomes the default before
-         * the row is written, rather than being trusted and audited later.
+         * The clamp at creation. `role` is client-supplied input, so anything
+         * outside the self-assignable set — `ops` above all — becomes the
+         * default before the row is written.
          */
-        before: async (user: Record<string, unknown>) => {
-          const requested = user["role"];
-          const role = typeof requested === "string" && SELF_ASSIGNABLE_ROLES.has(requested)
-            ? requested
-            : DEFAULT_ROLE;
-
-          return { data: { ...user, role } };
-        },
+        before: async (user: Record<string, unknown>) => ({
+          data: { ...user, role: clampRole(user["role"]) },
+        }),
+      },
+      update: {
+        /**
+         * And at every write: an update that touches the role is cancelled.
+         * Returning the change without `role` would not do — better-auth merges
+         * a hook's result into the original, so `false` is the only answer that
+         * holds. A role is chosen once, at creation, and changed only by an
+         * operator against the database.
+         */
+        before: async (user: Record<string, unknown>) => (changesRole(user) ? false : undefined),
       },
     },
   },
 
   plugins: [
+    /**
+     * The native app. A phone has no web origin, so better-auth's Expo client
+     * sends its scheme as `expo-origin` and this promotes it to `Origin` for the
+     * CSRF check, which then consults `trustedOrigins` like any other.
+     */
+    expo(),
     /**
      * The bridge to Go.
      *
@@ -138,7 +180,7 @@ const authOptions = (options: MakeAuthOptions) => ({
       jwt: {
         issuer: options.baseURL,
         audience: "surge",
-        // Short, because nothing revokes a JWT. The browser re-fetches from
+        // Short, because nothing revokes a JWT. The clients re-fetch from
         // /api/auth/token, which does consult the session and so does revoke.
         expirationTime: "15m",
         definePayload: ({ user }) => ({
@@ -149,14 +191,30 @@ const authOptions = (options: MakeAuthOptions) => ({
         }),
       },
     }),
-    magicLink({
-      sendMagicLink: async ({ email, url }) => {
-        await options.sendEmail({ to: email, ...Templates.magicLink(url) });
-      },
-    }),
+    /**
+     * Email codes. `sign-in` verifies an existing account or makes a new one,
+     * taking `role` from the same request.
+     */
     emailOTP({
+      ...CODE,
       sendVerificationOTP: async ({ email, otp }) => {
         await options.sendEmail({ to: email, ...Templates.emailOtp(otp) });
+      },
+    }),
+    /**
+     * Phone codes, the same way: verifying a number nobody has used makes the
+     * account, with `role` from the request and a placeholder email from
+     * `@surge/domain/iam/Contact`, because better-auth's user needs one.
+     */
+    phoneNumber({
+      ...CODE,
+      phoneNumberValidator: (candidate) => E164.test(candidate),
+      sendOTP: async ({ phoneNumber: to, code }) => {
+        await options.sendSms({ to, text: Templates.smsOtp(code, options.smsDomain) });
+      },
+      signUpOnVerification: {
+        getTempEmail: phoneAccountEmail,
+        getTempName: (number) => number,
       },
     }),
   ],
@@ -189,8 +247,9 @@ export const makeAuth = (options: MakeAuthOptions): AuthInstance => {
 };
 
 /**
- * Emits the DDL better-auth needs for this exact plugin set, so the committed
- * migration is generated rather than guessed.
+ * Emits the DDL better-auth needs for this exact plugin set against the
+ * database the pool points at, so a committed migration is generated rather
+ * than guessed.
  */
 export const compileAuthMigrations = async (options: MakeAuthOptions): Promise<string> => {
   const { compileMigrations } = await getMigrations(authOptions(options));

@@ -7,6 +7,7 @@ import { Context, Effect, Layer, Option, Stream } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { Socket } from "effect/unstable/socket";
 import { execFileSync } from "node:child_process";
+import { type AuthServer, outboxOpen, signInWithCode } from "./support/sign-in-with-code.js";
 
 /**
  * The console, end to end: the matchers' frames → `fleet.frames` → the
@@ -25,7 +26,10 @@ import { execFileSync } from "node:child_process";
  */
 const authBase = process.env["AUTH_BASE_URL"] ?? "http://localhost:3200";
 const gateway = process.env["SURGE_API_URL"] ?? "http://localhost:8100";
-const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5273";
+const auth: AuthServer = {
+  base: authBase,
+  origin: process.env["WEB_URL"] ?? "http://localhost:5273",
+};
 
 const reachable = async (url: string): Promise<boolean> => {
   try {
@@ -35,32 +39,13 @@ const reachable = async (url: string): Promise<boolean> => {
   }
 };
 
-const online = await reachable(`${gateway}/health`) && await reachable(`${authBase}/health`);
-
-const PASSWORD = "correct-horse-battery";
-
-const cookieFrom = (response: Response) =>
-  response.headers.getSetCookie().map((entry) => entry.split(";")[0]).join("; ");
-
-const tokenFor = async (cookie: string): Promise<string> => {
-  const body = (await (await fetch(`${authBase}/api/auth/token`, {
-    headers: { cookie, origin: webOrigin },
-  })).json()) as { token?: string; };
-  if (typeof body.token !== "string") throw new Error("no token");
-  return body.token;
-};
+const online = await reachable(`${gateway}/health`)
+  && await reachable(`${authBase}/health`)
+  && await outboxOpen(auth);
 
 const signUp = async (label: string): Promise<{ email: string; token: string; }> => {
   const email = `console-${label}-${Date.now()}@surge.test`;
-  const response = await fetch(`${authBase}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: webOrigin },
-    body: JSON.stringify({ email, password: PASSWORD, name: `Console ${label}`, role: "rider" }),
-  });
-  if (!response.ok) {
-    throw new Error(`sign-up failed with ${response.status}: ${await response.text()}`);
-  }
-  return { email, token: await tokenFor(cookieFrom(response)) };
+  return { email, token: await signInWithCode(auth, email, "rider") };
 };
 
 /**
@@ -81,13 +66,7 @@ const signUpOps = async (): Promise<string> => {
     "-c",
     `update "user" set role = 'ops' where email = '${email}'`,
   ]);
-  const response = await fetch(`${authBase}/api/auth/sign-in/email`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: webOrigin },
-    body: JSON.stringify({ email, password: PASSWORD }),
-  });
-  if (!response.ok) throw new Error(`sign-in failed with ${response.status}`);
-  return tokenFor(cookieFrom(response));
+  return signInWithCode(auth, email);
 };
 
 const clientFor = (token: string) =>

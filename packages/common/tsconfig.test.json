@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["test", "src/**/*.test.ts"],
+  "references": [{ "path": "tsconfig.src.json" }],
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true,
+    "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@surge/client/*": ["../client/src/*.js"],
+      "@surge/domain/*": ["../domain/src/*.js"]
+    }
+  }
+}

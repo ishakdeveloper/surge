@@ -9,7 +9,7 @@ GO      := cd backend && go
 BIN     := backend/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures grant-ops bench-matching check-handover up up-core down logs migrate build test check fmt dev-auth dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures grant-ops bench-matching bench-payments check-handover up up-core down logs migrate build test check fmt dev-auth dev-mobile dev-mobile-build mobile-build-sim mobile-build-device e2e-mobile dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -158,7 +158,10 @@ build: ## Build every Go binary
 
 test: ## Run both test suites
 	$(GO) vet ./... && cd backend && go test ./...
-	TEST_DB_URL=postgresql://surge:surge@localhost:55433/surge pnpm test
+	TEST_DB_URL=postgresql://surge:surge@localhost:55433/surge \
+	VITE_STRIPE_PUBLISHABLE_KEY=$$(sed -n 's/^VITE_STRIPE_PUBLISHABLE_KEY=//p' .env 2>/dev/null) \
+	pnpm test
+	pnpm --filter @surge/mobile test:screens
 
 check: ## Typecheck, lint and format-check the TypeScript
 	pnpm check && pnpm lint && pnpm format:check
@@ -169,6 +172,39 @@ fmt: ## Format everything
 
 dev-auth: ## Run the auth service (the only Node in any request path)
 	pnpm --filter @surge/auth dev
+
+# The phone reaches the services at the address it loaded the bundle from, so
+# a device on the same network needs no configuration — see
+# apps/mobile/src/lib/service-urls.ts. Set AUTH_MOBILE_ORIGINS=surge://,exp://
+# for Expo Go to be allowed to sign in. Stripe's publishable key is the web
+# app's, passed through, so a key lives in one place.
+dev-mobile: ## Run the Expo app: i for the iOS simulator, a for Android, or scan with Expo Go
+	@set -a; . ./.env; set +a; \
+	EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=$${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY:-$$VITE_STRIPE_PUBLISHABLE_KEY} \
+	pnpm --filter @surge/mobile dev
+
+# Development builds: the app itself, with every native module, rather than
+# Expo Go — what background location needs. Built in Expo's cloud by EAS, so
+# there is no CocoaPods to install and no signing to set up by hand. Once:
+# `eas login`, then `cd apps/mobile && eas init`. Install a finished simulator
+# build with `eas build:run -p ios --latest`; a device build installs from the
+# link EAS prints, on an iPhone registered with `eas device:create`.
+mobile-build-sim: ## Build the development client for the iOS simulator, on EAS
+	cd apps/mobile && eas build --profile development --platform ios
+
+mobile-build-device: ## Build the development client for a registered iPhone, on EAS
+	cd apps/mobile && eas build --profile development-device --platform ios
+
+# The same build on this machine instead: needs Xcode and CocoaPods
+# (`brew install cocoapods`), which Expo drives — no Podfile to edit.
+dev-mobile-build: ## Build and run the development client on the iOS simulator, locally
+	pnpm --filter @surge/mobile ios:dev
+
+# End-to-end flows on the simulator. Needs the app running (`make dev-mobile`)
+# and the auth service started with AUTH_DEV_OUTBOX=true, so the flows can read
+# the codes they type. The driver flow also needs the gateway.
+e2e-mobile: ## Run the Maestro flows in apps/mobile/e2e
+	cd apps/mobile && ~/.maestro/bin/maestro test e2e
 
 dev-ingest: build ## Run location ingest
 	@set -a; . ./.env; set +a; \
@@ -221,6 +257,9 @@ control: ## Simulator-only control run, pings discarded
 
 bench-matching: build ## Greedy vs batched matching on the same demand: make bench-matching RPS=20 MINUTES=4
 	@DRIVERS=$(or $(DRIVERS),300) RPS=$(or $(RPS),20) MINUTES=$(or $(MINUTES),4) scripts/bench-matching.sh
+
+bench-payments: build ## What holding the fare adds between booking and dispatch: make bench-payments RPS=5 DURATION=2m
+	@RPS=$(or $(RPS),5) DURATION=$(or $(DURATION),2m) scripts/bench-payments.sh
 
 check-handover: build ## Does a matcher that stops cleanly commit everything it processed? Expect zero lag
 	@scripts/check-handover.sh

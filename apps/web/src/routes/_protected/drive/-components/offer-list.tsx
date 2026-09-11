@@ -1,8 +1,9 @@
-import { answerOffer } from "@/atom/realtime-atoms.js";
 import { ActionError } from "@/components/app/action-error.js";
 import { Button } from "@/components/ui/button.js";
-import { formatPoint } from "@/lib/format.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { answerOffer } from "@surge/common/atom/realtime-atoms";
+import { secondsLeft } from "@surge/common/drive/driver-status";
+import { formatPoint } from "@surge/common/lib/format";
 import type { Offer } from "@surge/domain/realtime/Wire";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -40,7 +41,7 @@ export const OfferList = (
             <div className="flex items-baseline justify-between">
               <p className="text-sm font-medium">Pickup</p>
               <p className="tabular-nums text-sm">
-                {Math.max(0, Math.ceil((offer.expiresAtMs - props.now) / 1000))}s
+                {secondsLeft(offer, props.now)}s
               </p>
             </div>
             <p className="font-mono text-xs">

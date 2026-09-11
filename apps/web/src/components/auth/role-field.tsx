@@ -1,5 +1,5 @@
-import type { SignUpRole } from "@/lib/auth/schemas.js";
 import { cn } from "@/lib/utils.js";
+import type { SignUpRole } from "@surge/common/iam/auth-schemas";
 import { Option } from "effect";
 import * as React from "react";
 

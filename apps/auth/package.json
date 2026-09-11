@@ -22,6 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@better-auth/expo": "catalog:",
     "@effect/opentelemetry": "catalog:",
     "@effect/platform-node": "catalog:",
     "@effect/sql-pg": "catalog:",

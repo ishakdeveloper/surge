@@ -4,6 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { FareId, TripId } from "@surge/domain/api/Primitives";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
+import { type AuthServer, outboxOpen, signInWithCode } from "./support/sign-in-with-code.js";
 
 /**
  * The typed client against the real Go gateway.
@@ -19,14 +20,10 @@ import { FetchHttpClient } from "effect/unstable/http";
 const gateway = process.env["SURGE_API_URL"] ?? "http://localhost:8100";
 const authBase = process.env["AUTH_BASE_URL"] ?? "http://localhost:3200";
 
-/**
- * better-auth refuses a request whose Origin it does not trust, and Node's
- * fetch sends a null one where curl sends none at all — so a call that works
- * from a shell fails here with MISSING_OR_NULL_ORIGIN. Sending the web app's
- * origin is not a workaround: it is what the browser this test stands in for
- * would send.
- */
-const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5273";
+const auth: AuthServer = {
+  base: authBase,
+  origin: process.env["WEB_URL"] ?? "http://localhost:5273",
+};
 
 const reachable = async (url: string): Promise<boolean> => {
   try {
@@ -37,43 +34,13 @@ const reachable = async (url: string): Promise<boolean> => {
   }
 };
 
-const online = await reachable(`${gateway}/health`) && await reachable(`${authBase}/health`);
+const online = await reachable(`${gateway}/health`)
+  && await reachable(`${authBase}/health`)
+  && await outboxOpen(auth);
 
 /** A real rider, because the API has no other kind of caller. */
-const signUp = async (): Promise<string> => {
-  const email = `client-${Date.now()}@surge.test`;
-
-  const signup = await fetch(`${authBase}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: webOrigin },
-    body: JSON.stringify({
-      email,
-      password: "correct-horse-battery",
-      name: "Client Test",
-      role: "rider",
-    }),
-  });
-
-  if (!signup.ok) {
-    throw new Error(`sign-up failed with ${signup.status}: ${await signup.text()}`);
-  }
-
-  // Only the name=value part; a full Set-Cookie carries attributes the Cookie
-  // header must not.
-  const cookie = signup.headers.getSetCookie()
-    .map((entry) => entry.split(";")[0])
-    .join("; ");
-
-  const token = await fetch(`${authBase}/api/auth/token`, {
-    headers: { cookie, origin: webOrigin },
-  });
-
-  const body = (await token.json()) as { token?: string; };
-  if (typeof body.token !== "string") {
-    throw new Error(`no token in response: ${JSON.stringify(body)}`);
-  }
-  return body.token;
-};
+const signUp = (): Promise<string> =>
+  signInWithCode(auth, `client-${Date.now()}@surge.test`, "rider");
 
 describe.skipIf(!online)("SurgeApi against the running gateway", () => {
   it.effect("previews a trip and decodes every fare", () =>
@@ -127,7 +94,10 @@ describe.skipIf(!online)("SurgeApi against the running gateway", () => {
       const again = yield* book();
 
       expect(first.trip.id).toBe(again.trip.id);
-      expect(first.trip.status).toBe("TRIP_STATUS_REQUESTED");
+      // Waiting either way: for a driver, or — with TRIP_REQUIRE_PAYMENT — for
+      // the fare to be held first. Which one is the trip service's configuration
+      // rather than the client's concern; that a retry is the same trip is.
+      expect(["TRIP_STATUS_REQUESTED", "TRIP_STATUS_PAYMENT_PENDING"]).toContain(first.trip.status);
       // Unassigned arrives as "" rather than absent, because the gateway emits
       // unpopulated fields — a schema expecting an optional would reject it.
       expect(first.trip.driverId).toBe("");

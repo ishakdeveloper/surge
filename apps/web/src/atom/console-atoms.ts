@@ -1,7 +1,7 @@
-import { Keys } from "@/atom/reactivity-keys.js";
-import { runtime } from "@/atom/runtime.js";
 import { Realtime } from "@surge/client/Realtime";
 import { SurgeApi } from "@surge/client/SurgeApi";
+import { Keys } from "@surge/common/atom/reactivity-keys";
+import { runtime } from "@surge/common/atom/runtime";
 import type { FleetUpdate, Viewport } from "@surge/domain/realtime/Wire";
 import { Effect, Option, Result, Stream } from "effect";
 import { Atom } from "effect/unstable/reactivity";

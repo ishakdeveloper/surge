@@ -1,5 +1,6 @@
 import { loadStripe, type Stripe, type StripeError } from "@stripe/stripe-js";
-import { Option, Schema } from "effect";
+import { StripeRefused } from "@surge/common/payments/stripe-refused";
+import { Option } from "effect";
 
 /**
  * Stripe's browser half, when there is a Stripe to talk to.
@@ -24,22 +25,9 @@ export const publishableKey: Option.Option<string> = Option.fromNullishOr(
  */
 export const stripe: Option.Option<Promise<Stripe | null>> = Option.map(publishableKey, loadStripe);
 
-/**
- * Stripe said no, in its own words: a declined card, a failed bank check, a
- * form left half filled in.
- *
- * Its own error rather than the gateway's `ErrorBody` because it never reached
- * our servers — Stripe.js answers the browser directly, and `ActionError`
- * shows `detail` the way it shows the gateway's message.
- */
-export class StripeRefused extends Schema.TaggedError<StripeRefused>()("StripeRefused", {
-  code: Schema.String,
-  detail: Schema.String,
-}) {
-  static fromStripe(error: StripeError): StripeRefused {
-    return new StripeRefused({
-      code: error.code ?? error.type,
-      detail: error.message ?? "Stripe gave no reason.",
-    });
-  }
-}
+/** Stripe.js's error, as the refusal both apps show. */
+export const refusedBy = (error: StripeError): StripeRefused =>
+  new StripeRefused({
+    code: error.code ?? error.type,
+    detail: error.message ?? "Stripe gave no reason.",
+  });

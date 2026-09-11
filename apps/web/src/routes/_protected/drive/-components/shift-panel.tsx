@@ -1,13 +1,14 @@
-import { locateMe, shiftAtom, statusFor } from "@/atom/driver-atoms.js";
-import { connectionAtom } from "@/atom/realtime-atoms.js";
-import { activeTripAtom } from "@/atom/trip-atoms.js";
 import { ActionError } from "@/components/app/action-error.js";
 import { Alert, AlertDescription } from "@/components/ui/alert.js";
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
-import { formatPoint } from "@/lib/format.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { PositionUnavailable } from "@surge/client/Geolocation";
+import { locateMe, shiftAtom } from "@surge/common/atom/driver-atoms";
+import { connectionAtom } from "@surge/common/atom/realtime-atoms";
+import { activeTripAtom } from "@surge/common/atom/trip-atoms";
+import { statusFor } from "@surge/common/drive/driver-status";
+import { formatPoint } from "@surge/common/lib/format";
 import { Cause, Option, Schema } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -34,7 +35,10 @@ export const ShiftPanel = () => {
   const connection = useAtomValue(connectionAtom);
   const locating = useAtomValue(locateMe);
   const locate = useAtomSet(locateMe);
-  const trip = useAtomValue(activeTripAtom, (result) => Option.flatten(AsyncResult.value(result)));
+  const tripStatus = useAtomValue(
+    activeTripAtom,
+    (result) => Option.map(Option.flatten(AsyncResult.value(result)), (trip) => trip.status),
+  );
 
   const connected = AsyncResult.isSuccess(connection) && connection.value === "Connected";
   const refusal = AsyncResult.isFailure(locating)
@@ -59,7 +63,7 @@ export const ShiftPanel = () => {
           {Option.match(shift.position, { onNone: () => "-", onSome: formatPoint })}
         </dd>
         <dt className="text-muted-foreground">Status</dt>
-        <dd className="font-mono text-xs">{statusFor(shift.online, trip)}</dd>
+        <dd className="font-mono text-xs">{statusFor(shift.online, tripStatus)}</dd>
       </dl>
 
       {Option.match(refusal, {

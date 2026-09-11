@@ -1,0 +1,62 @@
+diff --git a/dist/FormAtoms.js b/dist/FormAtoms.js
+index 663c4478a08eb17bfb7a11df952ced8f7812cbf8..7461b95e957cf5ef05e0f90740fe47024579f32e 100644
+--- a/dist/FormAtoms.js
++++ b/dist/FormAtoms.js
+@@ -165,6 +165,8 @@ export const make = config => {
+         get.subscribe(debouncedChangeAtom, change => {
+           if (!get.once(shouldValidateAtom)) return;
+           get.set(validationAtom, change.value);
++          // Computed now rather than in the field's next render, where computing it notifies the field's own subscription mid-render (surge: apps/mobile/test/screens/sign-in-warnings.test.tsx).
++          get.once(validationAtom);
+         });
+       } else {
+         let lastValue = get.once(valueAtom);
+@@ -173,6 +175,8 @@ export const make = config => {
+           lastValue = newValue;
+           if (!get.once(shouldValidateAtom)) return;
+           get.set(validationAtom, newValue);
++          // Computed now rather than in the field's next render, where computing it notifies the field's own subscription mid-render (surge: apps/mobile/test/screens/sign-in-warnings.test.tsx).
++          get.once(validationAtom);
+         });
+       }
+       if (parsedMode.validation === "onBlur") {
+@@ -180,6 +184,8 @@ export const make = config => {
+           if (isTouched) {
+             const currentValue = get.once(valueAtom);
+             get.set(validationAtom, currentValue);
++            // Computed now rather than in the field's next render, where computing it notifies the field's own subscription mid-render (surge: apps/mobile/test/screens/sign-in-warnings.test.tsx).
++            get.once(validationAtom);
+           }
+         });
+       }
+diff --git a/src/FormAtoms.ts b/src/FormAtoms.ts
+index bc60a7f7b676edf4d1e99f6eb4162335b3247022..df9d8da57bd65df9948b7b9b55223a144e2c8f8c 100644
+--- a/src/FormAtoms.ts
++++ b/src/FormAtoms.ts
+@@ -433,6 +433,8 @@ export const make = <TFields extends Field.FieldsRecord, R, A, E, SubmitArgs = v
+         get.subscribe(debouncedChangeAtom, (change) => {
+           if (!get.once(shouldValidateAtom)) return
+           get.set(validationAtom, change.value)
++          // Computed now rather than in the field's next render, where computing it notifies the field's own subscription mid-render (surge: apps/mobile/test/screens/sign-in-warnings.test.tsx).
++          get.once(validationAtom)
+         })
+       } else {
+         let lastValue = get.once(valueAtom)
+@@ -441,6 +443,8 @@ export const make = <TFields extends Field.FieldsRecord, R, A, E, SubmitArgs = v
+           lastValue = newValue
+           if (!get.once(shouldValidateAtom)) return
+           get.set(validationAtom, newValue)
++          // Computed now rather than in the field's next render, where computing it notifies the field's own subscription mid-render (surge: apps/mobile/test/screens/sign-in-warnings.test.tsx).
++          get.once(validationAtom)
+         })
+       }
+ 
+@@ -449,6 +453,8 @@ export const make = <TFields extends Field.FieldsRecord, R, A, E, SubmitArgs = v
+           if (isTouched) {
+             const currentValue = get.once(valueAtom)
+             get.set(validationAtom, currentValue)
++            // Computed now rather than in the field's next render, where computing it notifies the field's own subscription mid-render (surge: apps/mobile/test/screens/sign-in-warnings.test.tsx).
++            get.once(validationAtom)
+           }
+         })
+       }

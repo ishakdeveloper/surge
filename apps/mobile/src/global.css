@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* apps/web/src/app.css's palette, converted from oklch to sRGB channels. Dark
+   only, like the web app; colour carries status and action, never decoration. */
+:root {
+  --background: 10 10 12;
+  --foreground: 238 238 238;
+  --card: 18 18 21;
+  --card-foreground: 238 238 238;
+  --primary: 58 147 230;
+  --primary-foreground: 248 248 248;
+  --secondary: 26 26 29;
+  --secondary-foreground: 238 238 238;
+  --muted: 26 26 29;
+  --muted-foreground: 113 113 116;
+  --accent: 26 26 29;
+  --accent-foreground: 238 238 238;
+  --destructive: 241 77 76;
+  --destructive-foreground: 248 248 248;
+  --success: 0 175 68;
+  --border: 33 33 36;
+  --input: 33 33 36;
+  --ring: 58 147 230;
+}

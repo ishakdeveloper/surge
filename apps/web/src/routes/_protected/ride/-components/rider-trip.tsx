@@ -1,12 +1,12 @@
-import { driverPositionAtom } from "@/atom/realtime-atoms.js";
-import { activeTripAtom, cancelTrip } from "@/atom/trip-atoms.js";
 import { ActionError } from "@/components/app/action-error.js";
 import { SplitView } from "@/components/app/split-view.js";
 import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
 import { Button } from "@/components/ui/button.js";
-import { formatCents, formatDistance, formatDuration, riderStatus } from "@/lib/format.js";
 import { HoldStep } from "@/routes/_protected/ride/-components/trip-payment.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { driverPositionAtom } from "@surge/common/atom/realtime-atoms";
+import { activeTripAtom, cancelTrip } from "@surge/common/atom/trip-atoms";
+import { formatCents, formatDistance, formatDuration, riderStatus } from "@surge/common/lib/format";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
 import { Option, Result } from "effect";

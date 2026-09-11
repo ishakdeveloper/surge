@@ -30,6 +30,8 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/auth/package.json apps/auth/
 COPY apps/web/package.json apps/web/
+COPY packages/client/package.json packages/client/
+COPY packages/common/package.json packages/common/
 COPY packages/database/package.json packages/database/
 COPY packages/domain/package.json packages/domain/
 COPY scripts/package.json scripts/

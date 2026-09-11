@@ -1,8 +1,13 @@
-import { activeTripAtom, arriveTrip, completeTrip, startTrip } from "@/atom/trip-atoms.js";
 import { ActionError } from "@/components/app/action-error.js";
 import { Button } from "@/components/ui/button.js";
-import { driverStatus, formatCents, formatDistance, formatDuration } from "@/lib/format.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { activeTripAtom, arriveTrip, completeTrip, startTrip } from "@surge/common/atom/trip-atoms";
+import {
+  driverStatus,
+  formatCents,
+  formatDistance,
+  formatDuration,
+} from "@surge/common/lib/format";
 import { Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 

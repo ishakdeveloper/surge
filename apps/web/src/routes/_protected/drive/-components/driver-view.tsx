@@ -1,12 +1,13 @@
-import { shiftAtom } from "@/atom/driver-atoms.js";
-import { answeredAtom, nowAtom, offersAtom } from "@/atom/realtime-atoms.js";
-import { activeTripAtom } from "@/atom/trip-atoms.js";
 import { SplitView } from "@/components/app/split-view.js";
 import { type MapMarker, SurgeMap } from "@/components/map/surge-map.js";
 import { DriverTrip } from "@/routes/_protected/drive/-components/driver-trip.js";
 import { OfferList } from "@/routes/_protected/drive/-components/offer-list.js";
 import { ShiftPanel } from "@/routes/_protected/drive/-components/shift-panel.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { shiftAtom } from "@surge/common/atom/driver-atoms";
+import { answeredAtom, nowAtom, offersAtom } from "@surge/common/atom/realtime-atoms";
+import { activeTripAtom } from "@surge/common/atom/trip-atoms";
+import { openOffers } from "@surge/common/drive/driver-status";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -31,7 +32,7 @@ export const DriverView = () => {
   );
 
   const waiting = AsyncResult.isSuccess(offers)
-    ? offers.value.filter((offer) => offer.expiresAtMs > now && !answered.tripIds.has(offer.tripId))
+    ? openOffers(offers.value, answered.tripIds, now)
     : [];
 
   const self: ReadonlyArray<MapMarker> = Option.toArray(

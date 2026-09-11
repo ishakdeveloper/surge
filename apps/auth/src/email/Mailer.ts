@@ -1,5 +1,6 @@
 import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { Resend } from "resend";
+import { outboxRecorder } from "../dev/DevOutbox.js";
 import type { RenderedEmail } from "./Templates.js";
 
 /**
@@ -41,24 +42,31 @@ export class Mailer extends Context.Service<Mailer, MailerService>()("Mailer") {
   /**
    * Without a key, mail is written to the log instead of sent.
    *
-   * This is what makes a fresh clone usable: signing up sends a verification
-   * mail and a magic link is the whole of that sign-in flow, so a Mailer that
-   * refused to start without a Resend account would make an unconfigured
-   * checkout unable to authenticate anyone. The rendered text carries the link,
-   * so the log is enough to follow it.
+   * This is what makes a fresh clone usable: signing in is a code sent by email
+   * or text, so a Mailer that refused to start without a Resend account would
+   * make an unconfigured checkout unable to authenticate anyone. The rendered
+   * text carries the code, so the log is enough — and the dev outbox keeps it
+   * for the end-to-end flows, which cannot read a log.
    *
    * It is a development affordance and says so, loudly, once per send.
    */
-  static layerLogging: Layer.Layer<Mailer> = Layer.succeed(Mailer)({
-    // The rendered text is the log message rather than an annotation, so the
-    // link is readable in a terminal and does not depend on how a log handler
-    // chooses to render structured fields.
-    send: Effect.fn("Mailer.send")(function*(message: EmailMessage) {
-      yield* Effect.logWarning(
-        `RESEND_API_KEY is unset — not sending.\n\n${message.text}`,
-      ).pipe(Effect.annotateLogs({ to: message.to, subject: message.subject }));
+  static layerLogging: Layer.Layer<Mailer> = Layer.effect(Mailer)(
+    Effect.gen(function*() {
+      const record = yield* outboxRecorder;
+
+      return {
+        // The rendered text is the log message rather than an annotation, so
+        // the code is readable in a terminal and does not depend on how a log
+        // handler chooses to render structured fields.
+        send: Effect.fn("Mailer.send")(function*(message: EmailMessage) {
+          yield* record(message.to, message.text);
+          yield* Effect.logWarning(
+            `RESEND_API_KEY is unset — not sending.\n\n${message.text}`,
+          ).pipe(Effect.annotateLogs({ to: message.to, subject: message.subject }));
+        }),
+      };
     }),
-  });
+  );
 
   static layerResend: Layer.Layer<Mailer> = Layer.effect(Mailer)(
     Effect.gen(function*() {
