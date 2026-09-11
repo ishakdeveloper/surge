@@ -36,8 +36,19 @@ const browserConfig = ConfigProvider.layer(
   }),
 );
 
+/**
+ * Credentials on every request, because auth and the gateway are never this
+ * page's own origin — another port here, another subdomain deployed.
+ *
+ * `fetch` sends cookies only to its own origin unless told otherwise, so
+ * without this the token exchange reached auth with no session cookie, got a
+ * 401, and every product call failed for want of a token. The gateway answers
+ * credentialed requests for the web origin (`cors.go`), and auth trusts it.
+ */
+const credentialed = Layer.succeed(FetchHttpClient.RequestInit)({ credentials: "include" });
+
 const browser = Layer.mergeAll(
-  FetchHttpClient.layer,
+  FetchHttpClient.layer.pipe(Layer.provide(credentialed)),
   Socket.layerWebSocketConstructorGlobal,
   browserGeolocation,
 );

@@ -326,6 +326,37 @@ per test. One worker, because the stack is one city with one matcher. No
 retries: a flaky end-to-end test is a finding. On failure: the trace, the
 video, and every service's logs as artifacts.
 
+**What its first runs found**, before it passed — the reason it exists:
+
+- **The web app could not get a gateway token in any browser.** `fetch` sends
+  cookies only to its own origin, and auth is never the page's origin —
+  another port locally, another subdomain deployed — so the token exchange
+  reached auth without the session cookie, got a 401, and every product call
+  failed. Fixed: the web platform sends credentials
+  (`apps/web/src/atom/platform.ts`); the gateway already answered credentialed
+  requests for the web origin.
+- **The console could not rescale the simulator from a browser.** The gateway's
+  CORS allowed `GET` and `POST`, and `sim.proto` declares `PUT /v1/simulator`,
+  so the preflight failed. Fixed, with the gateway's first CORS tests.
+- **Valhalla's health check had never passed** — see the Phase 0 table.
+
+Two more are decisions rather than fixes, and have to be made before auth faces
+the internet:
+
+- **Rate limiting has no trustworthy client address.** better-auth's built-in
+  limiter finds none and falls back to one shared bucket per path: deployed,
+  that is every user's sign-in in one bucket, and one caller can lock out
+  everyone. The app's own limiter (`apps/auth/src/iam/AuthHttp.ts`) keys on the
+  first `X-Forwarded-For` entry, which the client writes itself: a new value per
+  request is a new bucket, and the limit on a six-digit code is gone. Both need
+  the address the load balancer vouches for — behind Google's, the entry it
+  appends, not the one the client sent — configured once, in Phase 4. The tests
+  stand in for that load balancer: each browser has its own address, on
+  requests to auth only (`e2e/support/client-address.ts`).
+- **`QueryError` reports every typed failure as "Your role does not allow you
+  to see …"**, a missing session included. That is how the token bug above
+  looked like a permissions problem.
+
 **Not yet done.** The `client-integration` Vitest project and
 `backend/shared/authz` could run against the same stack instead of skipping,
 and `pnpm capture:api-fixtures` could be diffed against the committed fixtures;

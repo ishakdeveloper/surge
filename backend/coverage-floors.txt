@@ -5,7 +5,7 @@ github.com/ishakdeveloper/surge/migrations 84
 github.com/ishakdeveloper/surge/services/gateway/internal/domain 94
 github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/events 0
 github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/grpc 0
-github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/http 53
+github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/http 74
 github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/ws 0
 github.com/ishakdeveloper/surge/services/ingest/internal/domain 86
 github.com/ishakdeveloper/surge/services/ingest/internal/infrastructure/events 0

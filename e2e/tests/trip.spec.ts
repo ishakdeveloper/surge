@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
 import { newEmail, signIn } from "../support/accounts.js";
+import { asOwnClient } from "../support/client-address.js";
+import { expect, test } from "../support/test.js";
 
 /**
  * Where the driver stands: Centraal, at the pickup of the "Centraal →
@@ -24,6 +25,10 @@ test("a trip, end to end, seen by the rider and the driver at every step", async
     permissions: ["geolocation"],
   });
   const riderContext = await browser.newContext();
+  // Two people, two callers — each with its own address, as a load balancer
+  // would name them.
+  await asOwnClient(driverContext);
+  await asOwnClient(riderContext);
   const driver = await driverContext.newPage();
   const rider = await riderContext.newPage();
 

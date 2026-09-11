@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import { newEmail, signIn, signOut } from "../support/accounts.js";
+import { expect, test } from "../support/test.js";
 
 test("a stranger is sent to sign in", async ({ page }) => {
   await page.goto("/ride");

@@ -1,6 +1,7 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import pg from "pg";
 import { authDatabaseUrl, newEmail, signIn, signOut } from "../support/accounts.js";
+import { expect, test } from "../support/test.js";
 
 /**
  * No screen makes an account ops, on purpose. `make grant-ops` is how a person
