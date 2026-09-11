@@ -51,6 +51,11 @@ func main() {
 			TripID: "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80", DriverID: "drv-000123",
 			Lat: 52.3711, Lng: 4.8963, Heading: 90, AtMs: 1757512341000, EtaSeconds: 240,
 		}},
+		"server_city.json": wire.ServerMessage{Tag: wire.TagCityUpdate, City: &wire.CityUpdate{
+			AtMs:     1757512340000,
+			Cars:     []wire.CityCar{{Key: "5f1c09a2e4b7d833", Lat: 52.3702, Lng: 4.8952, Heading: 137.5}},
+			Bookings: []wire.CityBooking{{Key: "a93e61d0c2f84b17", Lat: 52.3687, Lng: 4.8931, AtMs: 1757512338000}},
+		}},
 		"server_trip_updated.json": wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{
 			TripID:   "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
 			RiderID:  "rider-000456",

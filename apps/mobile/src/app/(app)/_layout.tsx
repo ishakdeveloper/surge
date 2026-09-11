@@ -34,14 +34,20 @@ const AppLayout = () => {
         headerTintColor: colors.foreground,
         headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.background },
-        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
+        // A black band, as on the web: navigation is a service, and the tab
+        // you are on is the one sign-yellow thing in it.
+        tabBarStyle: { backgroundColor: colors.secondary, borderTopColor: colors.secondary },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarInactiveTintColor: "rgba(255, 255, 255, 0.7)",
       }}
     >
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Protected guard={role === "rider"}>
-        <Tabs.Screen name="ride" options={{ title: "Ride", tabBarIcon: icon("car-outline") }} />
+        {/* No header: the map runs to the top of the screen. */}
+        <Tabs.Screen
+          name="ride"
+          options={{ title: "Ride", headerShown: false, tabBarIcon: icon("car-outline") }}
+        />
       </Tabs.Protected>
       <Tabs.Protected guard={role === "driver"}>
         <Tabs.Screen

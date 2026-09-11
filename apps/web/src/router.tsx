@@ -20,9 +20,8 @@ declare module "@tanstack/react-router" {
    * The breadcrumb label for a route, declared on the route itself and read back
    * with `useMatches`.
    *
-   * Declared rather than derived from the path: `knowledge/rules/dashboard-ui.md`
-   * forbids humanising identifiers, so title-casing a slug would break the rules
-   * by construction.
+   * Declared rather than derived from the path, so a slug is never title-cased
+   * into a label nobody chose.
    *
    * Optional on purpose. `router-core` makes `staticData` a required route option
    * as soon as this interface has a required field, which would mean touching
@@ -30,5 +29,10 @@ declare module "@tanstack/react-router" {
    */
   interface StaticDataRouteOption {
     readonly crumb?: string;
+    /**
+     * The page draws edge to edge under the top bar — the rider's map — so the
+     * shell gives it neither padding nor a breadcrumb trail.
+     */
+    readonly fullBleed?: boolean;
   }
 }

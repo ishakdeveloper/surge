@@ -1,0 +1,532 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-11T00:00:00Z",
+  "title": "Design System: Surge",
+  "extensions": {
+    "colorMeta": {
+      "sign-yellow": {
+        "role": "primary",
+        "displayName": "Sign Yellow",
+        "canonical": "#ffd200",
+        "tonalRamp": [
+          "oklch(22% 0.05 95)",
+          "oklch(32% 0.08 95)",
+          "oklch(43% 0.11 95)",
+          "oklch(55% 0.14 95)",
+          "oklch(67% 0.16 95)",
+          "oklch(78% 0.17 95)",
+          "oklch(87% 0.18 95)",
+          "oklch(95% 0.08 95)"
+        ]
+      },
+      "sign-yellow-pressed": {
+        "role": "primary",
+        "displayName": "Sign Yellow Pressed",
+        "canonical": "#f5c900",
+        "tonalRamp": [
+          "oklch(22% 0.05 94)",
+          "oklch(32% 0.08 94)",
+          "oklch(43% 0.11 94)",
+          "oklch(55% 0.14 94)",
+          "oklch(67% 0.16 94)",
+          "oklch(78% 0.17 94)",
+          "oklch(85% 0.18 94)",
+          "oklch(95% 0.08 94)"
+        ]
+      },
+      "ink": {
+        "role": "secondary",
+        "displayName": "Ink",
+        "canonical": "#1a1a1a",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(21% 0 0)",
+          "oklch(32% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(60% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(88% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "white-sheet": {
+        "role": "neutral",
+        "displayName": "White Sheet",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(28% 0 0)",
+          "oklch(42% 0 0)",
+          "oklch(56% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(84% 0 0)",
+          "oklch(94% 0 0)",
+          "oklch(100% 0 0)"
+        ]
+      },
+      "near-white-ground": {
+        "role": "neutral",
+        "displayName": "Near-White Ground",
+        "canonical": "#f7f7f5",
+        "tonalRamp": [
+          "oklch(15% 0.003 100)",
+          "oklch(28% 0.003 100)",
+          "oklch(42% 0.003 100)",
+          "oklch(56% 0.003 100)",
+          "oklch(70% 0.003 100)",
+          "oklch(84% 0.003 100)",
+          "oklch(93% 0.003 100)",
+          "oklch(97.5% 0.003 100)"
+        ]
+      },
+      "grey-tile": {
+        "role": "neutral",
+        "displayName": "Grey Tile",
+        "canonical": "#f0f0ed",
+        "tonalRamp": [
+          "oklch(15% 0.004 100)",
+          "oklch(28% 0.004 100)",
+          "oklch(42% 0.004 100)",
+          "oklch(56% 0.004 100)",
+          "oklch(70% 0.004 100)",
+          "oklch(84% 0.004 100)",
+          "oklch(91% 0.004 100)",
+          "oklch(95.5% 0.004 100)"
+        ]
+      },
+      "grey-tile-hover": {
+        "role": "neutral",
+        "displayName": "Grey Tile Hover",
+        "canonical": "#e8e8e4",
+        "tonalRamp": [
+          "oklch(15% 0.005 100)",
+          "oklch(28% 0.005 100)",
+          "oklch(42% 0.005 100)",
+          "oklch(56% 0.005 100)",
+          "oklch(70% 0.005 100)",
+          "oklch(84% 0.005 100)",
+          "oklch(89% 0.005 100)",
+          "oklch(93.5% 0.005 100)"
+        ]
+      },
+      "grey-accent": {
+        "role": "neutral",
+        "displayName": "Grey Accent",
+        "canonical": "#ebebe7",
+        "tonalRamp": [
+          "oklch(15% 0.005 100)",
+          "oklch(28% 0.005 100)",
+          "oklch(42% 0.005 100)",
+          "oklch(56% 0.005 100)",
+          "oklch(70% 0.005 100)",
+          "oklch(84% 0.005 100)",
+          "oklch(90% 0.005 100)",
+          "oklch(94.5% 0.005 100)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e3e3df",
+        "tonalRamp": [
+          "oklch(15% 0.005 100)",
+          "oklch(28% 0.005 100)",
+          "oklch(42% 0.005 100)",
+          "oklch(56% 0.005 100)",
+          "oklch(70% 0.005 100)",
+          "oklch(82% 0.005 100)",
+          "oklch(91.5% 0.005 100)",
+          "oklch(96% 0.005 100)"
+        ]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#5f636a",
+        "tonalRamp": [
+          "oklch(15% 0.01 260)",
+          "oklch(25% 0.012 260)",
+          "oklch(36% 0.012 260)",
+          "oklch(49% 0.012 260)",
+          "oklch(62% 0.012 260)",
+          "oklch(75% 0.01 260)",
+          "oklch(87% 0.008 260)",
+          "oklch(95% 0.005 260)"
+        ]
+      },
+      "exit-green": {
+        "role": "tertiary",
+        "displayName": "Exit Green",
+        "canonical": "#067a3e",
+        "tonalRamp": [
+          "oklch(18% 0.05 155)",
+          "oklch(28% 0.08 155)",
+          "oklch(38% 0.11 155)",
+          "oklch(50% 0.13 155)",
+          "oklch(62% 0.14 155)",
+          "oklch(75% 0.12 155)",
+          "oklch(87% 0.08 155)",
+          "oklch(95% 0.04 155)"
+        ]
+      },
+      "refused-red": {
+        "role": "tertiary",
+        "displayName": "Refused Red",
+        "canonical": "#c8312a",
+        "tonalRamp": [
+          "oklch(18% 0.07 28)",
+          "oklch(30% 0.12 28)",
+          "oklch(42% 0.17 28)",
+          "oklch(53% 0.19 28)",
+          "oklch(64% 0.18 28)",
+          "oklch(76% 0.13 28)",
+          "oklch(88% 0.07 28)",
+          "oklch(95% 0.03 28)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The sign-in card's title only." },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Onboarding step titles and page titles under the bar."
+      },
+      "title": { "displayName": "Title", "purpose": "The trip status card's headline." },
+      "price": {
+        "displayName": "Price",
+        "purpose": "A fare on a class tile or the Fare row; tabular, flush right."
+      },
+      "card-title": { "displayName": "Card Title", "purpose": "CardTitle and DialogTitle." },
+      "name": { "displayName": "Name", "purpose": "A stop's name, a class name, a row's subject." },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose, descriptions, asides; muted ink when secondary."
+      },
+      "action": {
+        "displayName": "Action",
+        "purpose": "Every pill's label; 17px bold on the Go pill, 14px on small pills."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Section labels, From/To labels, second lines, table headers; sentence case."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "The hold explanation, the trip id line, step counters."
+      },
+      "mono": { "displayName": "Mono", "purpose": "Trip ids and raw causes only." }
+    },
+    "shadows": [
+      {
+        "name": "sheet-edge",
+        "value": "0 -10px 30px -18px rgb(0 0 0 / 0.35)",
+        "purpose": "The phone sheet's top edge where it rises over the map."
+      },
+      {
+        "name": "floating-sheet",
+        "value": "0 18px 44px -18px rgb(0 0 0 / 0.35)",
+        "purpose": "The desktop rider sheet and sign-in card floating over the map."
+      },
+      {
+        "name": "menu",
+        "value": "0 18px 44px -16px rgb(0 0 0 / 0.4)",
+        "purpose": "The account menu; select popups use the same at 0.35."
+      },
+      {
+        "name": "navigation",
+        "value": "0 14px 34px -14px rgb(0 0 0 / 0.55)",
+        "purpose": "The black floating bar over the map."
+      },
+      {
+        "name": "dialog",
+        "value": "0 24px 60px -20px rgb(0 0 0 / 0.45)",
+        "purpose": "Dialogs and drawers over a plain 35% dim."
+      },
+      {
+        "name": "page-card",
+        "value": "0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -18px rgb(0 0 0 / 0.22)",
+        "purpose": "A white Card on the near-white ground."
+      },
+      {
+        "name": "button-lift",
+        "value": "0 1px 2px rgb(0 0 0 / 0.08)",
+        "purpose": "The swap disc on a grey tile."
+      },
+      {
+        "name": "ring-focus",
+        "value": "inset 0 0 0 2px var(--foreground)",
+        "purpose": "A focused input, select or OTP box; state, not depth."
+      },
+      {
+        "name": "ring-invalid",
+        "value": "inset 0 0 0 2px var(--destructive)",
+        "purpose": "An aria-invalid field or pill."
+      },
+      {
+        "name": "ring-success",
+        "value": "inset 0 0 0 2px var(--success)",
+        "purpose": "An accepted OTP code."
+      },
+      {
+        "name": "ring-checkbox",
+        "value": "inset 0 0 0 1.5px rgb(26 26 26 / 0.25)",
+        "purpose": "An unchecked checkbox."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-soft",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "The one easing: every keyframe, dialog, drawer and motion/react tween."
+      },
+      {
+        "name": "press",
+        "value": "150ms ease-out; active:scale(0.97) on pills, 0.985 on tiles and the Go pill",
+        "purpose": "A press settles slightly; reduced motion keeps only the colour change."
+      },
+      {
+        "name": "rise-in",
+        "value": "rise-in 220ms var(--ease-out-soft) both (opacity 0→1, translateY 4px→0)",
+        "purpose": "New content rising into place: results, class tiles, ActionError."
+      },
+      {
+        "name": "pop-in",
+        "value": "pop-in 200ms var(--ease-out-soft) both (opacity 0→1, scale 0.6→1)",
+        "purpose": "A confirmation: the class check, the swap disc, an OTP digit (spring 600/30 in motion/react)."
+      },
+      {
+        "name": "status-in",
+        "value": "status-in 280ms var(--ease-out-soft) both (clip-path inset wipe from the left, 16px round)",
+        "purpose": "The trip status card when the trip moves on."
+      },
+      {
+        "name": "shake",
+        "value": "shake 360ms var(--ease-out-soft) both (±4px translateX)",
+        "purpose": "A refused OTP code."
+      },
+      {
+        "name": "arrow-nudge",
+        "value": "200ms ease-out; translateX(2px) on hover",
+        "purpose": "The Go pill's arrow."
+      },
+      {
+        "name": "swap-turn",
+        "value": "300ms ease-out; rotate 180deg per swap",
+        "purpose": "The swap arrows turning with the trip."
+      },
+      {
+        "name": "nav-current",
+        "value": "spring stiffness 520 damping 40 (layoutId)",
+        "purpose": "The yellow current-page pill sliding between links."
+      },
+      {
+        "name": "nav-arrive",
+        "value": "spring stiffness 380 damping 32 from y -20 opacity 0",
+        "purpose": "The bar settling into place on arrival."
+      },
+      {
+        "name": "otp-ring",
+        "value": "spring stiffness 600 damping 40 (layoutId)",
+        "purpose": "The ink ring sliding between OTP boxes."
+      },
+      {
+        "name": "menu-open",
+        "value": "160ms ease-out-soft; opacity 0→1, y -6→0, scale 0.97→1",
+        "purpose": "The account menu."
+      },
+      {
+        "name": "dialog-open",
+        "value": "200ms ease-out-soft; opacity 0→1, scale 0.95→1",
+        "purpose": "Dialogs; drawers slide 40px over 250ms."
+      },
+      {
+        "name": "step-slide",
+        "value": "240ms ease-out-soft; x ±24px with opacity",
+        "purpose": "Sign-in steps sliding toward the direction they move."
+      },
+      {
+        "name": "progress-fill",
+        "value": "400ms ease-out-soft; width 0→100%",
+        "purpose": "Onboarding progress segments."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "MotionConfig reducedMotion=\"user\"; keyframes gated by motion-safe:; transitions limited to color, background-color, border-color, opacity under prefers-reduced-motion",
+        "purpose": "Every motion reduces to a colour change."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Pill",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The next step: sign yellow with ink text, 44px, a pill that gives a little under the pointer.",
+      "html": "<button class=\"ds-btn-primary\">Continue</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border: 0; border-radius: 9999px; background: var(--primary, #ffd200); color: var(--primary-foreground, #1a1a1a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out; } .ds-btn-primary:hover { background: #f5c900; } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 2px solid var(--ring, #1a1a1a); outline-offset: 2px; } .ds-btn-primary:disabled { background: var(--tile, #f0f0ed); color: var(--muted-foreground, #5f636a); cursor: not-allowed; transform: none; }"
+    },
+    {
+      "name": "Quiet Pill",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "A secondary choice: a grey tile pill with ink text, deepening on hover.",
+      "html": "<button class=\"ds-btn-quiet\">Change</button>",
+      "css": ".ds-btn-quiet { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border: 0; border-radius: 9999px; background: var(--tile, #f0f0ed); color: var(--foreground, #1a1a1a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, transform 150ms ease-out; } .ds-btn-quiet:hover { background: var(--tile-hover, #e8e8e4); } .ds-btn-quiet:active { transform: scale(0.97); } .ds-btn-quiet:focus-visible { outline: 2px solid var(--ring, #1a1a1a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Service Pill",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ink with white text: a service, not a direction.",
+      "html": "<button class=\"ds-btn-service\" data-surface=\"dark\">Set up payouts with Stripe</button>",
+      "css": ".ds-btn-service { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border: 0; border-radius: 9999px; background: var(--secondary, #1a1a1a); color: var(--secondary-foreground, #ffffff); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, transform 150ms ease-out; } .ds-btn-service:hover { background: rgb(26 26 26 / 0.85); } .ds-btn-service:active { transform: scale(0.97); } .ds-btn-service:focus-visible { outline: 2px solid var(--primary, #ffd200); outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Pill",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "A way out that cannot be taken back: red text on nothing, a red wash on hover, block width in the thumb zone.",
+      "html": "<button class=\"ds-btn-danger\">Cancel trip</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; width: 100%; padding: 0 24px; border: 0; border-radius: 9999px; background: transparent; color: var(--destructive, #c8312a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, transform 150ms ease-out; } .ds-btn-danger:hover { background: rgb(200 49 42 / 0.1); } .ds-btn-danger:active { transform: scale(0.97); } .ds-btn-danger:focus-visible { outline: 2px solid var(--ring, #1a1a1a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Go Pill",
+      "kind": "custom",
+      "refersTo": "go-pill",
+      "description": "The one action pinned under the thumb: label left, price and a yellow arrow in an ink well right; the arrow nudges on hover.",
+      "html": "<button class=\"ds-go\"><span>Go · Surge</span><span class=\"ds-go-right\">€16,27<span class=\"ds-go-well\" aria-hidden=\"true\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg></span></span></button>",
+      "css": ".ds-go { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; height: 56px; padding: 8px 8px 8px 24px; border: 0; border-radius: 9999px; background: var(--primary, #ffd200); color: var(--primary-foreground, #1a1a1a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 17px; font-weight: 700; text-align: left; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out; } .ds-go-right { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; } .ds-go-well { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 9999px; background: var(--primary-foreground, #1a1a1a); color: var(--primary, #ffd200); transition: transform 200ms ease-out, background-color 200ms ease-out, color 200ms ease-out; } .ds-go:hover { background: #f5c900; } .ds-go:hover .ds-go-well { transform: translateX(2px); } .ds-go:active { transform: scale(0.985); } .ds-go:focus-visible { outline: 2px solid var(--ring, #1a1a1a); outline-offset: 2px; } .ds-go:disabled { background: var(--tile, #f0f0ed); color: var(--muted-foreground, #5f636a); cursor: not-allowed; transform: none; } .ds-go:disabled .ds-go-well { background: rgb(26 26 26 / 0.1); color: var(--muted-foreground, #5f636a); transform: none; }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A grey tile, not a box: no border at rest; lifts to white with a 2px inset ink ring on focus; a red wash and ring when invalid.",
+      "html": "<input class=\"ds-input\" type=\"email\" placeholder=\"you@example.com\" />",
+      "css": ".ds-input { width: 100%; height: 48px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--tile, #f0f0ed); color: var(--foreground, #1a1a1a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 16px; outline: none; caret-color: var(--foreground, #1a1a1a); transition: background-color 150ms ease-out, box-shadow 150ms ease-out; } .ds-input::placeholder { color: var(--muted-foreground, #5f636a); } .ds-input:hover { background: var(--tile-hover, #e8e8e4); } .ds-input:focus-visible { background: var(--card, #ffffff); box-shadow: inset 0 0 0 2px var(--foreground, #1a1a1a); } .ds-input[aria-invalid='true'] { background: rgb(200 49 42 / 0.05); box-shadow: inset 0 0 0 2px var(--destructive, #c8312a); } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Sign Tiles",
+      "kind": "card",
+      "refersTo": "sign-choice",
+      "description": "The one container the rider's screens are built from, in the five tones: direction, choice, service, done, refused.",
+      "html": "<div class=\"ds-stack\"><div class=\"ds-sign ds-sign-direction\"><span class=\"ds-bubble\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2\"/><circle cx=\"7\" cy=\"17\" r=\"2\"/><path d=\"M9 17h6\"/><circle cx=\"17\" cy=\"17\" r=\"2\"/></svg></span><div class=\"ds-sign-text\"><p class=\"ds-sign-title\">Driver on the way</p><p class=\"ds-sign-sub\">Arriving in about 4 min.</p></div></div><div class=\"ds-sign ds-sign-choice\"><span class=\"ds-bubble\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"20\" height=\"14\" x=\"2\" y=\"5\" rx=\"2\"/><line x1=\"2\" x2=\"22\" y1=\"10\" y2=\"10\"/></svg></span><span class=\"ds-sign-name\">Fare</span><span class=\"ds-sign-price\">€16,27</span></div><div class=\"ds-sign ds-sign-service\" data-surface=\"dark\"><span class=\"ds-bubble ds-bubble-dark\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"20\" height=\"14\" x=\"2\" y=\"5\" rx=\"2\"/><line x1=\"2\" x2=\"22\" y1=\"10\" y2=\"10\"/></svg></span><div class=\"ds-sign-text\"><p class=\"ds-sign-card\">Visa ending 4242</p><p class=\"ds-sign-small\">Expires 08/28</p></div></div><div class=\"ds-sign ds-sign-done\" data-surface=\"dark\"><span class=\"ds-bubble ds-bubble-dark\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><div class=\"ds-sign-text\"><p class=\"ds-sign-title\">Your driver is here</p><p class=\"ds-sign-sub\">Meet them at Centraal.</p></div></div><div class=\"ds-sign ds-sign-refused\" data-surface=\"dark\" role=\"alert\"><svg class=\"ds-sign-glyph\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4\"/><path d=\"M12 17h.01\"/></svg><p class=\"ds-sign-body\">That price has expired.</p></div></div>",
+      "css": ".ds-stack { display: flex; flex-direction: column; gap: 8px; font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; } .ds-sign { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; } .ds-sign-direction { background: var(--primary, #ffd200); color: var(--primary-foreground, #1a1a1a); } .ds-sign-choice { background: var(--tile, #f0f0ed); color: var(--foreground, #1a1a1a); } .ds-sign-service { background: var(--secondary, #1a1a1a); color: var(--secondary-foreground, #ffffff); } .ds-sign-done { background: var(--success, #067a3e); color: #ffffff; } .ds-sign-refused { background: var(--destructive, #c8312a); color: #ffffff; align-items: flex-start; } .ds-bubble { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 9999px; background: var(--card, #ffffff); } .ds-bubble-dark { background: rgb(255 255 255 / 0.15); } .ds-sign-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; } .ds-sign-text p { margin: 0; } .ds-sign-title { font-size: 20px; line-height: 1.25; font-weight: 700; } .ds-sign-sub { font-size: 14px; opacity: 0.8; } .ds-sign-name { flex: 1; font-size: 16px; font-weight: 600; } .ds-sign-price { font-size: 22px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-sign-card { font-size: 17px; font-weight: 700; } .ds-sign-small { font-size: 13px; opacity: 0.7; } .ds-sign-glyph { flex-shrink: 0; margin-top: 2px; } .ds-sign-body { margin: 0; flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }"
+    },
+    {
+      "name": "Class Tile",
+      "kind": "custom",
+      "refersTo": "sign-direction",
+      "description": "A choice tile as a radio: empty ink ring, then ink disc with a yellow check; the chosen tile turns yellow. Price flush right.",
+      "html": "<div class=\"ds-classes\" role=\"radiogroup\"><button class=\"ds-class ds-class-on\" role=\"radio\" aria-checked=\"true\"><span class=\"ds-radio\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><span class=\"ds-class-text\"><span class=\"ds-class-name\">Surge</span><span class=\"ds-class-sub\">4 seats</span></span><span class=\"ds-class-price\">€16,27</span></button><button class=\"ds-class\" role=\"radio\" aria-checked=\"false\"><span class=\"ds-radio\" aria-hidden=\"true\"></span><span class=\"ds-class-text\"><span class=\"ds-class-name\">Surge XL</span><span class=\"ds-class-sub\">6 seats</span></span><span class=\"ds-class-price\">€22,90</span></button></div>",
+      "css": ".ds-classes { display: flex; flex-direction: column; gap: 8px; font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; } .ds-class { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border: 0; border-radius: 16px; background: var(--tile, #f0f0ed); color: var(--foreground, #1a1a1a); text-align: left; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out; } .ds-class:hover { background: var(--tile-hover, #e8e8e4); } .ds-class:active { transform: scale(0.985); } .ds-class:focus-visible { outline: 2px solid var(--ring, #1a1a1a); outline-offset: 2px; } .ds-class-on, .ds-class-on:hover { background: var(--primary, #ffd200); color: var(--primary-foreground, #1a1a1a); } .ds-radio { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 9999px; box-shadow: inset 0 0 0 2px rgb(26 26 26 / 0.2); transition: background-color 150ms ease-out; } .ds-class-on .ds-radio { background: var(--foreground, #1a1a1a); color: var(--primary, #ffd200); box-shadow: none; } .ds-class-text { display: flex; flex-direction: column; flex: 1; min-width: 0; } .ds-class-name { font-size: 16px; font-weight: 600; } .ds-class-sub { font-size: 13px; opacity: 0.7; } .ds-class-price { font-size: 22px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Stops Card",
+      "kind": "custom",
+      "refersTo": "sign-choice",
+      "description": "From and To on a dotted rail with the authored pickup and dropoff marks, the route's time and distance flush right.",
+      "html": "<div class=\"ds-stops\"><div class=\"ds-stops-rows\"><span class=\"ds-rail\" aria-hidden=\"true\"></span><div class=\"ds-stop\"><span class=\"ds-stop-mark\"><span class=\"ds-mark-pickup\"><span></span></span></span><span class=\"ds-stop-text\"><span class=\"ds-stop-label\">From</span><span class=\"ds-stop-name\">Amsterdam Centraal</span></span></div><div class=\"ds-stop\"><span class=\"ds-stop-mark\"><span class=\"ds-mark-dropoff\"><span></span></span></span><span class=\"ds-stop-text\"><span class=\"ds-stop-label\">To</span><span class=\"ds-stop-name\">Museumplein</span></span></div></div><p class=\"ds-stops-foot\">12 min · 6.8 km</p></div>",
+      "css": ".ds-stops { padding: 6px; border-radius: 16px; background: var(--tile, #f0f0ed); color: var(--foreground, #1a1a1a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; } .ds-stops-rows { position: relative; display: flex; flex-direction: column; gap: 2px; } .ds-rail { position: absolute; top: 40px; bottom: 40px; left: 21px; border-left: 2px dotted rgb(26 26 26 / 0.25); pointer-events: none; } .ds-stop { display: flex; align-items: center; gap: 12px; padding: 10px 12px; } .ds-stop-mark { display: grid; place-items: center; width: 20px; flex-shrink: 0; } .ds-mark-pickup { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 9999px; background: var(--primary, #ffd200); box-shadow: inset 0 0 0 3px var(--foreground, #1a1a1a); } .ds-mark-pickup span { width: 6px; height: 6px; border-radius: 9999px; background: var(--foreground, #1a1a1a); } .ds-mark-dropoff { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 5px; background: var(--foreground, #1a1a1a); } .ds-mark-dropoff span { width: 6px; height: 6px; border-radius: 2px; background: var(--primary, #ffd200); } .ds-stop-text { display: flex; flex-direction: column; min-width: 0; flex: 1; } .ds-stop-label { font-size: 12px; font-weight: 600; color: var(--muted-foreground, #5f636a); } .ds-stop-name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-stops-foot { margin: 0; padding: 2px 12px 6px; text-align: right; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Top Bar",
+      "kind": "nav",
+      "refersTo": "top-bar",
+      "description": "A black pill floating over the page; the current page is a yellow pill that slides between links; a round initial for the account.",
+      "html": "<header class=\"ds-bar\" data-surface=\"dark\"><a class=\"ds-bar-brand\" href=\"#\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 28 28\" aria-hidden=\"true\"><rect width=\"28\" height=\"28\" rx=\"8\" fill=\"#ffd200\"/><path d=\"M9 19 19 9m0 0h-8.5M19 9v8.5\" fill=\"none\" stroke=\"#1a1a1a\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><span>Surge</span></a><nav class=\"ds-bar-nav\" aria-label=\"Main\"><a class=\"ds-bar-link ds-bar-link-on\" href=\"#\" aria-current=\"page\">Ride</a><a class=\"ds-bar-link\" href=\"#\">Payment</a></nav><button class=\"ds-bar-account\" aria-label=\"Account\">I</button></header>",
+      "css": ".ds-bar { display: flex; align-items: center; gap: 4px; height: 56px; width: 100%; max-width: 768px; padding: 8px 8px 8px 10px; border-radius: 9999px; background: var(--secondary, #1a1a1a); color: var(--secondary-foreground, #ffffff); box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.55); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; } .ds-bar-brand { display: flex; align-items: center; gap: 8px; margin-right: 4px; padding: 4px 10px 4px 4px; border-radius: 9999px; color: inherit; text-decoration: none; font-size: 18px; font-weight: 700; } .ds-bar-nav { display: flex; align-items: center; gap: 2px; } .ds-bar-link { position: relative; padding: 8px 14px; border-radius: 9999px; color: rgb(255 255 255 / 0.7); text-decoration: none; font-size: 15px; font-weight: 600; transition: color 150ms; } .ds-bar-link:hover { color: #ffffff; } .ds-bar-link-on, .ds-bar-link-on:hover { background: var(--primary, #ffd200); color: var(--primary-foreground, #1a1a1a); } .ds-bar a:focus-visible, .ds-bar button:focus-visible { outline: 2px solid var(--primary, #ffd200); outline-offset: 2px; } .ds-bar-account { display: grid; place-items: center; margin-left: auto; width: 40px; height: 40px; border: 0; border-radius: 9999px; background: rgb(255 255 255 / 0.12); color: #ffffff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: background-color 150ms ease-out, transform 150ms ease-out; } .ds-bar-account:hover { background: rgb(255 255 255 / 0.2); } .ds-bar-account:active { transform: scale(0.95); }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "A shortcut on a grey tile pill; the popular trips before a destination is set.",
+      "html": "<button class=\"ds-chip\">Centraal → Schiphol</button>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 8px 14px; border: 0; border-radius: 9999px; background: var(--tile, #f0f0ed); color: var(--foreground, #1a1a1a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 150ms ease-out, transform 150ms ease-out; } .ds-chip:hover { background: var(--tile-hover, #e8e8e4); } .ds-chip:active { transform: scale(0.95); } .ds-chip:focus-visible { outline: 2px solid var(--ring, #1a1a1a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "A small pill naming a state, in the colour that state means.",
+      "html": "<span class=\"ds-badge\">On shift</span> <span class=\"ds-badge ds-badge-service\">Held</span> <span class=\"ds-badge ds-badge-refused\">Failed</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 9999px; background: var(--primary, #ffd200); color: var(--primary-foreground, #1a1a1a); font-family: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif; font-size: 12px; font-weight: 600; white-space: nowrap; } .ds-badge-service { background: var(--secondary, #1a1a1a); color: #ffffff; } .ds-badge-refused { background: rgb(200 49 42 / 0.1); color: var(--destructive, #c8312a); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Signposted Route",
+    "overview": "Surge borrows its colour logic from Schiphol and NS wayfinding. Every card's colour says what kind of thing it is and nothing is coloured for emphasis: sign yellow is the route, the chosen class and the next step; black is a service (the card, the account, a receipt); green is done; red is refused; everything else is a grey tile to pick from or read. The world is light because a rider reads it outdoors on a phone in flat Amsterdam daylight, and rounded because the face is rounded: tiles at 16px, the sheet at 24px, every action a pill.\n\nThe surface is one white sheet rising over a desaturated map. Its cards are set apart by tone, not by lines: there are no borders anywhere except table hairlines, and the few shadows exist only to lift a floating thing (the sheet, the black navigation pill, a menu, a dialog) off the page. The typeface is SF Pro Rounded throughout, in sentence case, semibold for names and bold for prices, with tabular figures and prices flush right. Motion is small and only where something changed: presses settle, a check pops, results rise in, the status card wipes in; each between 150 and 280ms on a soft ease-out, and reduced to colour changes when the rider asks for reduced motion.\n\nThe system refuses the category default: no floating white sheet with car renders and a black Confirm button, no ratings, no perks, no gradients, no glass, no toasts. What the system cannot back is not shown.",
+    "keyCharacteristics": [
+      "Colour is fixed by meaning: yellow next step, black service, green done, red refused, grey to choose from.",
+      "One white sheet over a pale map; tone does the work borders and shadows would.",
+      "Pill actions; 16px tiles; 24px sheet and cards.",
+      "SF Pro Rounded only, sentence case, tabular figures, prices flush right.",
+      "One lucide icon family in one stroke weight, plus two authored stop marks and the yellow arrow mark.",
+      "Motion 150–280ms, soft ease-out, `motion-safe` everywhere, `MotionConfig reducedMotion=\"user\"`.",
+      "Focus is a 2px ring clear of the element: ink on light, sign yellow inside anything dark."
+    ],
+    "rules": [
+      {
+        "name": "The One Meaning Rule",
+        "body": "A colour is chosen by what the element says, never for emphasis. Yellow is the next step, black is a service, green is done, red is refused. Two yellow things on one screen means two next steps, which is a bug.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tone Not Line Rule",
+        "body": "Adjacent surfaces are told apart by tone (ground, sheet, tile) and never by a border. The only hairlines in the system are table row separators, the sign-in \"or\" divider and the phone sheet's footer rule.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink On Dark Rule",
+        "body": "Anything that turns black, green or red marks itself `data-surface=\"dark\"` so the focus ring turns yellow inside it; a light card nested inside (the account menu) marks itself `data-surface=\"light\"` to go back to ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flush-Right Figures Rule",
+        "body": "Every price, duration and distance is set with tabular figures and right-aligned against the card's edge, so a column of tiles reads as a fare table.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "No uppercase labels, no tracked-out eyebrows, no kickers. A section is introduced by a 13px semibold muted label in sentence case, or by nothing.",
+        "section": "typography"
+      },
+      {
+        "name": "The Floating Only Rule",
+        "body": "A shadow is evidence that a thing floats over the page. Tiles inside a sheet never carry one; two surfaces on the same plane are told apart by tone.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Glass Rule",
+        "body": "The dialog and drawer backdrop is a plain dim (`rgb(0 0 0 / 0.35)`). Nothing is blurred, frosted or translucent for effect.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do choose a surface's colour by what it says: yellow for the next step and the chosen thing, ink for a service, green for done, red for refused, grey tile for a choice or a note.",
+      "Do make every action a pill (`9999px`), 44px tall by default and 48–56px in the thumb zone, 15px semibold in sentence case.",
+      "Do build inputs as grey tiles (`#f0f0ed`, 12px radius, no border) that lift to white with a 2px inset ink ring on focus, and a 2px inset red ring on `aria-invalid`.",
+      "Do set prices, times and distances in tabular figures, bold, flush right.",
+      "Do use lucide icons in one stroke weight, sized 16–24px, and the two authored stop marks for pickup and dropoff on both the rail and the map.",
+      "Do keep motion between 150 and 280ms on `cubic-bezier(0.22, 1, 0.36, 1)`, opted in with `motion-safe:` or under `MotionConfig reducedMotion=\"user\"`, and only where something changed.",
+      "Do mark any ink, green or red surface `data-surface=\"dark\"` so its focus ring turns yellow; nest `data-surface=\"light\"` to return to ink.",
+      "Do announce trip status through an `aria-live=\"polite\"` region and show failures in place as a `refused` sign with `role=\"alert\"`."
+    ],
+    "donts": [
+      "Don't draw a border on a card, tile, input or button. Hairlines belong to table rows, the sign-in \"or\" divider and the phone sheet's footer rule, and nowhere else.",
+      "Don't put a shadow on anything that does not float over the page; tiles inside a sheet carry none, and no shadow is a hard offset.",
+      "Don't use gradients, blur, frosted glass or translucent chrome; the dialog backdrop is a plain 35% dim.",
+      "Don't use a toast. Messages are inline, a banner, or a dialog.",
+      "Don't render cars, ratings, perks, driver avatars or any social proof; a class tile carries a radio mark, a name, seats and a price.",
+      "Don't set text in uppercase, add letterspacing, or write kickers and eyebrows; sentence case throughout, with a 13px semibold muted label where a section needs one.",
+      "Don't put two yellow surfaces on one screen; yellow is the one next step.",
+      "Don't use a second typeface or a system display face; SF Pro Rounded at 400/500/600/700 is the whole ramp, with the monospace stack reserved for trip ids and raw causes."
+    ]
+  }
+}

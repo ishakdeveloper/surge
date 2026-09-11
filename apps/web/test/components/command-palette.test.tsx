@@ -1,5 +1,5 @@
 import { CommandPalette } from "@/components/app/command-palette.js";
-import { nav } from "@/components/app/sidebar.js";
+import { nav } from "@/components/app/top-bar.js";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 
 /**
  * A router is needed for `useNavigate`. What is asserted below is the part that
- * must work with no data at all: the keybinding, and every page the sidebar
- * offers.
+ * must work with no data at all: the keybinding, and every page the top bar
+ * can offer.
  */
 const renderPalette = async () => {
   const root = createRootRoute({ component: () => <CommandPalette /> });
@@ -56,7 +56,7 @@ describe("CommandPalette", () => {
   });
 
   /**
-   * Driven by the same `nav` array the sidebar renders from rather than by a
+   * Driven by the same `nav` array the top bar renders from rather than by a
    * hand-typed list, so it keeps holding as Phase 4 adds /console, /ride and
    * /drive. Failing means the palette and the navigation have drifted apart.
    */

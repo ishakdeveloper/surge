@@ -194,3 +194,16 @@ func Boundary(cell string) ([]Point, error) {
 	}
 	return points, nil
 }
+
+// CellCenter is the middle of a cell: where to draw something that should say
+// which cell it happened in, and not where in it.
+func CellCenter(cell Cell) (Point, error) {
+	if !cell.IsValid() {
+		return Point{}, fmt.Errorf("geo: %v is not an H3 cell", cell)
+	}
+	center, err := cell.LatLng()
+	if err != nil {
+		return Point{}, fmt.Errorf("geo: center of %s: %w", cell, err)
+	}
+	return Point{Lat: center.Lat, Lng: center.Lng}, nil
+}

@@ -1,6 +1,8 @@
 import { DriverId, TripId } from "@surge/domain/api/Primitives";
 import {
   CellId,
+  CityBooking,
+  CityCar,
   ClientMessageFromJson,
   DriverPing,
   OfferReply,
@@ -136,6 +138,29 @@ describe("server messages", () => {
     expect(message.position.driverId).toBe("drv-000123");
     expect(message.position.lat).toBeCloseTo(52.3711, 4);
     expect(message.position.etaSeconds).toBe(240);
+  });
+
+  it("decodes the city a rider's map shows: free cars and recent bookings", async () => {
+    const message = await Effect.runPromise(decodeServer(fixture("server_city.json")));
+
+    if (message._tag !== "CityUpdate") {
+      throw new Error(`expected a city update, got ${message._tag}`);
+    }
+    expect(message.city.cars[0]).toMatchObject({ key: "5f1c09a2e4b7d833", heading: 137.5 });
+    expect(message.city.bookings[0]).toMatchObject({
+      key: "a93e61d0c2f84b17",
+      atMs: 1757512338000,
+    });
+  });
+
+  /**
+   * The absence is the assertion, as it is for a ping's driver id: a car any
+   * rider can see must not say who is driving it, and a booking must not say
+   * whose trip it was.
+   */
+  it("names no driver and no trip in the city", () => {
+    expect(Object.keys(CityCar.fields)).toEqual(["key", "lat", "lng", "heading"]);
+    expect(Object.keys(CityBooking.fields)).toEqual(["key", "lat", "lng", "atMs"]);
   });
 
   /**
@@ -287,6 +312,17 @@ describe("client messages", () => {
     expect(JSON.parse(unwatch)).toEqual(JSON.parse(fixture("client_unwatch_fleet.json")));
     const unfollow = await Effect.runPromise(encodeClient({ _tag: "ClientUnfollowTrip" }));
     expect(JSON.parse(unfollow)).toEqual(JSON.parse(fixture("client_unfollow_trip.json")));
+  });
+
+  it("encodes watching the city, and stopping", async () => {
+    const watch = await Effect.runPromise(encodeClient({
+      _tag: "ClientWatchCity",
+      viewport: new Viewport({ west: 4.85, south: 52.35, east: 4.95, north: 52.4, zoom: 13 }),
+    }));
+    expect(JSON.parse(watch)).toEqual(JSON.parse(fixture("client_watch_city.json")));
+
+    const unwatch = await Effect.runPromise(encodeClient({ _tag: "ClientUnwatchCity" }));
+    expect(JSON.parse(unwatch)).toEqual(JSON.parse(fixture("client_unwatch_city.json")));
   });
 
   it("rejects a position that is not on the planet", async () => {

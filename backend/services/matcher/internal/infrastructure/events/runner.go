@@ -94,10 +94,11 @@ type worker struct {
 	// batch a shard has in flight, so the fetch never waits on the loop.
 	solved chan domain.BatchResult
 
-	// latencies and abandoned accumulate between frames. Only the worker
-	// goroutine touches them, like the shard itself.
+	// latencies, abandoned and requests accumulate between frames. Only the
+	// worker goroutine touches them, like the shard itself.
 	latencies []int64
 	abandoned int
+	requests  []wire.FrameRequest
 }
 
 func NewRunner(brokers []string, config domain.Config, producer *kgo.Client, router Router, instance string, hooks Hooks) *Runner {
@@ -430,6 +431,16 @@ func (r *Runner) handle(w *worker, record *kgo.Record) {
 		)
 	}
 
+	// A ride asked for, which the next frame tells the gateway about for the
+	// riders' city map. Every one reaches a shard, the simulator's included,
+	// and a real one only once its fare is held.
+	if event.Tag == wire.TagMatchRequested && event.Requested != nil {
+		request := event.Requested
+		w.requests = append(w.requests, wire.FrameRequest{
+			TripID: request.TripID, Lat: request.PickupLat, Lng: request.PickupLng, AtMs: request.RequestedAtMs,
+		})
+	}
+
 	if r.hooks.OnEvent != nil {
 		r.hooks.OnEvent(event.Tag)
 	}
@@ -643,6 +654,10 @@ func (r *Runner) publishFrame(w *worker) {
 	if latencies == nil {
 		latencies = []int64{}
 	}
+	requests := w.requests
+	if requests == nil {
+		requests = []wire.FrameRequest{}
+	}
 
 	frame := wire.FleetFrame{
 		Tag:              wire.TagFleetFrame,
@@ -655,9 +670,11 @@ func (r *Runner) publishFrame(w *worker) {
 		MatchLatenciesMs: latencies,
 		Abandoned:        w.abandoned,
 		Surge:            surging,
+		Requests:         requests,
 	}
 	w.latencies = nil
 	w.abandoned = 0
+	w.requests = nil
 
 	r.produce(context.Background(), kafkax.TopicFleetFrames, strconv.Itoa(int(frame.Partition)), frame)
 

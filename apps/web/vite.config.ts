@@ -70,6 +70,15 @@ export default defineConfig(({ command, mode }) => {
      * and every server-rendered route dies on `module is not defined`.
      */
     ssr: command === "build" ? { noExternal: true } : {},
+    /**
+     * MapLibre is served as the ES modules it ships, not pre-bundled.
+     *
+     * It finds its worker relative to its own module, and the dev server's
+     * pre-bundling folds it into one file that has no worker beside it. The map
+     * then never finishes loading a style, and says nothing: no error, no tiles,
+     * a grey rectangle. The production build resolves the worker itself.
+     */
+    optimizeDeps: { exclude: ["maplibre-gl"] },
     resolve: {
       /**
        * Source, not build output. The workspace packages expose `src` under a

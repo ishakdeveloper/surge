@@ -1,30 +1,73 @@
 @import "tailwindcss";
 
-/* Data dense, low chrome interface per knowledge/rules/dashboard-ui.md. Colour
-   carries status and action only — never decoration. Dark by default; the
-   tokens below are the shadcn contract, mapped onto that palette. */
-:root {
-  --radius: 0.375rem;
+/* Surge's palette, read the way a Schiphol sign is read: each colour says one
+   thing. Yellow is the route and the next step, black is a service, green is
+   done, red is refused, and nothing is coloured for decoration. Light, because
+   a rider reads this outdoors on a phone in daylight. The tokens keep shadcn's
+   names so a class means the same thing here and in apps/mobile's global.css. */
 
-  --background: oklch(0.145 0.005 285);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.185 0.005 285);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.185 0.005 285);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.65 0.15 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.22 0.005 285);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.22 0.005 285);
-  --muted-foreground: oklch(0.55 0.005 285);
-  --accent: oklch(0.22 0.005 285);
-  --accent-foreground: oklch(0.95 0 0);
-  --destructive: oklch(0.65 0.2 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.005 285);
-  --input: oklch(0.25 0.005 285);
-  --ring: oklch(0.65 0.15 250);
+@font-face {
+  font-family: "SF Pro Rounded";
+  src: url("/fonts/SF-Pro-Rounded-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Rounded";
+  src: url("/fonts/SF-Pro-Rounded-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Rounded";
+  src: url("/fonts/SF-Pro-Rounded-Semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Rounded";
+  src: url("/fonts/SF-Pro-Rounded-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  --radius: 1rem;
+
+  /* A near-white ground, a white sheet, and grey tiles on it: choices read
+     by tone, not by borders or shadows. */
+  --background: #f7f7f5;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  --tile: #f0f0ed;
+  --tile-hover: #e8e8e4;
+  --primary: #ffd200;
+  --primary-foreground: #1a1a1a;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ffffff;
+  --muted: #f0f0ed;
+  --muted-foreground: #5f636a;
+  --accent: #ebebe7;
+  --accent-foreground: #1a1a1a;
+  --destructive: #c8312a;
+  --destructive-foreground: #ffffff;
+  --success: #067a3e;
+  --success-foreground: #ffffff;
+  --border: #e3e3df;
+  --input: #dcdcd7;
+  --ring: #1a1a1a;
 }
 
 @theme inline {
@@ -44,27 +87,142 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-tile: var(--tile);
+  --color-tile-hover: var(--tile-hover);
 
-  --color-success: oklch(0.65 0.2 150);
+  /* Rounded, like the face: tiles at 16px, the sheet at 24px, actions as
+     pills. Soft corners on a quiet palette; the colour stays strict. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: var(--radius);
+  --radius-xl: 1.5rem;
 
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "SF Pro Rounded", ui-rounded, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", monospace;
 
-  --font-sans: system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Small, and only where something changed: new content rises into place,
+     a confirmation pops, and the trip's status card wipes in when the trip
+     moves on. */
+  --animate-rise-in: rise-in 220ms var(--ease-out-soft) both;
+  --animate-pop-in: pop-in 200ms var(--ease-out-soft) both;
+  --animate-status-in: status-in 280ms var(--ease-out-soft) both;
+  /* A refused code: the boxes shake once, the way a wrong key does. */
+  --animate-shake: shake 360ms var(--ease-out-soft) both;
+
+  @keyframes shake {
+    10%, 90% {
+      transform: translateX(-1px);
+    }
+    20%, 80% {
+      transform: translateX(2px);
+    }
+    30%, 50%, 70% {
+      transform: translateX(-4px);
+    }
+    40%, 60% {
+      transform: translateX(4px);
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes status-in {
+    from {
+      opacity: 0.4;
+      clip-path: inset(0 100% 0 0 round 1rem);
+    }
+    to {
+      opacity: 1;
+      clip-path: inset(0 0 0 0 round 1rem);
+    }
+  }
+}
+
+/* Presses and hovers move things a little; with reduced motion they only
+   change colour. Animations are opted into with `motion-safe:` already. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    transition-property: color, background-color, border-color, opacity !important;
+  }
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/60;
+  }
+
+  html {
+    scrollbar-color: #b9bab4 transparent;
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
   }
+
+  /* Focus is a 2px ring clear of the element: ink on the light surfaces, the
+     action yellow inside anything dark, where ink would vanish. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  [data-surface="dark"] :focus-visible {
+    outline-color: var(--primary);
+  }
+
+  /* A light card inside a dark one — the account menu under the black bar —
+     goes back to ink. Declared after the dark rule, which it must beat. */
+  [data-surface="light"] :focus-visible {
+    outline-color: var(--ring);
+  }
+
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  input,
+  textarea {
+    caret-color: var(--foreground);
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+}
+
+/* MapLibre's attribution, in the interface's own type rather than the
+   library's default Helvetica. */
+.maplibregl-ctrl-attrib {
+  font-family: var(--font-sans);
+  font-size: 11px;
 }

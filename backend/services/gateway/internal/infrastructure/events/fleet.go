@@ -7,22 +7,25 @@ import (
 	"time"
 
 	"github.com/ishakdeveloper/surge/services/gateway/internal/domain"
+	"github.com/ishakdeveloper/surge/shared/geo"
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 	"github.com/ishakdeveloper/surge/shared/wire"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // FleetConsumer keeps the gateway's picture of the city current from the
-// matchers' frames.
+// matchers' frames: the fleet for the console, and the rides asked for, which
+// the city map flashes.
 //
 // Its own group per instance, like the push consumer: every gateway needs every
-// frame, because a console may be connected to any of them.
+// frame, because a console or a rider's map may be connected to any of them.
 type FleetConsumer struct {
 	client *kgo.Client
 	fleet  *domain.Fleet
+	city   *domain.City
 }
 
-func NewFleetConsumer(brokers []string, group string, fleet *domain.Fleet) (*FleetConsumer, error) {
+func NewFleetConsumer(brokers []string, group string, fleet *domain.Fleet, city *domain.City) (*FleetConsumer, error) {
 	client, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicFleetFrames},
 		// A frame is superseded a second after it is written. A gateway
 		// starting up wants the next one, not the backlog.
@@ -30,7 +33,7 @@ func NewFleetConsumer(brokers []string, group string, fleet *domain.Fleet) (*Fle
 	if err != nil {
 		return nil, err
 	}
-	return &FleetConsumer{client: client, fleet: fleet}, nil
+	return &FleetConsumer{client: client, fleet: fleet, city: city}, nil
 }
 
 func (c *FleetConsumer) Close() { c.client.Close() }
@@ -53,6 +56,12 @@ func (c *FleetConsumer) Run(ctx context.Context) error {
 				return
 			}
 			c.fleet.Record(frame, now)
+			// Every ride asked for reaches a matcher, and only once its fare is
+			// held — so this is every booking, the simulator's riders included,
+			// which never pass through the trip service.
+			for _, request := range frame.Requests {
+				c.city.Booked(request.TripID, geo.Point{Lat: request.Lat, Lng: request.Lng}, request.AtMs, now)
+			}
 		})
 
 		if err := c.client.CommitUncommittedOffsets(ctx); err != nil && ctx.Err() == nil {

@@ -6,6 +6,7 @@ import {
   type MapView,
   SurgeMap,
 } from "@/components/map/surge-map.js";
+import { useCity } from "@/components/map/use-city.js";
 import { FleetStats } from "@/routes/_protected/console/-components/fleet-stats.js";
 import { ShardTable } from "@/routes/_protected/console/-components/shard-table.js";
 import { SimControls } from "@/routes/_protected/console/-components/sim-controls.js";
@@ -50,11 +51,16 @@ export const ConsoleView = () => {
     [update],
   );
 
+  // The console has the whole fleet already; from the city it takes the
+  // bookings, so demand shows up where it happens.
+  const { flashes, onView: watchCity } = useCity();
+
   const onView = React.useCallback(
     (view: MapView) => {
       setView({ viewport: Option.some(new Viewport(view)) });
+      watchCity(view);
     },
-    [setView],
+    [setView, watchCity],
   );
 
   return (
@@ -80,6 +86,7 @@ export const ConsoleView = () => {
       <SurgeMap
         markers={NONE}
         dots={dots}
+        flashes={flashes}
         cells={cells}
         route={NONE}
         follow={NONE}

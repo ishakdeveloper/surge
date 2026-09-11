@@ -55,6 +55,20 @@ type FleetFrame struct {
 	Abandoned        int     `json:"abandoned"`
 	// Surge is every cell this partition owns that is priced above 1.0.
 	Surge []CellSurge `json:"surge"`
+	// Requests are the rides this partition was asked for since the previous
+	// frame. The gateway shows them on riders' maps as the area each came
+	// from and never the pickup; the exact point stops at the gateway, as
+	// every driver's id and position on this topic does.
+	Requests []FrameRequest `json:"requests"`
+}
+
+// FrameRequest is one ride a partition was asked for.
+type FrameRequest struct {
+	TripID string  `json:"tripId"`
+	Lat    float64 `json:"lat"`
+	Lng    float64 `json:"lng"`
+	// AtMs is when the rider asked.
+	AtMs int64 `json:"atMs"`
 }
 
 // FleetDriver is one driver as the console draws them.

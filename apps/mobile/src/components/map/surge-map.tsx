@@ -1,20 +1,21 @@
 import { colors } from "@/lib/theme.js";
 import { cn } from "@/lib/utils.js";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import * as React from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import MapView, { Marker, Polyline, type Region } from "react-native-maps";
 
 /**
- * The map, as the web's `SurgeMap` draws it: markers by kind, the route, and a
- * camera that follows what matters.
+ * The map, as the web's `SurgeMap` draws it: the trip's stops as sign panels,
+ * the route in sign yellow, and a camera that follows what matters.
  *
  * Apple Maps on iOS and Google Maps on Android, through react-native-maps —
  * both in Expo Go without a key. The web draws with MapLibre; the props are the
  * same so a screen reads the same on both.
  *
  * The map is never the only way to do something. Every place a tap on it
- * chooses — a pickup, where a driver stands — has a list beside it, because a
- * map is not something a screen reader can use.
+ * chooses — a pickup, where a driver stands — has a list or a search beside
+ * it, because a map is not something a screen reader can use.
  */
 export interface MapPoint {
   readonly lat: number;
@@ -24,16 +25,8 @@ export interface MapPoint {
 export interface MapMarker {
   readonly id: string;
   readonly position: MapPoint;
-  /** Categorisation, which is the only thing colour is used for — the web's palette. */
   readonly kind: "pickup" | "dropoff" | "driver" | "self";
 }
-
-const MARKER_COLORS: Record<MapMarker["kind"], string> = {
-  pickup: "rgb(34, 197, 94)",
-  dropoff: "rgb(96, 165, 250)",
-  driver: "rgb(245, 158, 11)",
-  self: "rgb(240, 240, 240)",
-};
 
 const MARKER_TITLES: Record<MapMarker["kind"], string> = {
   pickup: "Pickup",
@@ -53,6 +46,43 @@ const AMSTERDAM: Region = {
 const EDGE = { top: 48, right: 48, bottom: 48, left: 48 };
 
 const toLatLng = (point: MapPoint) => ({ latitude: point.lat, longitude: point.lng });
+
+/**
+ * A marker as the sheet's rail draws it: the pickup a yellow disc ringed in
+ * ink, the dropoff an ink square with a yellow heart, the driver an ink disc
+ * with a car — a car is a service, not a direction — and the device's own
+ * position a yellow dot. Each sits on a white halo so it holds against any
+ * street.
+ */
+const SignMarker = (props: { readonly kind: MapMarker["kind"]; }) => {
+  if (props.kind === "self") {
+    return <View className="size-4 rounded-full border-2 border-foreground bg-primary" />;
+  }
+  if (props.kind === "driver") {
+    return (
+      <View className="size-[30px] items-center justify-center rounded-full bg-white">
+        <View className="size-[26px] items-center justify-center rounded-full bg-secondary">
+          <Ionicons name="car" size={15} color="#ffffff" />
+        </View>
+      </View>
+    );
+  }
+  return props.kind === "pickup"
+    ? (
+      <View className="size-[28px] items-center justify-center rounded-full bg-white">
+        <View className="size-[22px] items-center justify-center rounded-full border-[3.5px] border-foreground bg-primary">
+          <View className="size-[7px] rounded-full bg-foreground" />
+        </View>
+      </View>
+    )
+    : (
+      <View className="size-[28px] items-center justify-center rounded-[9px] bg-white">
+        <View className="size-[23px] items-center justify-center rounded-[7px] bg-foreground">
+          <View className="size-[8px] rounded-[2.5px] bg-primary" />
+        </View>
+      </View>
+    );
+};
 
 export const SurgeMap = (props: {
   readonly markers: ReadonlyArray<MapMarker>;
@@ -86,14 +116,20 @@ export const SurgeMap = (props: {
     }
   }, [followKey]);
 
+  const path = props.route.map(toLatLng);
+
   return (
-    <View className={cn("h-72 overflow-hidden rounded-xl border border-border", props.className)}>
+    <View className={cn("flex-1 overflow-hidden bg-muted", props.className)}>
       <MapView
         ref={map}
         style={{ flex: 1 }}
         initialRegion={AMSTERDAM}
-        userInterfaceStyle="dark"
+        userInterfaceStyle="light"
+        // Apple's desaturated style, so the route's sign yellow is the loudest
+        // thing on the map. Google's has no equivalent without a key.
+        mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
         toolbarEnabled={false}
+        showsPointsOfInterests={false}
         accessibilityLabel="Map"
         onPress={(event) => {
           // Android reports a tap on a marker as a tap on the map as well.
@@ -106,20 +142,35 @@ export const SurgeMap = (props: {
           });
         }}
       >
-        {props.route.length > 1 && (
-          <Polyline
-            coordinates={props.route.map(toLatLng)}
-            strokeColor={colors.primary}
-            strokeWidth={4}
-          />
+        {path.length > 1 && (
+          <>
+            {/* Yellow alone vanishes against a pale map; the black casing is what carries it. */}
+            <Polyline
+              coordinates={path}
+              strokeColor={colors.foreground}
+              strokeWidth={9}
+              lineCap="round"
+              lineJoin="round"
+            />
+            <Polyline
+              coordinates={path}
+              strokeColor={colors.primary}
+              strokeWidth={5}
+              lineCap="round"
+              lineJoin="round"
+            />
+          </>
         )}
         {props.markers.map((marker) => (
           <Marker
             key={marker.id}
             coordinate={toLatLng(marker.position)}
-            pinColor={MARKER_COLORS[marker.kind]}
+            anchor={{ x: 0.5, y: 0.5 }}
             title={MARKER_TITLES[marker.kind]}
-          />
+            tracksViewChanges={false}
+          >
+            <SignMarker kind={marker.kind} />
+          </Marker>
         ))}
       </MapView>
     </View>

@@ -175,6 +175,8 @@ func TestServerMessageValid(t *testing.T) {
 		{"trip", wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{TripID: "t"}}, true},
 		{"trip without id", wire.ServerMessage{Tag: wire.TagTripUpdated, Trip: &wire.TripUpdate{}}, false},
 		{"trip without payload", wire.ServerMessage{Tag: wire.TagTripUpdated}, false},
+		{"city", wire.ServerMessage{Tag: wire.TagCityUpdate, City: &wire.CityUpdate{}}, true},
+		{"city without payload", wire.ServerMessage{Tag: wire.TagCityUpdate}, false},
 		{"welcome", wire.ServerMessage{Tag: wire.TagServerWelcome}, true},
 		{"unknown", wire.ServerMessage{Tag: "SurgeUpdated"}, false},
 	}
@@ -206,9 +208,18 @@ func TestFleetClientMessagesDecodeFromFixtures(t *testing.T) {
 		t.Errorf("follow = %+v", follow)
 	}
 
+	var city wire.ClientMessage
+	if err := json.Unmarshal(fixture(t, "client_watch_city.json"), &city); err != nil {
+		t.Fatalf("watch city: %v", err)
+	}
+	if city.Tag != wire.TagClientWatchCity || city.Viewport == nil || city.Viewport.Zoom != 13 {
+		t.Errorf("watch city = %+v", city)
+	}
+
 	for name, tag := range map[string]string{
 		"client_unwatch_fleet.json": wire.TagClientUnwatchFleet,
 		"client_unfollow_trip.json": wire.TagClientUnfollowTrip,
+		"client_unwatch_city.json":  wire.TagClientUnwatchCity,
 	} {
 		var message wire.ClientMessage
 		if err := json.Unmarshal(fixture(t, name), &message); err != nil || message.Tag != tag {
@@ -220,7 +231,9 @@ func TestFleetClientMessagesDecodeFromFixtures(t *testing.T) {
 // The fleet fixtures are generated; this holds them to the types, and to the
 // rule that no list in them is null.
 func TestFleetFixturesHaveNoNull(t *testing.T) {
-	for _, name := range []string{"server_fleet_cells.json", "server_fleet_drivers.json", "server_driver_position.json"} {
+	for _, name := range []string{
+		"server_fleet_cells.json", "server_fleet_drivers.json", "server_driver_position.json", "server_city.json",
+	} {
 		raw := fixture(t, name)
 		var message wire.ServerMessage
 		if err := json.Unmarshal(raw, &message); err != nil || !message.Valid() {

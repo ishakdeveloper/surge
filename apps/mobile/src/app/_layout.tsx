@@ -90,7 +90,7 @@ const Payments = (props: { readonly children: React.ReactNode; }) =>
 const RootLayout = () => (
   <Payments>
     <SessionScope>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Navigator />
     </SessionScope>
   </Payments>

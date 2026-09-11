@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "\\",
+        "files": [
+          "apps/web/src/components/payments/card-setup.tsx"
+        ],
+        "createdAt": "2026-09-11T17:10:40.233Z",
+        "reason": "agent triage: false positive, the parsed value is the escaped quote in Stripe Appearance fontFamily \"SF Pro Rounded\", ui-rounded, which is DESIGN.md's documented face"
+      }
+    ]
+  }
+}
