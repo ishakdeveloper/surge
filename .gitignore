@@ -33,5 +33,11 @@ backend/bin/
 # copy of deploy/k8s/development/secrets.template.yaml, should one be made.
 deploy/k8s/**/secrets.yaml
 
+# OpenTofu's provider cache and any local state. State lives in GCS; the
+# provider lock file is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+
 # Python bytecode from running the benchmark scripts.
 __pycache__/

@@ -172,14 +172,16 @@ Built as `.github/workflows/ci.yml`:
 
 Where it departs from the plan, and why:
 
-- **Coverage is a ratchet, not 80% yet.** Measured the day the gate arrived,
-  the TypeScript suite covered 65.6% of lines, 42.7% of functions and 36.6% of
-  branches, and the Go packages ranged from 94% to nothing — fourteen have no
-  tests at all. A gate that fails every run is a gate nobody keeps. So the
-  thresholds in `vitest.config.ts` are those numbers less a point, and every Go
-  package has a floor in `backend/coverage-floors.txt`, enforced by
+- **Coverage is a ratchet, not 80% yet.** Measured on CI the day the gate
+  arrived, the TypeScript suite covered 57.7% of lines, 36.1% of functions and
+  33.7% of branches, and the Go packages ranged from 94% to nothing — fourteen
+  have no tests at all. A gate that fails every run is a gate nobody keeps. So
+  the thresholds in `vitest.config.ts` are those numbers less a point, and every
+  Go package has a floor in `backend/coverage-floors.txt`, enforced by
   `scripts/go-coverage-gate.sh`. A Go package not listed is new, and held to
-  80%. Floors rise and never fall; the gate says when one can.
+  80%. Floors rise and never fall; the gate says when one can. Both were set
+  from runs with only what CI has — a laptop with the whole stack running
+  measures higher, because the integration tests stop skipping.
 - **The auth migration is checked, not regenerated.** `compileAuthMigrations`
   diffs against a live database, and `0002_phone_number.sql` extends
   `0001_auth.sql` by hand, so regenerating `0001` has nothing to be compared
@@ -243,11 +245,29 @@ which is why it comes before the rest of the cloud.
 - Images are pushed with the **git SHA** as a tag, for people to read, and
   **deployed by digest**, which is what decides whether anything rolls — see
   _One change, one rollout_. `latest` is never deployed.
-- `docker/build-push-action` emits SBOM and provenance attestations. cosign and
-  Binary Authorization can come later; attestations cost nothing now.
+- **Builds are reproducible, and that was measured, not assumed.** Every
+  timestamp is the commit's (`SOURCE_DATE_EPOCH`, and buildx's
+  `rewrite-timestamp`). Two uncached builds of the gateway came out with the
+  same manifest digest, `sha256:5c9918fc…`, so an unchanged service really
+  does keep its digest and does not roll.
+- **No attestations in the pushed index, for now.** `build-push-action` would
+  add provenance and an SBOM inside the image index, and both carry the build's
+  own time: the index digest would change on every build and every service would
+  roll on every deploy. They come back as cosign attestations attached by
+  reference, which leave the image's digest alone, with Binary Authorization
+  after them.
 - **Web gets its URLs at runtime** — done in Phase 0. Without it, staging and
   production would need two web builds, and the image that was tested would not
   be the image that ships.
+
+**Built, not applied.** `deploy/terraform/gcp/bootstrap/` is the registry, the
+Workload Identity pool — which refuses every repository but this one, and lets
+only `main` impersonate the pusher — and a service account that can push and do
+nothing else. It passes `tofu validate`; applying it needs a GCP project. Its
+outputs become three repository variables, `REGISTRY`, `GCP_WIF_PROVIDER` and
+`GCP_PUSH_SA`, and from then on the `images` job pushes every affected image
+from `main` after its scan passes, and uploads each digest as an artifact for
+the deploy to pin. Until they are set it builds, scans and pushes nothing.
 
 ## Phase 3 — Playwright against the whole stack
 
@@ -384,7 +404,7 @@ nodes for load tests.
       manifest validation, `buf breaking` and `geo.events` compatibility,
       affected-service detection, Renovate
 - [ ] **P2** Terraform bootstrap (registry, WIF), reproducible images deployed
-      by digest
+      by digest — written and verified; waits on a GCP project to apply
 - [ ] **P3** `surge-valhalla-ams`, the compose `app` profile, Playwright
 - [ ] **P4** GKE, Cloud SQL, Redpanda and the `gke` component; staging deploys
       from `main`
