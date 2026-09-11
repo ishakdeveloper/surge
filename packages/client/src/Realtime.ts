@@ -1,5 +1,8 @@
 import type { TripId } from "@surge/domain/api/Primitives";
 import {
+  type ChatChange,
+  type ChatRead,
+  type ChatTyping,
   type ClientMessage,
   ClientMessageFromJson,
   DriverPing,
@@ -28,6 +31,7 @@ import {
   Result,
   Schedule,
   Schema,
+  type Scope,
   Stream,
   SubscriptionRef,
 } from "effect";
@@ -86,6 +90,16 @@ export interface RealtimeService {
    * moving.
    */
   readonly paymentsChanged: Stream.Stream<PaymentsChange>;
+  /**
+   * A conversation the caller is in has something new: a message, or a change
+   * of status, assignee or closing time. A doorbell — the messages are read
+   * over REST, which is what `Chat` does with it.
+   */
+  readonly chatChanged: Stream.Stream<ChatChange>;
+  /** Someone else in a conversation read further. */
+  readonly chatRead: Stream.Stream<ChatRead>;
+  /** Someone else in a conversation is typing. */
+  readonly chatTyping: Stream.Stream<ChatTyping>;
   /** For the reconnecting banner. Emits the current value on subscribe. */
   readonly status: Stream.Stream<ConnectionStatus>;
 
@@ -129,6 +143,17 @@ export interface RealtimeService {
 
   /** The escape hatch, for anything the two helpers above do not cover. */
   readonly send: (message: ClientMessage) => Effect.Effect<void>;
+
+  /**
+   * Every frame from now on, subscribed the moment this runs rather than when
+   * the stream it returns is first pulled.
+   *
+   * The streams above subscribe when they start, which is right for a screen
+   * and wrong for a read-then-listen: a frame that lands between reading a
+   * page and starting to listen would be lost. Subscribing first and reading
+   * second holds that frame instead.
+   */
+  readonly subscribe: Effect.Effect<Stream.Stream<ServerMessage>, never, Scope.Scope>;
 }
 
 /**
@@ -314,7 +339,25 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
                 ? Result.succeed(message.payments)
                 : Result.fail(message),
           ),
+          chatChanged: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "ChatChanged" ? Result.succeed(message.chat) : Result.fail(message),
+          ),
+          chatRead: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "ChatRead" ? Result.succeed(message.chatRead) : Result.fail(message),
+          ),
+          chatTyping: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "ChatTyping"
+                ? Result.succeed(message.chatTyping)
+                : Result.fail(message),
+          ),
           status: SubscriptionRef.changes(connection),
+          subscribe: Effect.map(PubSub.subscribe(inbound), Stream.fromSubscription),
           send,
           ping: (position) =>
             Effect.gen(function*() {
