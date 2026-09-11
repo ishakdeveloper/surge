@@ -1,0 +1,59 @@
+# chat
+    #
+    # Scales on messages, which is not much: a conversation is two people
+    # and a few dozen lines. Postgres is the limit long before the process
+    # is, and every replica runs the push worker, which leases its jobs
+    # rather than electing a leader.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat
+  namespace: surge
+  labels: { app: chat }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: chat }
+  template:
+    metadata:
+      labels: { app: chat }
+    spec:
+      containers:
+        - name: chat
+          image: surge/chat:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: surge-config }
+            - secretRef: { name: surge-secrets }
+          ports:
+            - name: grpc
+              containerPort: 8113
+            - name: metrics
+              containerPort: 9108
+          # Liveness only, for trip's reason: a readiness probe would take a
+          # pod out of rotation when Kafka blinks, and sending a message does
+          # not need Kafka at all.
+          livenessProbe:
+            httpGet: { path: /health, port: 9108 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 512Mi }
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat
+  namespace: surge
+spec:
+  selector: { app: chat }
+  ports:
+    - name: grpc
+      port: 8113
+      targetPort: grpc
+    - name: metrics
+      port: 9108
+      targetPort: metrics
