@@ -1,11 +1,11 @@
-import { Keys } from "@/atom/reactivity-keys.js";
-import { runtime } from "@/atom/runtime.js";
 import { Realtime } from "@surge/client/Realtime";
 import { SurgeApi } from "@surge/client/SurgeApi";
 import type { FareId, TripId } from "@surge/domain/api/Primitives";
 import { type Coordinate, isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
 import { Effect, Option, Stream } from "effect";
 import { AsyncResult, Atom, Reactivity } from "effect/unstable/reactivity";
+import { Keys } from "./reactivity-keys.js";
+import { runtime } from "./runtime.js";
 
 /**
  * Trips, over the generated REST surface, kept fresh by the WebSocket.

@@ -1,9 +1,9 @@
-import { pingLoopAtom } from "@/atom/driver-atoms.js";
 import { sessionAtom } from "@/atom/session-atoms.js";
-import { activeTripAtom, tripPushesAtom } from "@/atom/trip-atoms.js";
 import { QueryError } from "@/components/app/query-error.js";
 import { DriverView } from "@/routes/_protected/drive/-components/driver-view.js";
 import { useAtomMount, useAtomValue } from "@effect/atom-react";
+import { pingLoopAtom } from "@surge/common/atom/driver-atoms";
+import { activeTripAtom, tripPushesAtom } from "@surge/common/atom/trip-atoms";
 import { createFileRoute } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 

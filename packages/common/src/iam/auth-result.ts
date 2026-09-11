@@ -17,7 +17,7 @@ export const isRateLimited = (result: AsyncResult.AsyncResult<unknown, Failure>)
 
 /**
  * A failed submit is either the form not validating or the request being
- * rejected — telling someone their password was wrong when they simply left a
+ * rejected — telling someone their code was wrong when they simply left a
  * field blank sends them looking in the wrong place.
  */
 export const isInvalidForm = (result: AsyncResult.AsyncResult<unknown, Failure>) =>
@@ -26,12 +26,21 @@ export const isInvalidForm = (result: AsyncResult.AsyncResult<unknown, Failure>)
     onSome: (error) => error._tag !== "SignInFailed",
   });
 
+/**
+ * A failure with no typed error in it: the service broke, or never answered.
+ * Nothing the person typed caused it, and nothing they type will fix it.
+ */
+export const isServiceFailure = (result: AsyncResult.AsyncResult<unknown, Failure>) =>
+  AsyncResult.isFailure(result) && Option.isNone(failure(result));
+
 /** Picks the message for a form-level alert. `rejected` is the request-level case. */
 export const submitMessage = (
   result: AsyncResult.AsyncResult<unknown, Failure>,
   rejected: string,
 ) =>
-  isInvalidForm(result)
+  isServiceFailure(result)
+    ? "Something went wrong on our side. Try again shortly."
+    : isInvalidForm(result)
     ? "Check the fields above and try again."
     : isRateLimited(result)
     ? "Too many attempts. Try again in a minute."

@@ -1,4 +1,4 @@
-import { confirmCardAtom, paymentPushesAtom, startCardSetup } from "@/atom/payment-atoms.js";
+import { confirmCardAtom } from "@/atom/payment-atoms.js";
 import { sessionAtom } from "@/atom/session-atoms.js";
 import { ActionError } from "@/components/app/action-error.js";
 import { Button } from "@/components/ui/button.js";
@@ -15,6 +15,7 @@ import { CardSummary } from "@/routes/_protected/ride/-components/card-summary.j
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import type { Stripe } from "@stripe/stripe-js";
+import { paymentPushesAtom, startCardSetup } from "@surge/common/atom/payment-atoms";
 import { createFileRoute, Link, useBlocker } from "@tanstack/react-router";
 import { Option } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";

@@ -1,0 +1,34 @@
+# A new rider signs up with an email code, and lands on the Ride tab.
+#
+# Pass -e APP_URL=… and -e AUTH_URL=… to point it elsewhere; the defaults are
+# Expo Go on Metro's default port and the auth service's. For a development
+# build, -e APP_ID=com.ishakdeveloper.surge -e APP_URL=surge://.
+appId: ${APP_ID || 'host.exp.Exponent'}
+---
+- runFlow: common/start-signed-out.yaml
+- evalScript: ${output.email = 'rider-' + Date.now() + '@example.com'}
+- tapOn:
+    id: "field-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "role-rider"
+- tapOn: "Email me a code"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 15000
+- runScript:
+    file: scripts/latest-code.js
+    env:
+      TO: ${output.email}
+      AUTH_URL: ${AUTH_URL || 'http://localhost:3200'}
+- tapOn:
+    id: "field-code"
+- inputText: ${output.code}
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Where"
+    timeout: 30000
+# Below the map and the card on a small phone. A prefix: iOS reads the whole
+# choice as one label, its coordinates included.
+- scrollUntilVisible:
+    element: "Centraal → Rijksmuseum.*"

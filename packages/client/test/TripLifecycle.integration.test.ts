@@ -7,6 +7,8 @@ import type { Offer, TripUpdate } from "@surge/domain/realtime/Wire";
 import { Context, Deferred, Effect, Exit, Fiber, Layer, Queue, Schedule, Stream } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { Socket } from "effect/unstable/socket";
+import { saveATestCard } from "./support/save-a-card.js";
+import { type AuthServer, outboxOpen, signInWithCode } from "./support/sign-in-with-code.js";
 
 /**
  * One ride, end to end, through every service, with a real rider and a real
@@ -28,7 +30,10 @@ import { Socket } from "effect/unstable/socket";
  */
 const authBase = process.env["AUTH_BASE_URL"] ?? "http://localhost:3200";
 const gateway = process.env["SURGE_API_URL"] ?? "http://localhost:8100";
-const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5273";
+const auth: AuthServer = {
+  base: authBase,
+  origin: process.env["WEB_URL"] ?? "http://localhost:5273",
+};
 
 const reachable = async (url: string): Promise<boolean> => {
   try {
@@ -38,28 +43,12 @@ const reachable = async (url: string): Promise<boolean> => {
   }
 };
 
-const online = await reachable(`${gateway}/health`) && await reachable(`${authBase}/health`);
+const online = await reachable(`${gateway}/health`)
+  && await reachable(`${authBase}/health`)
+  && await outboxOpen(auth);
 
-const signUp = async (role: "rider" | "driver"): Promise<string> => {
-  const signup = await fetch(`${authBase}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: webOrigin },
-    body: JSON.stringify({
-      email: `lifecycle-${role}-${Date.now()}@surge.test`,
-      password: "correct-horse-battery",
-      name: `Lifecycle ${role}`,
-      role,
-    }),
-  });
-  if (!signup.ok) throw new Error(`sign-up failed with ${signup.status}: ${await signup.text()}`);
-
-  const cookie = signup.headers.getSetCookie().map((entry) => entry.split(";")[0]).join("; ");
-  const body = (await (await fetch(`${authBase}/api/auth/token`, {
-    headers: { cookie, origin: webOrigin },
-  })).json()) as { token?: string; };
-  if (typeof body.token !== "string") throw new Error("no token");
-  return body.token;
-};
+const signUp = (role: "rider" | "driver"): Promise<string> =>
+  signInWithCode(auth, `lifecycle-${role}-${Date.now()}@surge.test`, role);
 
 /**
  * Both clients, wired the way `apps/web` wires one: the platform layers at the
@@ -174,6 +163,10 @@ describe.skipIf(!online)("a trip, end to end", () => {
           Effect.forkScoped,
         );
 
+        // A card the fare can be held on. With TRIP_REQUIRE_PAYMENT a booking
+        // waits for that hold, and reaches the matcher only once it is placed.
+        yield* saveATestCard(rider.api);
+
         // Long enough for the pings to reach the matcher's index through ingest.
         yield* Effect.sleep("3 seconds");
 
@@ -223,7 +216,10 @@ describe.skipIf(!online)("a trip, end to end", () => {
         yield* Deferred.await(completed).pipe(
           within("the rider to see the trip complete", "30 seconds"),
         );
-        expect(seen).toEqual([
+        // With TRIP_REQUIRE_PAYMENT the rider first watches the booking wait for
+        // its hold — only ever first, and the rest of the order is exact.
+        const afterHold = seen[0] === "TRIP_STATUS_PAYMENT_PENDING" ? seen.slice(1) : seen;
+        expect(afterHold).toEqual([
           "TRIP_STATUS_REQUESTED",
           "TRIP_STATUS_ACCEPTED",
           "TRIP_STATUS_ARRIVED",

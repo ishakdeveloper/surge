@@ -1,0 +1,45 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "src",
+    "test",
+    "env.d.ts",
+    "nativewind-env.d.ts",
+    "app.config.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/client"
+    },
+    {
+      "path": "../../packages/common"
+    }
+  ],
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "types": [],
+    "tsBuildInfoFile": ".tsbuildinfo/app.tsbuildinfo",
+    "paths": {
+      "@/*": [
+        "${configDir}/src/*"
+      ],
+      "@surge/client/*": [
+        "../../packages/client/src/*.js"
+      ],
+      "@surge/domain/*": [
+        "../../packages/domain/src/*.js"
+      ],
+      "@surge/common/*": [
+        "../../packages/common/src/*.js"
+      ]
+    }
+  }
+}

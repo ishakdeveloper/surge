@@ -1,5 +1,5 @@
 import type { LatLng } from "@surge/domain/geo/Polyline";
-import { Context, type Effect, Schema } from "effect";
+import { Context, type Effect, Schema, type Stream } from "effect";
 
 /**
  * Where the device is, as the driver app needs it.
@@ -21,6 +21,16 @@ export class PositionUnavailable
 export interface GeolocationService {
   /** One fix, now. */
   readonly current: Effect.Effect<LatLng, PositionUnavailable>;
+  /**
+   * Fixes as the device moves, for as long as the stream is consumed —
+   * stopping it stops the platform's updates.
+   *
+   * What a driver on shift is followed by. On a phone this is also where
+   * background location comes in, which the browser has no equivalent of: the
+   * interface says "as the device moves", and each platform decides how long
+   * it can keep saying so.
+   */
+  readonly watch: Stream.Stream<LatLng, PositionUnavailable>;
 }
 
 export class Geolocation

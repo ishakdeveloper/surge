@@ -1,5 +1,5 @@
-import { runtime } from "@/atom/runtime.js";
 import { RegistryProvider } from "@effect/atom-react";
+import { type Platform, platformAtom, type PlatformServices } from "@surge/common/atom/runtime";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -34,17 +34,19 @@ const mount = async (load: () => Promise<{ readonly node: React.ReactNode; }>) =
 
   await router.load();
 
-  // The runtime's layer is seeded with one that never finishes building. The
-  // pages below open a WebSocket and call the gateway the moment their atoms
-  // are read, and under jsdom the gateway on this machine is real — so without
+  // The platform is seeded with one that never finishes building. The pages
+  // below open a WebSocket and call the gateway the moment their atoms are
+  // read, and under jsdom the gateway on this machine is real — so without
   // this a page test would connect to a running system, or retry against one
   // that is not there, for as long as the test process lives. What is under
   // test is that the modules and their bindings hold together, and a page
   // waiting on a runtime that never arrives still renders its loading state.
-  const inert = Layer.effectContext(Effect.never);
+  const inert: Platform = {
+    layer: Layer.effectContext<PlatformServices, never, never>(Effect.never),
+  };
 
   return render(
-    <RegistryProvider initialValues={[[runtime.layer, inert]]}>
+    <RegistryProvider initialValues={[[platformAtom, inert]]}>
       <RouterProvider router={router as never} />
     </RegistryProvider>,
   );

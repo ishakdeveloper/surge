@@ -3,6 +3,7 @@ import { Realtime } from "@/Realtime.js";
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, Stream } from "effect";
 import { Socket } from "effect/unstable/socket";
+import { type AuthServer, outboxOpen, signInWithCode } from "./support/sign-in-with-code.js";
 
 /**
  * The realtime client against the real gateway.
@@ -18,7 +19,10 @@ import { Socket } from "effect/unstable/socket";
 const authBase = process.env["AUTH_BASE_URL"] ?? "http://localhost:3200";
 const gateway = process.env["SURGE_API_URL"] ?? "http://localhost:8100";
 const gatewayMetrics = process.env["GATEWAY_METRICS_URL"] ?? "http://localhost:9104";
-const webOrigin = process.env["WEB_URL"] ?? "http://localhost:5273";
+const auth: AuthServer = {
+  base: authBase,
+  origin: process.env["WEB_URL"] ?? "http://localhost:5273",
+};
 
 const reachable = async (url: string): Promise<boolean> => {
   try {
@@ -30,40 +34,12 @@ const reachable = async (url: string): Promise<boolean> => {
 
 const online = await reachable(`${gateway}/health`)
   && await reachable(`${authBase}/health`)
-  && await reachable(`${gatewayMetrics}/metrics`);
+  && await reachable(`${gatewayMetrics}/metrics`)
+  && await outboxOpen(auth);
 
 /** A real driver, because only a driver's pings mean anything. */
-const signUpDriver = async (): Promise<string> => {
-  const email = `realtime-${Date.now()}@surge.test`;
-
-  const signup = await fetch(`${authBase}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: webOrigin },
-    body: JSON.stringify({
-      email,
-      password: "correct-horse-battery",
-      name: "Realtime Test",
-      role: "driver",
-    }),
-  });
-
-  if (!signup.ok) {
-    throw new Error(`sign-up failed with ${signup.status}: ${await signup.text()}`);
-  }
-
-  const cookie = signup.headers.getSetCookie()
-    .map((entry) => entry.split(";")[0])
-    .join("; ");
-
-  const token = await fetch(`${authBase}/api/auth/token`, {
-    headers: { cookie, origin: webOrigin },
-  });
-  const body = (await token.json()) as { token?: string; };
-  if (typeof body.token !== "string") {
-    throw new Error(`no token in response: ${JSON.stringify(body)}`);
-  }
-  return body.token;
-};
+const signUpDriver = (): Promise<string> =>
+  signInWithCode(auth, `realtime-${Date.now()}@surge.test`, "driver");
 
 /** Reads one Prometheus counter out of the gateway's own metrics. */
 const counter = async (name: string): Promise<number> => {

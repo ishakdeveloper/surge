@@ -1,10 +1,10 @@
-import { paymentPushesAtom } from "@/atom/payment-atoms.js";
 import { sessionAtom } from "@/atom/session-atoms.js";
-import { activeTripAtom, tripPushesAtom } from "@/atom/trip-atoms.js";
 import { QueryError } from "@/components/app/query-error.js";
 import { BookRide } from "@/routes/_protected/ride/-components/book-ride.js";
 import { RiderTrip } from "@/routes/_protected/ride/-components/rider-trip.js";
 import { useAtomMount, useAtomValue } from "@effect/atom-react";
+import { paymentPushesAtom } from "@surge/common/atom/payment-atoms";
+import { activeTripAtom, tripPushesAtom } from "@surge/common/atom/trip-atoms";
 import { createFileRoute } from "@tanstack/react-router";
 import { Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";

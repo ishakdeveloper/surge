@@ -5,19 +5,22 @@ import { Config, Effect, Layer } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { RateLimiter } from "effect/unstable/persistence";
 import * as Http from "node:http";
+import { DevOutbox } from "./dev/DevOutbox.js";
+import { DevOutboxHttp } from "./dev/DevOutboxHttp.js";
 import { Mailer } from "./email/Mailer.js";
 import { HealthHttp } from "./health/HealthHttp.js";
 import { Auth } from "./iam/Auth.js";
 import { AuthHttp } from "./iam/AuthHttp.js";
+import { Sms } from "./sms/Sms.js";
 import { TelemetryLive } from "./Telemetry.js";
 
 /**
  * The auth service, and only the auth service.
  *
  * Every product API in this system is Go. This process exists because
- * better-auth is worth keeping and not worth porting — sessions, OAuth, magic
- * links, OTP, password reset, email verification, CSRF and cookie scoping are a
- * multi-week detour that teaches nothing the rest of the project is about.
+ * better-auth is worth keeping and not worth porting — sessions, OAuth, email
+ * and phone one-time codes, CSRF and cookie scoping are a multi-week detour
+ * that teaches nothing the rest of the project is about.
  *
  * It is deliberately off the hot path. Nothing calls it per request: the
  * browser trades its session cookie for a short-lived JWT at
@@ -48,7 +51,7 @@ const CorsLive = Layer.unwrap(
   }),
 );
 
-const Routes = Layer.mergeAll(AuthHttp, HealthHttp, CorsLive);
+const Routes = Layer.mergeAll(AuthHttp, HealthHttp, DevOutboxHttp, CorsLive);
 
 const HttpLive = Layer.unwrap(
   Effect.gen(function*() {
@@ -64,7 +67,11 @@ const HttpLive = Layer.unwrap(
       Layer.provide(RateLimiter.layer),
       Layer.provide(RateLimiter.layerStoreMemory),
       Layer.provide(PgLive),
-      Layer.provide(Mailer.layer),
+      // The outbox is one layer value referenced three times, so it is built
+      // once: the senders record into the same store the route reads.
+      Layer.provide(Mailer.layer.pipe(Layer.provide(DevOutbox.layer))),
+      Layer.provide(Sms.layer.pipe(Layer.provide(DevOutbox.layer))),
+      Layer.provide(DevOutbox.layer),
       Layer.provide(PgPool.layer),
       Layer.provide(NodeHttpServer.layer(() => Http.createServer(), { port })),
     );

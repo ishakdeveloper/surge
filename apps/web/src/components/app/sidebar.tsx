@@ -32,7 +32,7 @@ const item =
 const active = "flex items-center gap-2 rounded-md px-3 py-2 text-sm bg-accent text-foreground";
 
 /** Real links throughout, so middle-click and copy-link behave as expected. */
-export const Sidebar = (props: { readonly email: string; readonly onSignOut: () => void; }) => (
+export const Sidebar = (props: { readonly contact: string; readonly onSignOut: () => void; }) => (
   <aside className="flex w-56 shrink-0 flex-col justify-between border-r border-border p-4">
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
@@ -69,7 +69,7 @@ export const Sidebar = (props: { readonly email: string; readonly onSignOut: () 
     </div>
 
     <div className="flex flex-col gap-2">
-      <p className="truncate font-mono text-xs text-muted-foreground">{props.email}</p>
+      <p className="truncate font-mono text-xs text-muted-foreground">{props.contact}</p>
       <Button
         type="button"
         variant="outline"

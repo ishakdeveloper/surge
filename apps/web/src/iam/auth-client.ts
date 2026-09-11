@@ -2,7 +2,7 @@ import {
   emailOTPClient,
   inferAdditionalFields,
   jwtClient,
-  magicLinkClient,
+  phoneNumberClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
@@ -23,18 +23,20 @@ import { createAuthClient } from "better-auth/react";
  */
 const baseURL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:3200";
 
+/** The auth service's address, for what the browser reads from it besides better-auth. */
+export const authBaseUrl = baseURL;
+
 /**
  * better-auth's own typed client — one of them, used from both sides.
  *
- * The available methods are inferred from the plugin set, so sign-in, magic
- * link and OTP are reached as `authClient.signIn.email(...)` rather than by
- * writing endpoint paths by hand. It also owns the session cookie, which is why
- * authentication stays here rather than moving to Go with everything else:
- * a cookie is set by an HTTP response header, and better-auth owns that.
+ * The available methods are inferred from the plugin set: a code by email
+ * (`emailOtp`) or by text (`phoneNumber`), and nothing with a password. It also
+ * owns the session cookie, which is why authentication stays here rather than
+ * moving to Go with everything else: a cookie is set by an HTTP response header,
+ * and better-auth owns that.
  *
  * The server uses it too, for the `/_protected` guard — passing the incoming
- * request's cookie per call, since there is no ambient one to pick up. A second
- * client for that would be the same configuration twice, free to drift.
+ * request's cookie per call, since there is no ambient one to pick up.
  *
  * `jwtClient` is what bridges to Go: it exchanges the session cookie for a
  * short-lived EdDSA token that every Go service verifies locally against
@@ -43,14 +45,14 @@ const baseURL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:3200";
 export const authClient = createAuthClient({
   baseURL,
   plugins: [
-    magicLinkClient(),
     emailOTPClient(),
+    phoneNumberClient(),
     jwtClient(),
     /**
-     * `role` is an additional user field on the server, and sign-up sends one:
-     * riders and drivers choose on the way in. Declaring it here is what types
-     * that argument — the server clamps the value regardless, so an account can
-     * never make itself `ops` by sending it.
+     * `role` is an additional user field on the server, sent with the code that
+     * makes an account: riders and drivers choose on the way in. Declaring it
+     * here is what types that argument — the server clamps the value
+     * regardless, so an account can never make itself `ops` by sending it.
      */
     inferAdditionalFields({ user: { role: { type: "string", required: false, input: true } } }),
   ],

@@ -7,6 +7,7 @@ import type { ViteUserConfig } from "vitest/config";
  */
 const workspaceAliases = {
   "@surge/client/": path.join(import.meta.dirname, "packages", "client", "src") + "/",
+  "@surge/common/": path.join(import.meta.dirname, "packages", "common", "src") + "/",
   "@surge/domain/": path.join(import.meta.dirname, "packages", "domain", "src") + "/",
 };
 

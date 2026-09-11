@@ -1,7 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": ["src", "test"],
-  "references": [{ "path": "../../packages/domain" }, { "path": "../../packages/client" }],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/client" },
+    { "path": "../../packages/common" }
+  ],
   "compilerOptions": {
     "composite": false,
     "declaration": false,
@@ -15,6 +19,7 @@
       "@/*": ["${configDir}/src/*"],
       "@test/*": ["${configDir}/test/*"],
       "@surge/client/*": ["../../packages/client/src/*.js"],
+      "@surge/common/*": ["../../packages/common/src/*.js"],
       "@surge/domain/*": ["../../packages/domain/src/*.js"]
     }
   }

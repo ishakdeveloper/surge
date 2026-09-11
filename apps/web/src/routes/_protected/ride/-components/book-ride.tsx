@@ -1,51 +1,29 @@
-import { cardAtom } from "@/atom/payment-atoms.js";
-import { bookTrip, previewTrip, tripsAtom } from "@/atom/trip-atoms.js";
-import { ActionError, errorCode } from "@/components/app/action-error.js";
+import { ActionError } from "@/components/app/action-error.js";
 import { SplitView } from "@/components/app/split-view.js";
 import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
 import { Alert, AlertDescription } from "@/components/ui/alert.js";
 import { Button } from "@/components/ui/button.js";
+import { cn } from "@/lib/utils.js";
+import { CardSummary } from "@/routes/_protected/ride/-components/card-summary.js";
+import { TripReceipt } from "@/routes/_protected/ride/-components/trip-payment.js";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { cardAtom } from "@surge/common/atom/payment-atoms";
+import { bookTrip, previewTrip, tripsAtom } from "@surge/common/atom/trip-atoms";
+import { errorCode } from "@surge/common/lib/cause";
 import {
   formatCents,
   formatDistance,
   formatDuration,
   formatPoint,
   riderStatus,
-} from "@/lib/format.js";
-import { cn } from "@/lib/utils.js";
-import { CardSummary } from "@/routes/_protected/ride/-components/card-summary.js";
-import { TripReceipt } from "@/routes/_protected/ride/-components/trip-payment.js";
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+} from "@surge/common/lib/format";
+import { RIDE_PRESETS } from "@surge/common/ride/presets";
 import type { FareId } from "@surge/domain/api/Primitives";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { Link } from "@tanstack/react-router";
 import { Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
-
-/**
- * Trips worth one click. Real Amsterdam addresses on roads, so a demo does not
- * begin with finding somewhere a car can actually stop.
- */
-const PRESETS: ReadonlyArray<
-  { readonly label: string; readonly pickup: MapPoint; readonly dropoff: MapPoint; }
-> = [
-  {
-    label: "Centraal → Rijksmuseum",
-    pickup: { lat: 52.3791, lng: 4.9003 },
-    dropoff: { lat: 52.36, lng: 4.8852 },
-  },
-  {
-    label: "Sloterdijk → Westerpark",
-    pickup: { lat: 52.3889, lng: 4.8377 },
-    dropoff: { lat: 52.3868, lng: 4.8752 },
-  },
-  {
-    label: "Zuid → De Pijp",
-    pickup: { lat: 52.3389, lng: 4.8723 },
-    dropoff: { lat: 52.3533, lng: 4.8946 },
-  },
-];
 
 interface Choice {
   readonly fareId: FareId;
@@ -166,7 +144,7 @@ export const BookRide = () => {
               </dd>
             </dl>
             <div className="flex flex-wrap gap-2">
-              {PRESETS.map((preset) => (
+              {RIDE_PRESETS.map((preset) => (
                 <Button
                   key={preset.label}
                   type="button"

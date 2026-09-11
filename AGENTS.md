@@ -13,8 +13,10 @@ browser trades its session cookie for a short-lived EdDSA token at
 ```
 apps/auth            better-auth, and only better-auth
 apps/web             TanStack Start — console, rider, driver
+apps/mobile          Expo and NativeWind — rider and driver
 packages/domain      the contract both languages compile against
 packages/client      platform-free Effect services over the Go API
+packages/common      the atoms and helpers web and mobile share
 packages/database    the connection and better-auth's schema
 proto/               the API contract — gRPC, REST, OpenAPI, and the TS client
 backend/             the Go module
@@ -208,6 +210,7 @@ Everything routine is a make target; `make help` lists them.
 | `make check-handover`                 | a clean matcher stop leaves no lag     |
 | `make migrate`                        | apply database migrations              |
 | `make dev-auth`                       | the auth service                       |
+| `make dev-mobile`                     | the Expo app, on a simulator or phone  |
 | `make dev-ingest` / `make dev-sim`    | the Go services, on the host           |
 | `make dev-trip` / `make dev-payments` | trip, and payments beside it           |
 | `make stripe-listen`                  | Stripe's webhooks to the gateway       |
@@ -269,10 +272,16 @@ cross a boundary no compiler checks:
   **Stripe's test mode**, and refuses anything but an `sk_test_` or `rk_test_`
   key. The fake processor is what every other test uses, and this is the only
   thing that can catch the two disagreeing.
+- `apps/auth/test/sms/TwilioContract.test.ts` sends through **Twilio with its
+  test credentials** — `TWILIO_TEST_*`, never the live ones beside them — and
+  holds the fake HTTP client in `Sms.test.ts` to the error codes Twilio really
+  answers its magic numbers with.
 
 Tests needing Redpanda, Valhalla, Postgres, Stripe or the auth service **skip**
 when it is absent rather than failing, so `go test ./...` and `pnpm test` stay
-useful on a bare machine. The Go Postgres tests go through `shared/pgtest`,
+useful on a bare machine. Signing in is a one-time code, so the tests that sign
+up against a running auth service read it from its dev outbox, and skip unless
+it runs with `AUTH_DEV_OUTBOX=true` — never set in a deployment. The Go Postgres tests go through `shared/pgtest`,
 which reads `DATABASE_URL`, falls back to the dev database on 55433, and gives
 each test its own migrated schema. CI runs them against a Postgres service
 container, and runs the Stripe contract test when the repository has a

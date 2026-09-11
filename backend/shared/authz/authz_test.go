@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -85,30 +86,18 @@ func TestVerifyAgainstLiveAuthService(t *testing.T) {
 	if _, err := client.Get(base + "/health"); err != nil {
 		t.Skipf("auth service not running at %s: %v", base, err)
 	}
+	if !outboxOpen(client, base) {
+		t.Skipf("auth service at %s has no dev outbox to read a code from; start it with AUTH_DEV_OUTBOX=true", base)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	email := fmt.Sprintf("authz-%d@surge.test", time.Now().UnixNano())
-	body, _ := json.Marshal(map[string]string{
-		"email":    email,
-		"password": "correct-horse-battery",
-		"name":     "Authz Test",
-		"role":     "driver",
-	})
-
-	signUp, err := client.Post(base+"/api/auth/sign-up/email", "application/json", bytes.NewReader(body))
-	if err != nil {
-		t.Fatalf("sign up: %v", err)
-	}
-	defer signUp.Body.Close()
-
-	if signUp.StatusCode != http.StatusOK {
-		t.Fatalf("sign up returned %d", signUp.StatusCode)
-	}
+	cookies := signInWithCode(t, ctx, client, base, email, "driver")
 
 	tokenRequest, _ := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/auth/token", nil)
-	for _, cookie := range signUp.Cookies() {
+	for _, cookie := range cookies {
 		tokenRequest.AddCookie(cookie)
 	}
 
@@ -163,6 +152,82 @@ func TestVerifyAgainstLiveAuthService(t *testing.T) {
 			t.Errorf("garbage token: got %v, want ErrUnauthenticated", err)
 		}
 	})
+}
+
+// outboxOpen reports whether the auth service serves the dev outbox that
+// signInWithCode reads a code from. An open one refuses a question with no
+// address; a closed one has no such route.
+func outboxOpen(client *http.Client, base string) bool {
+	response, err := client.Get(base + "/dev/outbox")
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+	return response.StatusCode == http.StatusBadRequest
+}
+
+// signInWithCode signs in the way a person does: a code sent to the address,
+// read back from the dev outbox rather than an inbox, and typed in. The first
+// time makes the account, with the role asked for.
+func signInWithCode(t *testing.T, ctx context.Context, client *http.Client, base, email, role string) []*http.Cookie {
+	t.Helper()
+
+	since := time.Now().UnixMilli()
+	postJSON(t, ctx, client, base+"/api/auth/email-otp/send-verification-otp", map[string]string{
+		"email": email,
+		"type":  "sign-in",
+	})
+
+	signedIn := postJSON(t, ctx, client, base+"/api/auth/sign-in/email-otp", map[string]string{
+		"email": email,
+		"otp":   codeSentTo(t, ctx, client, base, email, since),
+		"role":  role,
+	})
+	return signedIn.Cookies()
+}
+
+func postJSON(t *testing.T, ctx context.Context, client *http.Client, endpoint string, body map[string]string) *http.Response {
+	t.Helper()
+
+	encoded, _ := json.Marshal(body)
+	request, _ := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(encoded))
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("POST %s: %v", endpoint, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("POST %s returned %d", endpoint, response.StatusCode)
+	}
+	return response
+}
+
+// codeSentTo is the code sent to email at or after since. Polled, because
+// better-auth may answer before its sender has run.
+func codeSentTo(t *testing.T, ctx context.Context, client *http.Client, base, email string, since int64) string {
+	t.Helper()
+
+	for attempt := 0; attempt < 25; attempt++ {
+		request, _ := http.NewRequestWithContext(ctx, http.MethodGet, base+"/dev/outbox?to="+url.QueryEscape(email), nil)
+		if response, err := client.Do(request); err == nil {
+			var sent struct {
+				Code *string `json:"code"`
+				AtMs int64   `json:"atMs"`
+			}
+			decodeErr := json.NewDecoder(response.Body).Decode(&sent)
+			response.Body.Close()
+			if response.StatusCode == http.StatusOK && decodeErr == nil && sent.Code != nil && sent.AtMs >= since {
+				return *sent.Code
+			}
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	t.Fatalf("no code reached the outbox for %s", email)
+	return ""
 }
 
 // The simulator's own tokens, and the gate on them.

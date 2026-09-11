@@ -58,6 +58,8 @@ describe("shared packages stay platform-free", () => {
   const packages = [
     ["@surge/client", path.join(import.meta.dirname, "..", "src")],
     ["@surge/domain", path.join(import.meta.dirname, "..", "..", "domain", "src")],
+    // The atoms both apps run: the web app and `apps/mobile` import them as-is.
+    ["@surge/common", path.join(import.meta.dirname, "..", "..", "common", "src")],
   ] as const;
 
   for (const [name, root] of packages) {

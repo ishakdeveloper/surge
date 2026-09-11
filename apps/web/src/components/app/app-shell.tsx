@@ -2,8 +2,8 @@ import { sessionAtom } from "@/atom/session-atoms.js";
 import { Breadcrumbs } from "@/components/app/breadcrumbs.js";
 import { CommandPalette } from "@/components/app/command-palette.js";
 import { Sidebar } from "@/components/app/sidebar.js";
-import { VerifyEmailBanner } from "@/components/auth/verify-email-banner.js";
 import { useAtomRefresh } from "@effect/atom-react";
+import { contactOf, describeContact } from "@surge/domain/iam/Contact";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import type * as React from "react";
 
@@ -27,18 +27,13 @@ export const AppShell = (props: { readonly children: React.ReactNode; }) => {
     <div className="flex min-h-0 flex-1">
       <CommandPalette />
       <Sidebar
-        email={user.email}
+        contact={describeContact(contactOf(user.email))}
         onSignOut={() => {
           refresh();
           void navigate({ to: "/auth/sign-in" });
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        {!user.emailVerified && (
-          <div className="p-4 pb-0">
-            <VerifyEmailBanner email={user.email} />
-          </div>
-        )}
         {
           /*
           Breadcrumb row, then the page. Mounted here rather than pasted into a

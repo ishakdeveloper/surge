@@ -1,8 +1,10 @@
 import "@/app.css";
+import { webPlatform } from "@/atom/platform.js";
 import { NotFound } from "@/components/app/not-found.js";
 import { RouteCrash } from "@/components/app/route-crash.js";
 import { Toaster } from "@/components/ui/sonner.js";
 import { RegistryProvider } from "@effect/atom-react";
+import { platformAtom } from "@surge/common/atom/runtime";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import type * as React from "react";
 
@@ -51,9 +53,13 @@ const RootDocument = ({ children }: Readonly<{ children: React.ReactNode; }>) =>
         be. That is proportionate: mutations from this tab invalidate their
         reactivity keys immediately regardless, so the only thing this can hold on
         to is a change somebody else made in the last half-minute.
+
+        The platform is the browser's: the shared atoms in `@surge/common` run on
+        whatever the registry is given, and this is where the web app says what
+        that is.
       */
       }
-      <RegistryProvider defaultIdleTTL={30_000}>
+      <RegistryProvider defaultIdleTTL={30_000} initialValues={[[platformAtom, webPlatform]]}>
         <div className="h-dvh flex flex-col overflow-hidden">{children}</div>
         <Toaster position="bottom-right" />
       </RegistryProvider>

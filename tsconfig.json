@@ -10,6 +10,9 @@
       "path": "packages/client"
     },
     {
+      "path": "packages/common"
+    },
+    {
       "path": "packages/database"
     },
     {
@@ -17,6 +20,9 @@
     },
     {
       "path": "apps/web"
+    },
+    {
+      "path": "apps/mobile"
     }
   ]
 }

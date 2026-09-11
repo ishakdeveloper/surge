@@ -1,9 +1,11 @@
-import { confirmHoldAtom, tripPaymentAtom } from "@/atom/payment-atoms.js";
-import { ActionError, errorCode } from "@/components/app/action-error.js";
+import { confirmHoldAtom } from "@/atom/payment-atoms.js";
+import { ActionError } from "@/components/app/action-error.js";
 import { QueryError } from "@/components/app/query-error.js";
 import { Button } from "@/components/ui/button.js";
-import { formatCents, formatTime, paymentFailure, paymentStatus } from "@/lib/format.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { tripPaymentAtom } from "@surge/common/atom/payment-atoms";
+import { errorCode } from "@surge/common/lib/cause";
+import { formatCents, formatTime, paymentFailure, paymentStatus } from "@surge/common/lib/format";
 import type { TripId } from "@surge/domain/api/Primitives";
 import { awaitsRider } from "@surge/domain/payments/Payment";
 import { Option } from "effect";

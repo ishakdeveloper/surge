@@ -191,6 +191,25 @@ func TestAConnectedAccountStartsUnpaid(t *testing.T) {
 	}
 }
 
+// The notification banner Stripe asks every platform to show is drawn from an
+// account session, and its client secret is what the driver's app hands to
+// Connect.js. Stripe issues one for an account that has not onboarded yet —
+// which is exactly when the banner has the most to say.
+func TestAnAccountSessionForTheBanner(t *testing.T) {
+	p, _ := processor(t)
+	ctx := context.Background()
+
+	account, err := p.CreateConnectedAccount(ctx, "contract-driver", "driver@example.com", run("account"))
+	if err != nil {
+		t.Fatalf("account: %v", err)
+	}
+
+	secret, err := p.AccountSession(ctx, account.ID)
+	if err != nil || !strings.HasPrefix(secret, "accs_") {
+		t.Errorf("account session secret %q (%v)", secret, err)
+	}
+}
+
 // Money back to a rider, in parts, and never more than was taken.
 func TestARefundOfACapture(t *testing.T) {
 	p, raw := processor(t)

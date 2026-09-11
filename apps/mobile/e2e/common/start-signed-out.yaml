@@ -1,0 +1,52 @@
+# Opens the app on the sign-in screen, whatever state the last run left it in.
+#
+# Not `clearState`: iOS keeps the Keychain — where the session cookie lives —
+# across an app-data reset, so a cleared app can still be signed in. Signing
+# out through the app is the only reliable way to start signed out.
+#
+# Defaults are written as `${VAR || '…'}` rather than an `env:` block, because
+# a flow's own `env:` wins over `-e` on the command line — which would pin the
+# flows to one Metro port and one auth service.
+#
+# The Account tab is matched as `Account.*`: iOS labels a tab button with its
+# position as well as its title ("Account, tab, 3 of 3"), and a Maestro text
+# matches the whole label.
+appId: ${APP_ID || 'host.exp.Exponent'}
+---
+- launchApp
+- openLink: ${APP_URL || 'exp://127.0.0.1:8081'}
+# Expo Go gives up if Metro was slow to answer the first request.
+- runFlow:
+    when:
+      visible: "Try again"
+    commands:
+      - tapOn: "Try again"
+# Expo Go opens its developer menu over the app on a fresh launch, covering
+# the screen underneath — so it counts as loaded, and is closed first.
+- extendedWaitUntil:
+    visible:
+      text: "Email me a code|Account.*|This is the developer menu.*"
+    timeout: 90000
+- runFlow:
+    when:
+      visible: "This is the developer menu.*"
+    commands:
+      - tapOn:
+          id: "xmark"
+# Again, for whatever the menu was covering: a `when` is checked once, and the
+# menu may still be sliding away.
+- extendedWaitUntil:
+    visible:
+      text: "Email me a code|Account.*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Account.*"
+    commands:
+      - tapOn: "Account.*"
+      - scrollUntilVisible:
+          element: "Sign out"
+      - tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Email me a code"
+    timeout: 30000

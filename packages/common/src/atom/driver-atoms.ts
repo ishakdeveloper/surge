@@ -1,19 +1,18 @@
-import { runtime } from "@/atom/runtime.js";
-import { activeTripAtom } from "@/atom/trip-atoms.js";
 import { Geolocation } from "@surge/client/Geolocation";
 import { Realtime } from "@surge/client/Realtime";
 import type { LatLng } from "@surge/domain/geo/Polyline";
-import type { DriverStatus } from "@surge/domain/realtime/Wire";
-import type { Trip } from "@surge/domain/trip/Trip";
 import { Effect, Option, Stream } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { statusFor } from "../drive/driver-status.js";
+import { runtime } from "./runtime.js";
+import { activeTripAtom } from "./trip-atoms.js";
 
 /**
  * A driver's shift: whether they want work, and where they are.
  *
- * Per tab and deliberately not persisted. A driver who reloads the page is
- * asked again whether they are working, rather than silently put back in the
- * pool from wherever they were an hour ago.
+ * Per registry and deliberately not persisted. A driver who reloads the page
+ * or reopens the app is asked again whether they are working, rather than
+ * silently put back in the pool from wherever they were an hour ago.
  */
 export interface Shift {
   readonly online: boolean;
@@ -23,26 +22,38 @@ export interface Shift {
 export const shiftAtom = Atom.make<Shift>({ online: false, position: Option.none() });
 
 /**
- * What the matcher is told, derived — the driver never chooses it.
- *
- * The trip decides first. A driver on their way to a pickup who kept reporting
- * `idle` would be offered a second ride while delivering the first, so once a
- * trip is accepted the status follows the trip, whatever the toggle says.
+ * Whether the shift's position follows the device, rather than staying where
+ * it was placed. A separate atom from the shift so that a new fix — which
+ * rewrites the shift — does not restart the thing that produced it.
  */
-export const statusFor = (online: boolean, trip: Option.Option<Trip>): DriverStatus => {
-  if (Option.isSome(trip)) {
-    if (trip.value.status === "TRIP_STATUS_ACCEPTED") return "enroute_pickup";
-    if (
-      trip.value.status === "TRIP_STATUS_ARRIVED" || trip.value.status === "TRIP_STATUS_IN_PROGRESS"
-    ) {
-      return "on_trip";
-    }
-  }
-  return online ? "idle" : "offline";
-};
+export const followingAtom = Atom.make(false);
 
 /**
- * The position, reported every four seconds while the page is mounted.
+ * The device's own fixes, written into the shift while `followingAtom` is on.
+ * Mounted by the driver's screen beside the ping loop, which then reports
+ * wherever the driver actually is.
+ *
+ * Its value is the latest fix, or why there is none — a refused permission is
+ * shown where the toggle is, not swallowed.
+ *
+ * Not following is a stream that never emits rather than an empty one: an atom
+ * over a stream that ends with nothing in it fails with `NoSuchElementError`,
+ * which the toggle would show as a tracking error nobody asked for.
+ */
+export const followAtom = runtime.atom((get) => {
+  if (!get(followingAtom)) return Stream.never;
+
+  return Stream.unwrap(Effect.map(Geolocation, (geolocation) => geolocation.watch)).pipe(
+    Stream.tap((position) =>
+      Effect.sync(() => {
+        get.set(shiftAtom, { ...get.once(shiftAtom), position: Option.some(position) });
+      })
+    ),
+  );
+});
+
+/**
+ * The position, reported every four seconds while the driver's screen is mounted.
  *
  * Recomputed whenever the shift or the trip changes, which restarts the tick —
  * and `Stream.tick` emits at once, so moving the pin or going online is
@@ -58,7 +69,8 @@ export const pingLoopAtom = runtime.atom((get) => {
   if (Option.isNone(shift.position)) return Stream.empty;
 
   const position = shift.position.value;
-  const status = statusFor(shift.online, Option.flatten(AsyncResult.value(get(activeTripAtom))));
+  const trip = Option.flatten(AsyncResult.value(get(activeTripAtom)));
+  const status = statusFor(shift.online, Option.map(trip, (current) => current.status));
 
   return Stream.unwrap(
     Effect.map(Realtime, (realtime) =>

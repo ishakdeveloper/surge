@@ -1,9 +1,9 @@
-import { runtime } from "@/atom/runtime.js";
 import { Realtime } from "@surge/client/Realtime";
 import type { TripId } from "@surge/domain/api/Primitives";
 import type { Offer } from "@surge/domain/realtime/Wire";
-import { Effect, Option, Stream } from "effect";
+import { Clock, Effect, Option, Stream } from "effect";
 import { Atom } from "effect/unstable/reactivity";
+import { runtime } from "./runtime.js";
 
 /**
  * The WebSocket, as atoms.
@@ -56,7 +56,9 @@ export const offersAtom = runtime.atom(
  * is a bug people notice.
  */
 export const nowAtom = Atom.make(
-  Stream.tick("1 second").pipe(Stream.map(() => Date.now())),
+  Stream.tick("1 second").pipe(Stream.mapEffect(() => Clock.currentTimeMillis)),
+  // Seeded from the wall clock: an initial value exists before any Effect runs.
+  // oxlint-disable-next-line effecttsgo/global-date
   { initialValue: Date.now() },
 );
 

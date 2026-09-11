@@ -1,6 +1,7 @@
 import { sessionAtom } from "@/atom/session-atoms.js";
 import { QueryError } from "@/components/app/query-error.js";
 import { useAtomValue } from "@effect/atom-react";
+import { contactOf, describeContact } from "@surge/domain/iam/Contact";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -33,12 +34,10 @@ const Home = () => {
       </div>
 
       <dl className="grid max-w-md grid-cols-[8rem_1fr] gap-2 text-sm">
-        <dt className="text-muted-foreground">Signed in as</dt>
-        <dd className="font-mono">{session.value.email}</dd>
+        <dt className="text-muted-foreground">Signed in with</dt>
+        <dd className="font-mono">{describeContact(contactOf(session.value.email))}</dd>
         <dt className="text-muted-foreground">Role</dt>
         <dd className="font-mono">{session.value.role}</dd>
-        <dt className="text-muted-foreground">Email verified</dt>
-        <dd className="font-mono">{session.value.emailVerified ? "yes" : "no"}</dd>
       </dl>
 
       {session.value.role === "rider" && (
