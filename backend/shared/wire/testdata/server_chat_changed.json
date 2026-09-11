@@ -1,0 +1,10 @@
+{
+  "_tag": "ChatChanged",
+  "chat": {
+    "conversationId": "5b1d7e2a-3c4f-4e8a-9b6d-2f7c1a0e8d43",
+    "kind": "trip",
+    "tripId": "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+    "lastSeq": 7,
+    "atMs": 1757512350000
+  }
+}

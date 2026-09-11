@@ -375,6 +375,10 @@ type ServerMessage struct {
 	Fleet    *FleetUpdate    `json:"fleet,omitempty"`
 	Position *DriverPosition `json:"position,omitempty"`
 	Payments *PaymentsChange `json:"payments,omitempty"`
+	// Chat, ChatRead and ChatTyping are chat's doorbells; see chat_push.go.
+	Chat       *ChatChange `json:"chat,omitempty"`
+	ChatRead   *ChatRead   `json:"chatRead,omitempty"`
+	ChatTyping *ChatTyping `json:"chatTyping,omitempty"`
 	// Error carries a human-meaningful reason when the gateway refuses
 	// something, so a client can distinguish "your token expired" from "the
 	// network dropped".
@@ -424,6 +428,12 @@ func (m ServerMessage) Valid() bool {
 	case TagPaymentsChanged:
 		// A trip id is optional: a card saved is about no one trip.
 		return m.Payments != nil
+	case TagChatChanged:
+		return m.Chat != nil && m.Chat.ConversationID != ""
+	case TagChatRead:
+		return m.ChatRead != nil && m.ChatRead.ConversationID != "" && m.ChatRead.UserID != ""
+	case TagChatTyping:
+		return m.ChatTyping != nil && m.ChatTyping.ConversationID != "" && m.ChatTyping.UserID != ""
 	case TagServerError, TagServerWelcome:
 		return true
 	default:
