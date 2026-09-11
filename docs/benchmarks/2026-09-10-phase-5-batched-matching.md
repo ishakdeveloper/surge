@@ -241,6 +241,38 @@ all. What does not move between runs is the cost — batching offers about two
 and a half seconds later and matches the same riders. The conclusion stands on
 two runs rather than one.
 
+### Three more runs, and what the repeats say
+
+The two runs above disagreed about which strategy picked riders up faster, so
+the comparison was repeated three times back to back after a restart, same
+settings, each run launched detached. All six halves were valid; no double
+dispatch, no redelivered match, no lost partition.
+
+| run | load at start | road mean greedy | batched | road p50 greedy | batched | road p95 greedy | batched | matched/s greedy | batched | latency p50 greedy | batched | contested solves |
+| --- | ------------: | ---------------: | ------: | --------------: | ------: | --------------: | ------: | ---------------: | ------: | -----------------: | ------: | ---------------: |
+| 1   |            23 |            254 s |   224 s |           212 s |   144 s |           668 s |   522 s |             0.45 |    0.46 |             1.62 s |  3.98 s |                8 |
+| 2   |           122 |            271 s |   224 s |           215 s |   182 s |           721 s |   543 s |             0.38 |    0.46 |             1.62 s |  3.84 s |                7 |
+| 3   |             6 |            249 s |   271 s |           231 s |   227 s |           682 s |   737 s |             0.39 |    0.45 |             1.62 s |  3.89 s |                3 |
+
+Run 2 started while an iOS Simulator was booting on the same machine — a load
+average of 122 — and run 1 at 23, before the machine had settled after the
+restart. Only run 3 started quiet. Its halves are the ones to trust most, and
+they are the ones that favour greedy.
+
+Across all five paired comparisons — these three and the two above — batching's
+mean pickup was -9 s against greedy's, with a standard error of
+14 s. That is not a difference: the runs disagree with each other more
+than the strategies do. Two things held in every run instead:
+
+- **Batching offers about 2.3 seconds later** — the window, every time.
+- **Batching matched a few more riders today**, 0.46 a second against
+  0.41, in all three runs — but not in the two runs before, so it is a
+  lead, not a finding.
+
+The conclusion is the same one, now on five runs rather than one: at this
+scale the joint solve rarely has anything to decide, its pickup benefit is
+inside the noise, and its latency cost is not. Greedy stays the default.
+
 ## The first attempt, and why it does not count
 
 The first run reported batching as _worse_: 613 m mean pickup against greedy's
