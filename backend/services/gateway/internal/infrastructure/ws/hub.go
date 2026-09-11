@@ -389,6 +389,28 @@ func (h *Hub) Push(userID string, message []byte) bool {
 	return false
 }
 
+// Broadcast delivers a message to everyone connected here with a role, and
+// returns how many it reached. Support's queue is what it is for: news for
+// whoever from support is looking, whom no producer can name.
+func (h *Hub) Broadcast(role string, message []byte) int {
+	delivered := 0
+	for _, connection := range h.registry.WithRole(role) {
+		switch err := connection.Send(message); {
+		case err == nil:
+			delivered++
+			if h.hooks.OnPushed != nil {
+				h.hooks.OnPushed()
+			}
+		case errors.Is(err, domain.ErrSlowConsumer):
+			slog.Warn("evicted a slow consumer", "user", connection.UserID)
+			if h.hooks.OnPushFailed != nil {
+				h.hooks.OnPushFailed("slow_consumer")
+			}
+		}
+	}
+	return delivered
+}
+
 // forget drops a closed connection's subscriptions.
 func (h *Hub) forget(connectionID string) {
 	h.mu.Lock()

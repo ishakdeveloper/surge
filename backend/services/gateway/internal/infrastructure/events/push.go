@@ -16,6 +16,50 @@ import (
 // Pusher is whatever can deliver to a connected user.
 type Pusher interface {
 	Push(userID string, message []byte) bool
+	// Broadcast delivers to everyone connected with a role, and returns how
+	// many that reached.
+	Broadcast(role string, message []byte) int
+}
+
+// Outcome is what became of one push record.
+type Outcome int
+
+const (
+	Delivered Outcome = iota
+	NotHere
+	Malformed
+)
+
+// Deliver routes one `ws.push` record: to the person its key names, or to a
+// role's audience when the key names one (wire.RoleAudience).
+//
+// A push is a finished ServerMessage keyed by its recipient. The gateway
+// decides who receives it and nothing about what it says, which is what lets
+// a new kind of push — trip updates, chat, and whatever follows — reach
+// clients without a change here.
+//
+// Decoded only to be checked, then forwarded as the original bytes: a record
+// whose tag and payload disagree is dropped here rather than delivered to a
+// client whose decoder would reject it.
+func Deliver(pusher Pusher, key, value []byte) (Outcome, error) {
+	var message wire.ServerMessage
+	if err := json.Unmarshal(value, &message); err != nil {
+		return Malformed, err
+	}
+	if !message.Valid() || len(key) == 0 {
+		return Malformed, nil
+	}
+
+	if role, ok := wire.AudienceRole(string(key)); ok {
+		if pusher.Broadcast(role, value) > 0 {
+			return Delivered, nil
+		}
+		return NotHere, nil
+	}
+	if pusher.Push(string(key), value) {
+		return Delivered, nil
+	}
+	return NotHere, nil
 }
 
 // Hooks are the observability seams.
@@ -73,37 +117,26 @@ func (c *Consumer) Run(ctx context.Context) error {
 			_, span := tracing.Consume(ctx, record, "gateway.push")
 			defer span.End()
 
-			// A push is a finished ServerMessage keyed by its recipient. The
-			// gateway decides who receives it and nothing about what it says,
-			// which is what lets a new kind of push — trip updates, and
-			// whatever follows — reach clients without a change here.
-			//
-			// Decoded only to be checked, then forwarded as the original bytes:
-			// a record whose tag and payload disagree is dropped here rather
-			// than delivered to a client whose decoder would reject it.
-			var message wire.ServerMessage
-			if err := json.Unmarshal(record.Value, &message); err != nil || !message.Valid() || len(record.Key) == 0 {
-				if err != nil {
-					tracing.Fail(span, err)
-				}
-				if c.hooks.OnMalformed != nil {
-					c.hooks.OnMalformed()
-				}
-				return
+			outcome, err := Deliver(c.pusher, record.Key, record.Value)
+			if err != nil {
+				tracing.Fail(span, err)
 			}
-
-			if c.pusher.Push(string(record.Key), record.Value) {
+			switch outcome {
+			case Delivered:
 				if c.hooks.OnDelivered != nil {
 					c.hooks.OnDelivered()
 				}
-				return
-			}
-
-			// Not connected here. Normal, and not worth logging per message —
-			// with N gateways, (N-1)/N of every offer lands on an instance that
-			// does not hold that driver.
-			if c.hooks.OnNotHere != nil {
-				c.hooks.OnNotHere()
+			case Malformed:
+				if c.hooks.OnMalformed != nil {
+					c.hooks.OnMalformed()
+				}
+			case NotHere:
+				// Not connected here. Normal, and not worth logging per
+				// message — with N gateways, (N-1)/N of every offer lands on
+				// an instance that does not hold that driver.
+				if c.hooks.OnNotHere != nil {
+					c.hooks.OnNotHere()
+				}
 			}
 		})
 
