@@ -2,6 +2,9 @@ packages:
   - apps/*
   - packages/*
   - scripts
+  # At the root rather than under apps/: Vitest adopts every apps/* folder as a
+  # project, and would run Playwright's specs as Vitest tests.
+  - e2e
 
 catalog:
   effect: 4.0.0-rc.109
@@ -10,6 +13,9 @@ catalog:
   '@effect/platform-node': 4.0.0-rc.109
   '@effect/opentelemetry': 4.0.0-rc.109
   '@opentelemetry/api': ^1.9.1
+  # Exact: CI installs the browser build this version expects, and a range
+  # would let the two drift apart between one run and the next.
+  '@playwright/test': 1.63.0
   '@opentelemetry/exporter-trace-otlp-http': ^0.221.0
   '@opentelemetry/resources': ^2.10.0
   '@opentelemetry/sdk-trace-base': ^2.10.0

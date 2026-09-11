@@ -23,6 +23,30 @@
 
 name: surge
 
+# The `app` profile: the system itself, from its images, beside the
+# infrastructure above. It is what CI's end-to-end job runs and what `make e2e`
+# runs here, so the tests exercise the artifacts that ship rather than a dev
+# server. SURGE_TAG picks the images: `dev` from `make images`, or `ci` from the
+# job that just built them.
+#
+# It binds the same ports as `make dev-*`, so it is one or the other.
+#
+#   make images
+#   docker compose -f deploy/compose/docker-compose.yml --profile app up -d --wait
+x-app: &app
+  profiles: [app]
+  restart: unless-stopped
+
+# What every Go service reads. Names, not localhost: these reach each other on
+# the compose network.
+x-go-env: &go-env
+  KAFKA_BROKERS: redpanda:9092
+  KAFKA_REPLICATION_FACTOR: "1"
+
+# The simulator's token secret, which the gateway must share to accept the
+# drivers it mints. A fixed value: this profile is for tests, never for traffic.
+x-sim-secret: &sim-secret surge-app-profile-simulator-secret-0123456789
+
 services:
   # Ports are deliberately off the defaults: this machine already has a native
   # Postgres on 5432 and a Redis on 6379, and an ambiguous bind is a debugging
@@ -183,6 +207,181 @@ services:
     ports:
       - "16686:16686"
       - "4318:4318"
+
+  # --- the app profile ------------------------------------------------------
+  #
+  # Migrations first, as one-shot containers, and never at boot: the same rule
+  # the cluster's Jobs follow. The rest waits for them to exit cleanly. They
+  # retry because Postgres can answer its health check while its init script
+  # is still creating the second database.
+  migrate:
+    <<: *app
+    image: surge/migrate:${SURGE_TAG:-dev}
+    restart: on-failure:10
+    environment:
+      DATABASE_URL: postgresql://surge:surge@postgres:5432/surge
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  migrate-auth:
+    <<: *app
+    image: surge/auth:${SURGE_TAG:-dev}
+    restart: on-failure:10
+    command: ["node", "packages/database/build/bundle/migrate.js"]
+    environment:
+      AUTH_DATABASE_URL: postgresql://surge:surge@postgres:5432/surge_auth
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  auth:
+    <<: *app
+    image: surge/auth:${SURGE_TAG:-dev}
+    environment:
+      PORT: "3200"
+      AUTH_DATABASE_URL: postgresql://surge:surge@postgres:5432/surge_auth
+      AUTH_SECRET: surge-app-profile-auth-secret-not-for-anything-real
+      # What a browser reaches, through the port below, and so what auth signs
+      # tokens as. The gateway's AUTH_ISSUER must say the same.
+      AUTH_BASE_URL: http://localhost:3200
+      WEB_URL: http://localhost:5273
+      # The end-to-end tests read sign-in codes from the dev outbox. Never set
+      # anywhere a real person signs in.
+      AUTH_DEV_OUTBOX: "true"
+    ports: ["3200:3200"]
+    depends_on:
+      migrate-auth: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3200/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  web:
+    <<: *app
+    image: surge/web:${SURGE_TAG:-dev}
+    environment:
+      PORT: "5273"
+      # What the browser is told, at runtime: the ports below, on localhost.
+      SURGE_API_URL: http://localhost:8100
+      SURGE_WS_URL: ws://localhost:8100/ws
+      AUTH_BASE_URL: http://localhost:3200
+      # What this server uses itself, on the compose network.
+      AUTH_INTERNAL_URL: http://auth:3200
+    ports: ["5273:5273"]
+    depends_on:
+      auth: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(5273,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  gateway:
+    <<: *app
+    image: surge/gateway:${SURGE_TAG:-dev}
+    environment:
+      <<: *go-env
+      GATEWAY_ORIGINS: http://localhost:5273
+      TRIP_GRPC_ADDR: trip:8110
+      PAYMENTS_GRPC_ADDR: payments:8112
+      SIM_GRPC_ADDR: simulator:8111
+      AUTH_JWKS_URL: http://auth:3200/api/auth/jwks
+      AUTH_ISSUER: http://localhost:3200
+      AUTH_AUDIENCE: surge
+      SIM_ENABLED: "true"
+      SIM_TOKEN_SECRET: *sim-secret
+    ports: ["8100:8100"]
+    depends_on:
+      auth: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8100/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  ingest:
+    <<: *app
+    image: surge/ingest:${SURGE_TAG:-dev}
+    environment:
+      <<: *go-env
+    depends_on:
+      redpanda: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9102/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  matcher:
+    <<: *app
+    image: surge/matcher:${SURGE_TAG:-dev}
+    environment:
+      <<: *go-env
+      VALHALLA_URL: http://valhalla:8002
+    depends_on:
+      redpanda: { condition: service_healthy }
+      valhalla: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9103/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  trip:
+    <<: *app
+    image: surge/trip:${SURGE_TAG:-dev}
+    environment:
+      <<: *go-env
+      DATABASE_URL: postgresql://surge:surge@postgres:5432/surge
+      VALHALLA_URL: http://valhalla:8002
+      TRIP_REQUIRE_PAYMENT: "true"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redpanda: { condition: service_healthy }
+      valhalla: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9105/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  payments:
+    <<: *app
+    image: surge/payments:${SURGE_TAG:-dev}
+    environment:
+      <<: *go-env
+      DATABASE_URL: postgresql://surge:surge@postgres:5432/surge
+      PAYMENTS_PROCESSOR: fake
+      PAYMENTS_WEB_URL: http://localhost:5273
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redpanda: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9107/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  # No drivers until a test asks for some. A simulated driver near a test's
+  # pickup could take the offer meant for the test's own driver.
+  simulator:
+    <<: *app
+    image: surge/simulator:${SURGE_TAG:-dev}
+    environment:
+      <<: *go-env
+      VALHALLA_URL: http://valhalla:8002
+      SIM_DRIVERS: "0"
+      SIM_REQUESTS_PER_SECOND: "0"
+      SIM_TOKEN_SECRET: *sim-secret
+    depends_on:
+      gateway: { condition: service_healthy }
+      valhalla: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9101/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
 
 volumes:
   pgdata:

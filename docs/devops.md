@@ -281,36 +281,57 @@ part this project is about.
 `vitest.config.ts` has `projects: ["apps/*"]`, and Vitest adopts a matching
 folder even without a config, then runs its `*.spec.ts` files as Vitest tests.
 
-**The stack is the images CI just built.** A compose `app` profile (or overlay
-file) runs auth, web and the Go services from the `images` job's output next to
-the infrastructure compose already has, with both migrators as one-shot
-containers first. E2E then tests the artifacts that ship rather than a dev
-server, and locally the same thing is `make e2e`.
+**The stack is the images this commit builds.** The compose `app` profile runs
+auth, web and every Go service from their images beside the infrastructure
+compose already has, with both migrators as one-shot containers first.
+`docker-bake.hcl` names all nine images once; the `e2e` job builds from it,
+reading the layers the `images` job cached, so it tests the artifacts that ship
+and not a second recipe. Locally: `make images`, `make app-up`, `make e2e`.
 
-**Valhalla gets a pre-baked image.** Building Noord-Holland tiles at container
-start takes minutes, every run. `surge-valhalla-ams` bakes them in, is rebuilt
-weekly, and lives in the registry. The same image serves Phase 4.
+**Valhalla has a pre-baked image**, `deploy/docker/valhalla.Dockerfile`: the
+stock image with Noord-Holland's tiles built at image build time, then the
+extract and the loose tiles dropped. It builds in three and a half minutes,
+weighs 782 MB, and routes the moment it starts — a 13.6 km trip from Centraal
+to Zuid was its first answer. `.github/workflows/valhalla.yml` rebuilds it
+weekly and publishes it to GitHub's registry with the workflow's own token, so
+no cloud account is needed; the `e2e` job pulls it, or builds it from cache
+until the first one is published. The cluster's copy is promoted into Artifact
+Registry by digest like every other image.
 
-**The tests:**
+**The tests**, six of them in `e2e/tests`:
 
-- sign up, sign in, sign out
-- a rider and a driver in **two browser contexts**: the rider requests, the
-  driver accepts, the trip runs to completion, and both screens agree at every
-  step
-- the ops console, with the role granted in global setup: the fleet map shows
-  simulator drivers, with `SIM_ENABLED` and a fleet of tens, not thousands
+- a stranger is sent to sign in; a rider signs up, signs out and signs back in
+  as the same rider; a driver signs up as a driver
+- a rider and a driver in **two browser contexts**: the driver goes online at
+  Centraal, the rider saves the fake processor's test card, books the
+  "Centraal → Rijksmuseum" preset, and both screens follow the trip through
+  accepted, arrived, started and completed
+- a rider is turned away from the console; ops see the fleet and turn the
+  simulator's knob
+
+Where they depart from the plan: the ops role is granted inside the test, with
+the statement `make grant-ops` runs, because no screen does it. The fleet is
+read from the console's numbers rather than its map, which needs WebGL a
+headless browser may not have. And the stack starts with **no simulated
+drivers**: one near the pickup would take the offer meant for the test's own
+driver, so the console test adds five hundred and takes them away again. The
+rider never touches the map — the presets set both points — and the driver's
+position is granted geolocation, the same path "Use my location" takes.
 
 **Rules carried over from `RULES.md`.** Playwright's auto-waiting locators and
-`expect.poll`, never a sleep. A unique user per test. A fresh consumer group per
-run, which is the `INGEST_GROUP` lesson from `docs/benchmarks` again. On
-failure: the trace, the video, and every service's logs as artifacts.
+`expect.poll`, never a sleep; the trip test's ordering — driver online before
+the rider books — is what makes the driver matchable, not a wait. A unique user
+per test. One worker, because the stack is one city with one matcher. No
+retries: a flaky end-to-end test is a finding. On failure: the trace, the
+video, and every service's logs as artifacts.
 
-**The same job un-skips what already exists.** With `SURGE_API_URL` and
-`AUTH_BASE_URL` pointing at the stack, the `client-integration` Vitest project
-and `backend/shared/authz` run for real, and `pnpm capture:api-fixtures` can be
-diffed against the committed fixtures instead of being rerun by hand.
-
-Runs on PRs that touch web, backend or proto, and nightly on `main`.
+**Not yet done.** The `client-integration` Vitest project and
+`backend/shared/authz` could run against the same stack instead of skipping,
+and `pnpm capture:api-fixtures` could be diffed against the committed fixtures;
+neither is wired in. It runs on changes to web, backend, proto or deploy, and
+not yet nightly on `main`. And the suite has not run on a laptop: this one runs
+the development stack under the same compose project and ports, so its first
+real run is CI's.
 
 ## Phase 4 — GKE
 
