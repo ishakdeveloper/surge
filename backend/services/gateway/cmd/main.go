@@ -11,6 +11,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -105,7 +106,15 @@ func run() error {
 	}, []string{"model"})
 	registry.MustRegister(etaError)
 
-	hub := ws.NewHub(connections, verifier, producer, webOrigins, fleet, clients.Trip, eta, ws.Hooks{
+	// The key riders' maps see cars and bookings under. Drawn fresh on every
+	// start, so no key outlives the process that made it.
+	citySecret := make([]byte, 32)
+	if _, err := rand.Read(citySecret); err != nil {
+		return fmt.Errorf("gateway: city key: %w", err)
+	}
+	city := domain.NewCity(citySecret)
+
+	hub := ws.NewHub(connections, verifier, producer, webOrigins, fleet, city, clients.Trip, eta, ws.Hooks{
 		OnConnect: func(role string) { metrics.connects.WithLabelValues(role).Inc() },
 		OnDisconnect: func(role string, reason domain.EvictionReason) {
 			metrics.disconnects.WithLabelValues(role, string(reason)).Inc()
@@ -136,8 +145,8 @@ func run() error {
 	defer pushes.Close()
 
 	// The matchers' frames, which every instance needs for the same reason:
-	// a console may be connected to any of them.
-	frames, err := events.NewFleetConsumer(brokers, "gateway-fleet-"+instance, fleet)
+	// a console, or a rider's map of the city, may be connected to any of them.
+	frames, err := events.NewFleetConsumer(brokers, "gateway-fleet-"+instance, fleet, city)
 	if err != nil {
 		return err
 	}

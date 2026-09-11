@@ -357,7 +357,8 @@ type ClientMessage struct {
 	// what it was given, because only the shard holding the reservation can
 	// resolve it.
 	ReplyCell string `json:"replyCell,omitempty"`
-	// Viewport comes with ClientWatchFleet; TripID with ClientFollowTrip.
+	// Viewport comes with ClientWatchFleet and ClientWatchCity; TripID with
+	// ClientFollowTrip.
 	Viewport *Viewport `json:"viewport,omitempty"`
 	TripID   string    `json:"tripId,omitempty"`
 }
@@ -375,6 +376,7 @@ type ServerMessage struct {
 	Fleet    *FleetUpdate    `json:"fleet,omitempty"`
 	Position *DriverPosition `json:"position,omitempty"`
 	Payments *PaymentsChange `json:"payments,omitempty"`
+	City     *CityUpdate     `json:"city,omitempty"`
 	// Error carries a human-meaningful reason when the gateway refuses
 	// something, so a client can distinguish "your token expired" from "the
 	// network dropped".
@@ -421,6 +423,8 @@ func (m ServerMessage) Valid() bool {
 		return m.Fleet != nil
 	case TagDriverPosition:
 		return m.Position != nil
+	case TagCityUpdate:
+		return m.City != nil
 	case TagPaymentsChanged:
 		// A trip id is optional: a card saved is about no one trip.
 		return m.Payments != nil

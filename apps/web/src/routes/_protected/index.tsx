@@ -1,65 +1,56 @@
 import { sessionAtom } from "@/atom/session-atoms.js";
 import { QueryError } from "@/components/app/query-error.js";
+import { hasOnboarded, Onboarding } from "@/routes/_protected/-components/onboarding.js";
 import { useAtomValue } from "@effect/atom-react";
-import { contactOf, describeContact } from "@surge/domain/iam/Contact";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useRouteContext } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
+import * as React from "react";
 
 /**
- * Where a signed-in person lands, and a live check.
- *
- * It points each role at its surface, and it renders the decoded `Identity` —
- * the one thing the whole auth arrangement has to get right, because the same
- * three fields are what Go parses out of the JWT. If the role shown here is
- * wrong, every Go service is about to be wrong in the same way.
+ * Where a signed-in person lands. The first time, that is onboarding; after
+ * it is finished or skipped, straight to their surface — the rider's booking,
+ * the driver's shift, the operator's console.
  */
 const Home = () => {
+  const { user } = useRouteContext({ from: "/_protected" });
   const session = useAtomValue(sessionAtom);
+  const [done, setDone] = React.useState(() => hasOnboarded(user.id));
 
-  if (AsyncResult.isInitial(session)) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
-  }
-
+  if (AsyncResult.isInitial(session)) return <Notice>Loading…</Notice>;
   if (AsyncResult.isFailure(session)) {
-    return <QueryError result={session} subject="your session" />;
+    return (
+      <Notice>
+        <QueryError result={session} subject="your session" />
+      </Notice>
+    );
   }
+
+  const { role } = session.value;
+  if (role === "ops") return <Navigate to="/console" />;
+  if (done) return <Navigate to={role === "rider" ? "/ride" : "/drive"} />;
 
   return (
-    <section className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold">Surge</h1>
-        <p className="text-muted-foreground text-sm">
-          Ride-hailing on a geo-sharded matcher. Amsterdam.
-        </p>
-      </div>
-
-      <dl className="grid max-w-md grid-cols-[8rem_1fr] gap-2 text-sm">
-        <dt className="text-muted-foreground">Signed in with</dt>
-        <dd className="font-mono">{describeContact(contactOf(session.value.email))}</dd>
-        <dt className="text-muted-foreground">Role</dt>
-        <dd className="font-mono">{session.value.role}</dd>
-      </dl>
-
-      {session.value.role === "rider" && (
-        <Link to="/ride" className="text-primary text-sm underline-offset-4 hover:underline">
-          Book a ride →
-        </Link>
-      )}
-      {session.value.role === "driver" && (
-        <Link to="/drive" className="text-primary text-sm underline-offset-4 hover:underline">
-          Start a shift →
-        </Link>
-      )}
-      {session.value.role === "ops" && (
-        <Link to="/console" className="text-primary text-sm underline-offset-4 hover:underline">
-          Open the console →
-        </Link>
-      )}
-    </section>
+    <Onboarding
+      setup={role}
+      userId={user.id}
+      onSkip={() => {
+        setDone(true);
+      }}
+    />
   );
 };
 
+/** The page is full-bleed, so the states without a map bring their own margin. */
+const Notice = (props: { readonly children: React.ReactNode; }) => (
+  <div className="flex-1 px-4 pt-24 text-[15px] text-muted-foreground md:px-8">
+    {props.children}
+  </div>
+);
+
 export const Route = createFileRoute("/_protected/")({
-  staticData: { crumb: "Home" },
+  // Client-only: onboarding draws a WebGL map and remembers itself in the
+  // browser's storage, neither of which the server has.
+  ssr: false,
+  staticData: { crumb: "Home", fullBleed: true },
   component: Home,
 });

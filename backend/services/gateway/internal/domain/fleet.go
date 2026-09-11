@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -217,6 +218,41 @@ func (f *Fleet) Driver(id string, now time.Time) (wire.FleetDriver, bool) {
 		}
 	}
 	return wire.FleetDriver{}, false
+}
+
+// Free is the drivers free to take a trip inside a viewport — idle, and not
+// held for a trip — nearest its middle first, at most limit of them.
+//
+// Nearest first rather than first found: the frames are kept in a map, and a
+// cap over a map's order would change which cars are shown every second.
+func (f *Fleet) Free(view wire.Viewport, now time.Time, limit int) []wire.FleetDriver {
+	f.mu.Lock()
+	free := []wire.FleetDriver{}
+	for _, latest := range f.frames {
+		if now.Sub(latest.at) > FrameTTL {
+			continue
+		}
+		for _, driver := range latest.frame.Drivers {
+			if driver.Status == wire.StatusIdle && !driver.Reserved && inside(view, driver) {
+				free = append(free, driver)
+			}
+		}
+	}
+	f.mu.Unlock()
+
+	// Degrees of longitude shrink toward the poles; scaled, a degree each way
+	// is about the same distance, which is all an ordering needs.
+	midLat, midLng := (view.South+view.North)/2, (view.West+view.East)/2
+	scale := math.Cos(midLat * math.Pi / 180)
+	distance := func(driver wire.FleetDriver) float64 {
+		x, y := (driver.Lng-midLng)*scale, driver.Lat-midLat
+		return x*x + y*y
+	}
+	sort.Slice(free, func(a, b int) bool { return distance(free[a]) < distance(free[b]) })
+	if len(free) > limit {
+		free = free[:limit]
+	}
+	return free
 }
 
 // boundary is a cell's hexagon, computed once and kept: a cell's shape never

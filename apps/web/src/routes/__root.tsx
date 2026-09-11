@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner.js";
 import { RegistryProvider } from "@effect/atom-react";
 import { platformAtom } from "@surge/common/atom/runtime";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { MotionConfig } from "motion/react";
 import type * as React from "react";
 
 /**
@@ -60,7 +61,10 @@ const RootDocument = ({ children }: Readonly<{ children: React.ReactNode; }>) =>
       */
       }
       <RegistryProvider defaultIdleTTL={30_000} initialValues={[[platformAtom, webPlatform]]}>
-        <div className="h-dvh flex flex-col overflow-hidden">{children}</div>
+        {/* Every motion component follows the visitor's reduced-motion setting. */}
+        <MotionConfig reducedMotion="user">
+          <div className="h-dvh flex flex-col overflow-hidden">{children}</div>
+        </MotionConfig>
         <Toaster position="bottom-right" />
       </RegistryProvider>
       <Scripts />

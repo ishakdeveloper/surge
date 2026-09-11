@@ -1,5 +1,6 @@
 import type { AuthToken } from "@surge/client/AuthToken";
 import type { Geolocation } from "@surge/client/Geolocation";
+import { Places } from "@surge/client/Places";
 import { Realtime } from "@surge/client/Realtime";
 import { SurgeApi } from "@surge/client/SurgeApi";
 import { Effect, Layer, Schema } from "effect";
@@ -74,7 +75,7 @@ const noPlatform: Platform = {
 export const platformAtom: Atom.Atom<Platform> = Atom.keepAlive(Atom.readable(() => noPlatform));
 
 export const runtime = Atom.runtime((get) =>
-  Layer.mergeAll(SurgeApi.layer, Realtime.layer).pipe(
+  Layer.mergeAll(SurgeApi.layer, Realtime.layer, Places.layer).pipe(
     Layer.provideMerge(get(platformAtom).layer),
   )
 );

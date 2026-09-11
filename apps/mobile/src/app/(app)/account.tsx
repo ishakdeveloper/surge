@@ -2,16 +2,18 @@ import { sessionAtom, signOut } from "@/atom/session-atoms.js";
 import { Detail, Details } from "@/components/app/details.js";
 import { ActionError } from "@/components/app/errors.js";
 import { Screen } from "@/components/app/screen.js";
+import { Sign, SignGlyph, SignIcon } from "@/components/sign/sign.js";
 import { Button } from "@/components/ui/button.js";
 import { Card } from "@/components/ui/card.js";
 import { Heading, Text } from "@/components/ui/text.js";
 import { useRestartSession } from "@/iam/session-scope.js";
 import { serviceUrls } from "@/lib/config.js";
-import { CardSummary } from "@/ride/card-summary.js";
+import { CardAction, CardActionError, CardSummary } from "@/ride/card-summary.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { contactOf, describeContact } from "@surge/domain/iam/Contact";
 import { Exit } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
+import { View } from "react-native";
 
 /**
  * Who is signed in, as the Go services will see them.
@@ -44,10 +46,19 @@ const Account = () => {
       )}
 
       {identity.role === "rider" && (
-        <Card>
+        <View className="gap-2">
           <Heading>Payment</Heading>
-          <CardSummary />
-        </Card>
+          <Sign tone="service">
+            <SignGlyph>
+              <SignIcon name="card-outline" />
+            </SignGlyph>
+            <View className="min-w-0 flex-1">
+              <CardSummary />
+            </View>
+            <CardAction />
+          </Sign>
+          <CardActionError />
+        </View>
       )}
 
       <Card>

@@ -21,6 +21,7 @@ module.exports = {
         background: token("background"),
         foreground: token("foreground"),
         card: { DEFAULT: token("card"), foreground: token("card-foreground") },
+        tile: { DEFAULT: token("tile"), hover: token("tile-hover") },
         primary: { DEFAULT: token("primary"), foreground: token("primary-foreground") },
         secondary: { DEFAULT: token("secondary"), foreground: token("secondary-foreground") },
         muted: { DEFAULT: token("muted"), foreground: token("muted-foreground") },
@@ -31,8 +32,13 @@ module.exports = {
         input: token("input"),
         ring: token("ring"),
       },
-      borderRadius: { sm: "4px", md: "6px", lg: "8px", xl: "10px" },
+      // Rounded, like the face and like the web: tiles at 16px (`2xl`), the
+      // sheet at 24px (`3xl`), actions as pills.
+      borderRadius: { sm: "8px", md: "12px", lg: "16px", xl: "24px" },
       fontFamily: {
+        // Embedded by expo-font's config plugin under this family name on both
+        // platforms; `fontWeight` picks the file.
+        sans: "SF Pro Rounded",
         mono: platformSelect({ ios: "Menlo", android: "monospace", default: "monospace" }),
       },
     },

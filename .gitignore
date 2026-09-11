@@ -34,3 +34,9 @@ deploy/k8s/11-secrets.yaml
 
 # Python bytecode from running the benchmark scripts.
 __pycache__/
+
+# Impeccable's review captures and question logs: working material for a
+# design round, not the design. PRODUCT.md, DESIGN.md and the surface briefs
+# are what it leaves behind.
+**/.impeccable/review/
+**/.impeccable/questions/

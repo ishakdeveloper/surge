@@ -28,7 +28,6 @@
 - Follow DDD style colocation. Define domain modules inside the directory for that domain, export them there, and import them from that domain location instead of creating global shared domain modules.
 - With TanStack Router, keep each route's file and its page specific code colocated in that route directory.
 - Put non route page files in a nested directory whose name starts with `-` so TanStack Router ignores it recursively.
-- When working on dashboard page layout, tables, or app shell UI, read `knowledge/rules/dashboard-ui.md` first and follow it.
 - Entity IDs are branded with `Schema.brand` in the owning RPC module. Construct branded IDs with the schema's own constructor, `EntityId.make(...)`, which validates. Never cast with `as EntityId`.
 - No barrel `index.ts` files. Import from the defining module.
 - Navigation actions must use real links, not buttons. Preserve normal link semantics like middle click, open in a new tab, and copy link target. When a destination should open in a new tab, use a real link with `target="_blank"`.

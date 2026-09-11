@@ -1,25 +1,29 @@
 import { Announced } from "@/components/app/announced.js";
-import { Detail, Details } from "@/components/app/details.js";
 import { ActionError } from "@/components/app/errors.js";
-import { Screen } from "@/components/app/screen.js";
 import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
-import { Button } from "@/components/ui/button.js";
+import { Action, IconBubble, Sign, SignText, type Tone } from "@/components/sign/sign.js";
 import { Text } from "@/components/ui/text.js";
+import { colors } from "@/lib/theme.js";
+import { type Stop, StopName, StopRow, StopsCard } from "@/ride/place-field.js";
+import { RideLayout } from "@/ride/ride-layout.js";
 import { HoldStep } from "@/ride/trip-payment.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { driverPositionAtom } from "@surge/common/atom/realtime-atoms";
 import { activeTripAtom, cancelTrip } from "@surge/common/atom/trip-atoms";
-import {
-  formatCents,
-  formatDistance,
-  formatDuration,
-  formatPoint,
-  riderStatus,
-} from "@surge/common/lib/format";
+import { formatCents, formatDistance, formatDuration, riderStatus } from "@surge/common/lib/format";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
 import { Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
+import * as React from "react";
+import { ActivityIndicator, View } from "react-native";
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 /**
  * A trip in flight, from the rider's side. Reads the active trip itself, per
@@ -40,54 +44,165 @@ export const RiderTrip = () => {
   // The state machine allows cancelling until the rider is in the car.
   const cancellable = isPending(trip.status) || trip.status === "TRIP_STATUS_ACCEPTED"
     || trip.status === "TRIP_STATUS_ARRIVED";
+  const pickup: Stop = { position: trip.pickup, place: Option.none() };
+  const dropoff: Stop = { position: trip.dropoff, place: Option.none() };
 
   return (
-    <Screen>
-      {/* Announced as it changes: this is the update a rider is waiting for. */}
-      <Announced
-        message={riderStatus[trip.status]}
-        className="gap-1 rounded-xl border border-border bg-card p-4"
-      >
-        <Text className="text-base font-medium">{riderStatus[trip.status]}</Text>
-        <Text className="font-mono text-xs text-muted-foreground">{trip.status}</Text>
-      </Announced>
-
-      {isUnderway(trip.status) && trip.driverId !== ""
+    <RideLayout
+      // Cancelling is the one action a waiting rider has, so it sits where Go
+      // sat: under the thumb, until the rider is in the car.
+      footer={cancellable
+        ? (
+          <Action
+            label={cancelling.waiting ? "Cancelling…" : "Cancel trip"}
+            onPress={() => {
+              cancel({ tripId: trip.id, reason: "rider cancelled" });
+            }}
+            tone="danger"
+            size="block"
+            disabled={cancelling.waiting}
+          />
+        )
+        : null}
+      map={isUnderway(trip.status) && trip.driverId !== ""
         ? <FollowedMap trip={trip} route={route} />
-        : <SurgeMap markers={stops(trip)} route={route} follow={[trip.pickup, trip.dropoff]} />}
+        : (
+          <SurgeMap
+            markers={stops(trip)}
+            route={route}
+            follow={route.length > 1 ? route : [trip.pickup, trip.dropoff]}
+          />
+        )}
+    >
+      {/* Announced as it changes: this is the update a rider is waiting for. */}
+      <Announced message={riderStatus[trip.status]} className="">
+        <Wipe key={trip.status}>
+          <StatusCard trip={trip} pickup={pickup} dropoff={dropoff} />
+        </Wipe>
+      </Announced>
 
       {trip.status === "TRIP_STATUS_PAYMENT_PENDING" && (
         <HoldStep tripId={trip.id} totalCents={trip.totalCents} />
       )}
-      {isUnderway(trip.status) && trip.driverId !== "" && <DriverEta tripId={trip.id} />}
 
-      <Details>
-        <Detail label="Trip" value={trip.id} mono />
-        <Detail label="Driver" value={trip.driverId === "" ? "-" : trip.driverId} mono />
-        <Detail label="Pickup" value={formatPoint(trip.pickup)} mono />
-        <Detail label="Dropoff" value={formatPoint(trip.dropoff)} mono />
-        <Detail label="Fare" value={formatCents(trip.totalCents)} />
-        <Detail
-          label="Route"
-          value={`${formatDistance(trip.route.meters)} · about ${
-            formatDuration(trip.route.seconds)
-          }`}
-        />
-      </Details>
+      <StopsCard
+        rail
+        footer={
+          <Text className="px-3 pt-0.5 pb-1.5 text-right text-sm font-semibold tabular-nums">
+            {formatDuration(trip.route.seconds)} · {formatDistance(trip.route.meters)}
+          </Text>
+        }
+      >
+        <StopRow kind="pickup" label="From" stop={pickup} />
+        <StopRow kind="dropoff" label="To" stop={dropoff} />
+      </StopsCard>
+
+      <Sign>
+        <IconBubble name="card-outline" />
+        <SignText className="flex-1 text-base font-semibold">Fare</SignText>
+        <SignText className="text-[22px] font-bold tabular-nums">
+          {formatCents(trip.totalCents)}
+        </SignText>
+      </Sign>
 
       {AsyncResult.isFailure(cancelling) && <ActionError cause={cancelling.cause} />}
-      {cancellable && (
-        <Button
-          variant="outline"
-          disabled={cancelling.waiting}
-          onPress={() => {
-            cancel({ tripId: trip.id, reason: "rider cancelled" });
-          }}
-        >
-          {cancelling.waiting ? "Cancelling…" : "Cancel trip"}
-        </Button>
-      )}
-    </Screen>
+
+      <Text className="px-1 pt-1 text-center text-xs text-muted-foreground">
+        Trip <Text className="font-mono text-xs text-muted-foreground">{trip.id}</Text>
+      </Text>
+    </RideLayout>
+  );
+};
+
+/**
+ * The status card's entrance, as on the web: a reveal from the left edge
+ * rather than a fade, so a new status reads as the next sign sliding into the
+ * frame. The width animates over the card's measured width; Reanimated skips
+ * it when the system asks for reduced motion.
+ */
+const Wipe = (props: { readonly children: React.ReactNode; }) => {
+  const [full, setFull] = React.useState(0);
+  const width = useSharedValue(0);
+  const revealing = useAnimatedStyle(() => ({ width: width.value }));
+
+  return (
+    <View
+      onLayout={(event) => {
+        const measured = event.nativeEvent.layout.width;
+        if (full !== 0 || measured === 0) return;
+        setFull(measured);
+        width.value = withTiming(measured, {
+          duration: 280,
+          easing: Easing.out(Easing.exp),
+          reduceMotion: ReduceMotion.System,
+        });
+      }}
+    >
+      <Animated.View style={[{ overflow: "hidden", borderRadius: 16 }, revealing]}>
+        <View style={{ width: full === 0 ? undefined : full }}>{props.children}</View>
+      </Animated.View>
+    </View>
+  );
+};
+
+/**
+ * The card at the top of the sheet: what is happening now, in the colour that
+ * says what kind of news it is.
+ */
+const StatusCard = (props: {
+  readonly trip: Trip;
+  readonly pickup: Stop;
+  readonly dropoff: Stop;
+}) => {
+  const { status } = props.trip;
+  const tone: Tone = status === "TRIP_STATUS_PAYMENT_PENDING"
+    ? "service"
+    : status === "TRIP_STATUS_ARRIVED"
+    ? "done"
+    : "direction";
+
+  return (
+    <Sign tone={tone} className="py-4">
+      {status === "TRIP_STATUS_REQUESTED" || status === "TRIP_STATUS_OFFERED"
+        ? (
+          <View className="size-10 items-center justify-center rounded-full bg-card">
+            <ActivityIndicator color={colors.foreground} />
+          </View>
+        )
+        : (
+          <IconBubble
+            name={status === "TRIP_STATUS_PAYMENT_PENDING"
+              ? "card-outline"
+              : status === "TRIP_STATUS_ARRIVED"
+              ? "checkmark"
+              : "car-outline"}
+          />
+        )}
+      <View className="min-w-0 flex-1 gap-0.5">
+        <SignText className="text-xl leading-tight font-bold">{riderStatus[status]}</SignText>
+        <SignText className="text-sm opacity-80">
+          {status === "TRIP_STATUS_PAYMENT_PENDING"
+            ? "The fare is held before a driver is asked."
+            : status === "TRIP_STATUS_REQUESTED" || status === "TRIP_STATUS_OFFERED"
+            ? "Offering your trip to drivers nearby."
+            : status === "TRIP_STATUS_ACCEPTED"
+            ? <DriverEta tripId={props.trip.id} />
+            : status === "TRIP_STATUS_ARRIVED"
+            ? (
+              <>
+                Meet them at <StopName stop={props.pickup} />.
+              </>
+            )
+            : status === "TRIP_STATUS_IN_PROGRESS"
+            ? (
+              <>
+                To <StopName stop={props.dropoff} />.
+              </>
+            )
+            : null}
+        </SignText>
+      </View>
+    </Sign>
   );
 };
 
@@ -98,8 +213,9 @@ export const RiderTrip = () => {
  */
 const DriverEta = (props: { readonly tripId: Trip["id"]; }) => {
   const position = useAtomValue(driverPositionAtom(props.tripId));
-  if (!AsyncResult.isSuccess(position) || position.value.etaSeconds <= 0) return null;
-  return <Text>Arriving in about {formatDuration(position.value.etaSeconds)}</Text>;
+  return AsyncResult.isSuccess(position) && position.value.etaSeconds > 0
+    ? <>Arriving in about {formatDuration(position.value.etaSeconds)}.</>
+    : <>Heading to your pickup.</>;
 };
 
 const stops = (trip: Trip): ReadonlyArray<MapMarker> => [
@@ -126,7 +242,7 @@ const FollowedMap = (props: { readonly trip: Trip; readonly route: ReadonlyArray
     <SurgeMap
       markers={[...stops(props.trip), ...driver]}
       route={props.route}
-      follow={[props.trip.pickup, props.trip.dropoff]}
+      follow={props.route.length > 1 ? props.route : [props.trip.pickup, props.trip.dropoff]}
     />
   );
 };

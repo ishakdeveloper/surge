@@ -1,4 +1,4 @@
-import { nav } from "@/components/app/sidebar.js";
+import { nav } from "@/components/app/top-bar.js";
 import {
   Command,
   CommandDialog,

@@ -2,25 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/* apps/web/src/app.css's palette, converted from oklch to sRGB channels. Dark
-   only, like the web app; colour carries status and action, never decoration. */
+/* apps/web/src/app.css's palette as sRGB channels, because React Native has no
+   oklch(). A near-white ground, a white sheet and grey tiles on it; each
+   colour says one thing: yellow is the route and the next step, black is a
+   service, green is done, red is refused. */
 :root {
-  --background: 10 10 12;
-  --foreground: 238 238 238;
-  --card: 18 18 21;
-  --card-foreground: 238 238 238;
-  --primary: 58 147 230;
-  --primary-foreground: 248 248 248;
-  --secondary: 26 26 29;
-  --secondary-foreground: 238 238 238;
-  --muted: 26 26 29;
-  --muted-foreground: 113 113 116;
-  --accent: 26 26 29;
-  --accent-foreground: 238 238 238;
-  --destructive: 241 77 76;
-  --destructive-foreground: 248 248 248;
-  --success: 0 175 68;
-  --border: 33 33 36;
-  --input: 33 33 36;
-  --ring: 58 147 230;
+  --background: 247 247 245;
+  --foreground: 26 26 26;
+  --card: 255 255 255;
+  --card-foreground: 26 26 26;
+  --tile: 240 240 237;
+  --tile-hover: 232 232 228;
+  --primary: 255 210 0;
+  --primary-foreground: 26 26 26;
+  --secondary: 26 26 26;
+  --secondary-foreground: 255 255 255;
+  --muted: 240 240 237;
+  --muted-foreground: 95 99 106;
+  --accent: 235 235 231;
+  --accent-foreground: 26 26 26;
+  --destructive: 200 49 42;
+  --destructive-foreground: 255 255 255;
+  --success: 6 122 62;
+  --success-foreground: 255 255 255;
+  --border: 227 227 223;
+  --input: 220 220 215;
+  --ring: 26 26 26;
 }

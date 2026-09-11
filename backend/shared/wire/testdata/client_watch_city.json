@@ -1,0 +1,10 @@
+{
+  "_tag": "ClientWatchCity",
+  "viewport": {
+    "west": 4.85,
+    "south": 52.35,
+    "east": 4.95,
+    "north": 52.4,
+    "zoom": 13
+  }
+}

@@ -1,5 +1,6 @@
 import type { TripId } from "@surge/domain/api/Primitives";
 import {
+  type CityUpdate,
   type ClientMessage,
   ClientMessageFromJson,
   DriverPing,
@@ -80,6 +81,8 @@ export interface RealtimeService {
   readonly fleet: Stream.Stream<FleetUpdate>;
   /** The assigned driver's position, once a second while following a trip. */
   readonly positions: Stream.Stream<DriverPosition>;
+  /** The free cars and recent bookings a map shows, once a second while watching the city. */
+  readonly city: Stream.Stream<CityUpdate>;
   /**
    * Something about the caller's money changed — what `/ride` watches for a
    * bank asking the rider to confirm, and `/drive/earnings` for a balance
@@ -126,6 +129,12 @@ export interface RealtimeService {
 
   /** Follow a trip's driver, or stop with `Option.none()`. Re-sent after a reconnect, like `watchFleet`. */
   readonly followTrip: (tripId: Option.Option<TripId>) => Effect.Effect<void>;
+
+  /**
+   * Watch the city through a viewport, or stop with `Option.none()`. Any
+   * signed-in caller may; re-sent after a reconnect, like `watchFleet`.
+   */
+  readonly watchCity: (viewport: Option.Option<Viewport>) => Effect.Effect<void>;
 
   /** The escape hatch, for anything the two helpers above do not cover. */
   readonly send: (message: ClientMessage) => Effect.Effect<void>;
@@ -220,6 +229,7 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
 
         const watching = yield* Ref.make<Option.Option<Viewport>>(Option.none());
         const following = yield* Ref.make<Option.Option<TripId>>(Option.none());
+        const watchingCity = yield* Ref.make<Option.Option<Viewport>>(Option.none());
 
         /** What this client has asked for, said again — on every welcome, since a new socket starts with nothing. */
         const resubscribe = Effect.gen(function*() {
@@ -229,6 +239,8 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
           }
           const trip = yield* Ref.get(following);
           if (Option.isSome(trip)) yield* send({ _tag: "ClientFollowTrip", tripId: trip.value });
+          const city = yield* Ref.get(watchingCity);
+          if (Option.isSome(city)) yield* send({ _tag: "ClientWatchCity", viewport: city.value });
         });
 
         const attempt = Stream.unwrap(
@@ -307,6 +319,11 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
                 ? Result.succeed(message.position)
                 : Result.fail(message),
           ),
+          city: Stream.filterMap(
+            messages,
+            (message) =>
+              message._tag === "CityUpdate" ? Result.succeed(message.city) : Result.fail(message),
+          ),
           paymentsChanged: Stream.filterMap(
             messages,
             (message) =>
@@ -346,6 +363,15 @@ export class Realtime extends Context.Service<Realtime, RealtimeService>()("Real
                 Option.match(tripId, {
                   onNone: () => send({ _tag: "ClientUnfollowTrip" }),
                   onSome: (value) => send({ _tag: "ClientFollowTrip", tripId: value }),
+                }),
+              ),
+            ),
+          watchCity: (viewport) =>
+            Ref.set(watchingCity, viewport).pipe(
+              Effect.andThen(
+                Option.match(viewport, {
+                  onNone: () => send({ _tag: "ClientUnwatchCity" }),
+                  onSome: (value) => send({ _tag: "ClientWatchCity", viewport: value }),
                 }),
               ),
             ),

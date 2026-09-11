@@ -56,6 +56,8 @@ type Hub struct {
 	trips trippb.TripServiceClient
 	// eta predicts how long a followed driver is from the pickup.
 	eta *domain.EtaModel
+	// city is what any signed-in map may see: free cars, and recent bookings.
+	city *domain.City
 
 	// Subscriptions, by connection id. Held here rather than on the connection
 	// because they are what the fan-out iterates; a connection that closes
@@ -63,6 +65,8 @@ type Hub struct {
 	mu        sync.Mutex
 	watchers  map[string]watcher
 	followers map[string]follower
+	// cities are the maps watching the city feed.
+	cities map[string]watcher
 }
 
 type watcher struct {
@@ -79,12 +83,13 @@ type follower struct {
 
 func NewHub(
 	registry *domain.Registry, verifier authz.Verifier, producer *kgo.Client, origins []string,
-	fleet *domain.Fleet, trips trippb.TripServiceClient, eta *domain.EtaModel, hooks Hooks,
+	fleet *domain.Fleet, city *domain.City, trips trippb.TripServiceClient, eta *domain.EtaModel,
+	hooks Hooks,
 ) *Hub {
 	return &Hub{
 		registry: registry, verifier: verifier, producer: producer, origins: origins, hooks: hooks,
-		fleet: fleet, trips: trips, eta: eta,
-		watchers: map[string]watcher{}, followers: map[string]follower{},
+		fleet: fleet, city: city, trips: trips, eta: eta,
+		watchers: map[string]watcher{}, followers: map[string]follower{}, cities: map[string]watcher{},
 	}
 }
 
@@ -247,6 +252,21 @@ func (h *Hub) dispatch(ctx context.Context, connection *domain.Connection, messa
 		delete(h.watchers, connection.ID)
 		h.mu.Unlock()
 
+	case wire.TagClientWatchCity:
+		// Any signed-in caller. What this sends was shaped to be safe to show
+		// anyone — see domain.City — so the check is the shape, not the role.
+		if message.Viewport == nil {
+			return
+		}
+		h.mu.Lock()
+		h.cities[connection.ID] = watcher{connection: connection, viewport: *message.Viewport}
+		h.mu.Unlock()
+
+	case wire.TagClientUnwatchCity:
+		h.mu.Lock()
+		delete(h.cities, connection.ID)
+		h.mu.Unlock()
+
 	case wire.TagClientFollowTrip:
 		if message.TripID == "" {
 			return
@@ -394,6 +414,7 @@ func (h *Hub) forget(connectionID string) {
 	h.mu.Lock()
 	delete(h.watchers, connectionID)
 	delete(h.followers, connectionID)
+	delete(h.cities, connectionID)
 	h.mu.Unlock()
 }
 
@@ -408,8 +429,8 @@ func (h *Hub) reject(connection *domain.Connection, reason, message string) {
 	}
 }
 
-// RunFleet sends every watching console its view, and every following rider
-// their driver's position, once a second.
+// RunFleet sends every watching console its view, every following rider their
+// driver's position, and every map watching the city its view, once a second.
 //
 // Through each connection's bounded send queue like everything else, so a
 // console that stops reading is evicted rather than allowed to hold the
@@ -438,12 +459,23 @@ func (h *Hub) fanOut(now time.Time) {
 	for _, f := range h.followers {
 		followers = append(followers, f)
 	}
+	cities := make([]watcher, 0, len(h.cities))
+	for _, c := range h.cities {
+		cities = append(cities, c)
+	}
 	h.mu.Unlock()
 
 	for _, w := range watchers {
 		update := h.fleet.Snapshot(w.viewport, now)
 		if payload, err := json.Marshal(wire.ServerMessage{Tag: wire.TagFleetUpdate, Fleet: &update}); err == nil {
 			_ = w.connection.Send(payload)
+		}
+	}
+
+	for _, c := range cities {
+		update := h.city.Snapshot(h.fleet, c.viewport, now)
+		if payload, err := json.Marshal(wire.ServerMessage{Tag: wire.TagCityUpdate, City: &update}); err == nil {
+			_ = c.connection.Send(payload)
 		}
 	}
 

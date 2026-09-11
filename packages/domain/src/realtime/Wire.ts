@@ -230,6 +230,46 @@ export class DriverPosition extends Schema.Class<DriverPosition>("DriverPosition
   etaSeconds: Schema.Number,
 }) {}
 
+/**
+ * A car free to take a trip, as any signed-in map shows it.
+ *
+ * `key` tells one car from another between frames, so the map can move it
+ * rather than redraw it, and says nothing else: the gateway derives it from the
+ * driver id under a secret of its own, and it changes when the gateway
+ * restarts. There is no driver id, and the tests hold it absent — a car with
+ * nobody's name on it is what makes this feed safe to show any rider.
+ */
+export class CityCar extends Schema.Class<CityCar>("CityCar")({
+  key: Schema.String,
+  lat: Schema.Number,
+  lng: Schema.Number,
+  /** Degrees clockwise from north. */
+  heading: Schema.Number,
+}) {}
+
+/**
+ * A trip somebody booked, as the middle of the area it was booked in — about
+ * half a kilometre across — and never the pickup itself.
+ */
+export class CityBooking extends Schema.Class<CityBooking>("CityBooking")({
+  /** The same across the several frames that carry this booking, so it is shown once. */
+  key: Schema.String,
+  lat: Schema.Number,
+  lng: Schema.Number,
+  atMs: Schema.Number,
+}) {}
+
+/**
+ * One map's view of the city, once a second while it watches: the free cars in
+ * view, nearest its middle first — none when zoomed out past 12 — and the
+ * bookings of the last few seconds.
+ */
+export class CityUpdate extends Schema.Class<CityUpdate>("CityUpdate")({
+  atMs: Schema.Number,
+  cars: Schema.Array(CityCar),
+  bookings: Schema.Array(CityBooking),
+}) {}
+
 /** A driver's answer to a dispatched offer. `driverId` is absent for the same reason it is on {@link DriverPing}. */
 export class OfferReply extends Schema.Class<OfferReply>("OfferReply")({
   tripId: TripId,
@@ -254,6 +294,10 @@ export const ClientMessage = Schema.Union([
     identifier: "ClientFollowTrip",
   }),
   Schema.TaggedStruct("ClientUnfollowTrip", {}).annotate({ identifier: "ClientUnfollowTrip" }),
+  Schema.TaggedStruct("ClientWatchCity", { viewport: Viewport }).annotate({
+    identifier: "ClientWatchCity",
+  }),
+  Schema.TaggedStruct("ClientUnwatchCity", {}).annotate({ identifier: "ClientUnwatchCity" }),
   Schema.TaggedStruct("ClientOfferReply", {
     reply: OfferReply,
     replyCell: CellId,
@@ -294,6 +338,9 @@ export const ServerMessage = Schema.Union([
   }),
   Schema.TaggedStruct("DriverPosition", { position: DriverPosition }).annotate({
     identifier: "DriverPositionMessage",
+  }),
+  Schema.TaggedStruct("CityUpdate", { city: CityUpdate }).annotate({
+    identifier: "CityUpdateMessage",
   }),
   Schema.TaggedStruct("ServerError", { error: Schema.String }).annotate({
     identifier: "ServerError",
