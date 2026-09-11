@@ -31,9 +31,10 @@ func assertKinds(t *testing.T, got []domain.Fact, want ...domain.FactKind) {
 	}
 }
 
-// The facts payments acts on: one request per booking however often it is
-// retried, one completion however often the driver taps, and nothing for the
-// moves in between that only the people on the trip care about.
+// The facts payments and chat act on: one request per booking however often it
+// is retried, one acceptance however often the match is redelivered, one
+// completion however often the driver taps, and nothing for the moves in
+// between that only the people on the trip care about.
 func TestFactsTravelWithTheirChange(t *testing.T) {
 	rig := newRig(t, 1.0)
 	ctx := context.Background()
@@ -60,9 +61,13 @@ func TestFactsTravelWithTheirChange(t *testing.T) {
 	}
 
 	facts := rig.trips.Facts()
-	assertKinds(t, facts, domain.FactRequested, domain.FactCompleted)
+	assertKinds(t, facts, domain.FactRequested, domain.FactAccepted, domain.FactCompleted)
 
-	completed := facts[1].Trip
+	if accepted := facts[1].Trip; accepted.DriverID != "drv-1" {
+		t.Errorf("acceptance names driver %q, want drv-1 — there is nobody to talk to", accepted.DriverID)
+	}
+
+	completed := facts[2].Trip
 	if completed.DriverID != "drv-1" {
 		t.Errorf("completion names driver %q, want drv-1 — there is nobody to pay", completed.DriverID)
 	}

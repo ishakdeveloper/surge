@@ -144,6 +144,10 @@ func (c *Consumer) apply(ctx context.Context, fact wire.TripFact) error {
 		return c.service.TripCompleted(ctx, trip)
 	case wire.FactTripCancelled, wire.FactTripUnmatched:
 		return c.service.TripEnded(ctx, trip)
+	case wire.FactTripAccepted:
+		// Chat's news. The hold was placed on the request and the driver's
+		// share is settled on completion, which carries the driver too.
+		return nil
 	default:
 		return nil
 	}

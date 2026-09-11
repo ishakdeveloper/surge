@@ -20,8 +20,9 @@ func TestFactsOf(t *testing.T) {
 		// Its dispatch is not news to payments, which is what caused it.
 		{domain.StatusPaymentPending, domain.StatusRequested, ""},
 		{domain.StatusPaymentPending, domain.StatusCancelled, domain.FactCancelled},
-		{domain.StatusRequested, domain.StatusAccepted, ""},
-		{domain.StatusOffered, domain.StatusAccepted, ""},
+		// Chat opens the rider's conversation with the driver on it.
+		{domain.StatusRequested, domain.StatusAccepted, domain.FactAccepted},
+		{domain.StatusOffered, domain.StatusAccepted, domain.FactAccepted},
 		{domain.StatusAccepted, domain.StatusArrived, ""},
 		{domain.StatusArrived, domain.StatusInProgress, ""},
 		{domain.StatusInProgress, domain.StatusCompleted, domain.FactCompleted},
