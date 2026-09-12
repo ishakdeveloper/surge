@@ -19,6 +19,14 @@ appId: ${APP_ID || 'com.ishakdeveloper.surge'}
 ---
 - launchApp
 - openLink: ${APP_URL || 'surge://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081'}
+# The link is handed to the app from outside it, and iOS asks before handing
+# over. The title carries the app's name in curly quotes, so it is matched
+# loosely and the button is what is tapped.
+- runFlow:
+    when:
+      visible: "Open in .*"
+    commands:
+      - tapOn: "Open"
 # The dev client gives up if Metro was slow to answer the first request.
 - runFlow:
     when:

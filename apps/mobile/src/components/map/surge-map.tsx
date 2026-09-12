@@ -209,6 +209,10 @@ const SignMarker = (props: { readonly kind: MapMarker["kind"]; }) => {
  */
 const CarImage = () => (
   <View
+    // Pinned: React Native folds a view away when it thinks nothing is lost by
+    // it, and the triangle inside would be hoisted up to sit beside this one —
+    // which the map image refuses, since it photographs exactly one view.
+    collapsable={false}
     className="items-center justify-center rounded-full bg-white"
     style={{ width: CAR_SIZE, height: CAR_SIZE }}
   >
@@ -351,7 +355,6 @@ export const SurgeMap = (props: {
       type: "FeatureCollection",
       features: cars.map((car) => ({
         type: "Feature",
-        id: car.key,
         geometry: { type: "Point", coordinates: toPosition(car.position) },
         properties: { heading: car.heading },
       })),
