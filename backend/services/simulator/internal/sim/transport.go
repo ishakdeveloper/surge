@@ -33,8 +33,8 @@ type KafkaTransport struct {
 	onError func(error)
 }
 
-func NewKafkaTransport(brokers []string, onError func(error)) (*KafkaTransport, error) {
-	client, err := kafkax.NewProducer(brokers)
+func NewKafkaTransport(cluster kafkax.Cluster, onError func(error)) (*KafkaTransport, error) {
+	client, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("sim: kafka transport: %w", err)
 	}

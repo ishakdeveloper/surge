@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/stats/opentelemetry"
 )
@@ -53,7 +54,10 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
 	// Listen address, NOT the address clients dial.
 	//
 	// These were one variable until a deploy proved they are two: a pod binds
@@ -85,7 +89,7 @@ func run() error {
 	registry := obs.NewRegistry("trip")
 	metrics := newMetrics(registry)
 
-	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -106,7 +110,7 @@ func run() error {
 	}
 	defer closeRepo()
 
-	producer, err := kafkax.NewProducer(brokers)
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return err
 	}
@@ -125,7 +129,7 @@ func run() error {
 	fares := repository.NewFareCache()
 
 	// The matchers publish each cell's multiplier; a quote reads its pickup's.
-	surge, err := events.NewSurgeBook(brokers)
+	surge, err := events.NewSurgeBook(cluster)
 	if err != nil {
 		return err
 	}
@@ -146,7 +150,7 @@ func run() error {
 		slog.Info("bookings wait for payments to hold the fare before dispatch")
 	}
 
-	consumer, err := events.NewConsumer(brokers, group, trip, events.Hooks{
+	consumer, err := events.NewConsumer(cluster, group, trip, events.Hooks{
 		OnMatched:   func() { metrics.outcomes.WithLabelValues("matched").Inc() },
 		OnUnmatched: func() { metrics.outcomes.WithLabelValues("unmatched").Inc() },
 		OnRejected:  func(reason string) { metrics.rejected.WithLabelValues(reason).Inc() },
@@ -162,6 +166,13 @@ func run() error {
 		// ecosystem standardises on, so a gRPC call joins the trace that a
 		// Kafka record started rather than beginning a new one.
 		opentelemetry.ServerOption(opentelemetry.Options{}),
+		// Connections are recycled, so a caller re-resolves the headless Service
+		// and finds the pods that started after it connected. Without this a
+		// scale-up is invisible to every gateway until something breaks.
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionAge:      5 * time.Minute,
+			MaxConnectionAgeGrace: 30 * time.Second,
+		}),
 		// Turns the metadata the gateway forwarded back into an Identity, so a
 		// handler reads the caller from context exactly as an HTTP handler
 		// does and never thinks about metadata at all.
@@ -212,17 +223,20 @@ func run() error {
 		}
 	}()
 
+	var failed error
 	select {
 	case <-ctx.Done():
-		server.GracefulStop()
-		return nil
-	case err := <-errs:
-		server.GracefulStop()
-		if errors.Is(err, grpc.ErrServerStopped) {
-			return nil
-		}
-		return err
+	case failed = <-errs:
 	}
+
+	// NOT_SERVING first, so the readiness probe takes this pod out of rotation
+	// while GracefulStop lets the calls already in flight finish.
+	healthServer.Shutdown()
+	server.GracefulStop()
+	if failed == nil || errors.Is(failed, grpc.ErrServerStopped) {
+		return nil
+	}
+	return failed
 }
 
 // openRepository returns the pool alongside the repository, nil when there is

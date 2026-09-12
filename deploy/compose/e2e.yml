@@ -1,0 +1,19 @@
+# What the end-to-end run changes about the stack, and nothing else: Valhalla
+# is the image with Noord-Holland's tiles already built, so a fresh machine is
+# routing in seconds rather than after a twenty-minute first boot.
+#
+#   VALHALLA_IMAGE=ghcr.io/<owner>/surge-valhalla-ams:latest SURGE_TAG=ci \
+#     docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/e2e.yml \
+#     --profile app up -d --wait
+services:
+  valhalla:
+    image: ${VALHALLA_IMAGE:?set VALHALLA_IMAGE to a surge-valhalla-ams image}
+    environment:
+      # Serve the tiles in the image as they are; there is no extract left in
+      # it to compare them against.
+      use_tiles_ignore_pbf: "True"
+    # No volume: the tiles are in the image, and an empty volume mounted over
+    # them would be the only way to lose them.
+    volumes: !reset []
+    healthcheck:
+      start_period: 2m

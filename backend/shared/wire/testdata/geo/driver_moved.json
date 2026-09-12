@@ -1,0 +1,16 @@
+{
+  "_tag": "DriverMoved",
+  "cell": "871f1d492ffffff",
+  "atMs": 1757512330000,
+  "moved": {
+    "driverId": "drv-000123",
+    "epoch": 3,
+    "seq": 41,
+    "lat": 52.3702,
+    "lng": 4.8952,
+    "heading": 137.5,
+    "status": "idle",
+    "indexCell": "891f1d4926bffff",
+    "sentAtMs": 1757512329980
+  }
+}

@@ -32,7 +32,7 @@ type Consumer struct {
 	hooks   Hooks
 }
 
-func NewConsumer(brokers []string, group string, trips *service.Service, hooks Hooks) (*Consumer, error) {
+func NewConsumer(cluster kafkax.Cluster, group string, trips *service.Service, hooks Hooks) (*Consumer, error) {
 	// Unlike positions, trip outcomes are worth replaying: a trip service that
 	// was down for a minute must still learn that a driver accepted, or the
 	// rider is left looking at a spinner for a ride that is already on its way.
@@ -42,7 +42,7 @@ func NewConsumer(brokers []string, group string, trips *service.Service, hooks H
 	// them to be co-partitioned: nothing here is in-memory state owned per
 	// partition. Each fact is applied to Postgres behind a compare-and-set, so
 	// which instance holds which partition of either changes nothing.
-	client, err := kafkax.NewConsumerGroup(brokers, group,
+	client, err := kafkax.NewConsumerGroup(cluster, group,
 		[]string{kafkax.TopicTripEvents, kafkax.TopicPaymentEvents})
 	if err != nil {
 		return nil, err

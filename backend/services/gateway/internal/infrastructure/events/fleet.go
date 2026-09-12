@@ -25,8 +25,8 @@ type FleetConsumer struct {
 	city   *domain.City
 }
 
-func NewFleetConsumer(brokers []string, group string, fleet *domain.Fleet, city *domain.City) (*FleetConsumer, error) {
-	client, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicFleetFrames},
+func NewFleetConsumer(cluster kafkax.Cluster, group string, fleet *domain.Fleet, city *domain.City) (*FleetConsumer, error) {
+	client, err := kafkax.NewConsumerGroup(cluster, group, []string{kafkax.TopicFleetFrames},
 		// A frame is superseded a second after it is written. A gateway
 		// starting up wants the next one, not the backlog.
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))

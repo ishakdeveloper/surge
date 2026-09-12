@@ -9,7 +9,7 @@ GO      := cd backend && go
 BIN     := backend/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help proto images k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures grant-ops bench-matching bench-payments check-handover up up-core down logs migrate build test check fmt dev-auth dev-mobile dev-mobile-build mobile-build-sim mobile-build-device e2e-mobile dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
+.PHONY: help proto images app-up app-down e2e k8s-up k8s-down k8s-diff k8s-status tilt scaffold wire-fixtures grant-ops bench-matching bench-payments check-handover up up-core down logs migrate build test check fmt dev-auth dev-mobile dev-mobile-build mobile-build-sim mobile-build-device e2e-mobile dev-sim dev-ingest dev-matcher load control stats chaos-scale chaos-kill clean nuke
 
 help: ## Show this help
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -26,13 +26,24 @@ help: ## Show this help
 # machine has been a production GKE cluster before now.
 KCTX ?= orbstack
 
+# Every Go image comes from deploy/docker/go.Dockerfile; only the package differs.
+GO_IMAGES := gateway:services/gateway/cmd ingest:services/ingest/cmd \
+	matcher:services/matcher/cmd trip:services/trip/cmd \
+	payments:services/payments/cmd chat:services/chat/cmd \
+	fleet:services/fleet/cmd simulator:services/simulator/cmd \
+	migrate:tools/migrate
+
 images: ## Build every container image
-	@for s in gateway ingest matcher trip chat fleet simulator migrate; do \
-		echo "  building $$s"; \
-		docker build -q -f deploy/docker/$$s.Dockerfile -t surge/$$s:dev . > /dev/null; \
+	@for image in $(GO_IMAGES); do \
+		name=$${image%%:*}; package=$${image#*:}; \
+		echo "  building $$name"; \
+		docker build -q -f deploy/docker/go.Dockerfile --build-arg PACKAGE=$$package \
+			-t surge/$$name:dev . > /dev/null || exit 1; \
 	done
 	@echo "  building auth"
 	@docker build -q -f apps/auth/Dockerfile -t surge/auth:dev . > /dev/null
+	@echo "  building web"
+	@docker build -q -f apps/web/Dockerfile -t surge/web:dev . > /dev/null
 
 K8S_ENV ?= development
 
@@ -90,11 +101,24 @@ up: ## Start all infrastructure: the system and its dashboards
 	@echo
 	@echo "  Valhalla builds tiles on first boot: 10-20 minutes. 'make logs' to watch."
 
-up-core: ## Only what the system needs to run (postgres, redpanda, redis, valhalla), no dashboards
+up-core: ## Only what the system needs to run (postgres, redpanda, valhalla), no dashboards
 	$(COMPOSE) up -d
 
 down: ## Stop infrastructure, keep the volumes
-	$(COMPOSE) --profile observability down
+	$(COMPOSE) --profile observability --profile app down
+
+# The system from its images rather than from `make dev-*`: what CI's
+# end-to-end job runs. Needs `make images`, and binds the same ports as the dev
+# services, so it is one or the other. Valhalla is the compose one, so a
+# volume with tiles in it (from `make up`) saves its first twenty minutes.
+app-up: ## Run the whole system from its images (the compose app profile)
+	$(COMPOSE) --profile app up -d --wait
+
+app-down: ## Stop the app profile, keep the volumes
+	$(COMPOSE) --profile app down
+
+e2e: ## Playwright against whatever answers on the local ports; auth needs AUTH_DEV_OUTBOX=true
+	pnpm --filter @surge/e2e test
 
 logs: ## Follow infrastructure logs
 	$(COMPOSE) logs -f
@@ -107,8 +131,6 @@ migrate: build ## Apply migrations to both databases
 	pnpm --filter @surge/database migrate
 	@set -a; . ./.env; set +a; $(BIN)/migrate
 
-# Codegen. The plugins are go-installed rather than vendored, matching how the
-# Go toolchain expects protoc plugins to be found.
 # Codegen. Four plugins from one set of .proto files:
 #
 #   protoc-gen-go          the messages
@@ -120,17 +142,19 @@ migrate: build ## Apply migrations to both databases
 # That is the reason for the annotations: the REST surface, the gRPC contract
 # and the API documentation are one source of truth rather than three that
 # drift.
+#
+# The plugins are `tool` directives in backend/go.mod, so go.sum pins them and
+# two machines a week apart generate the same code — which is what lets CI fail
+# on a diff. They are built into backend/bin and put first on PATH, so a
+# protoc-gen-go installed some other way can never be the one that runs.
+# protoc itself is pinned in CI to 33.0, the version the committed code names.
+PROTOC_PLUGINS := $(abspath $(BIN)/protoc-plugins)
+
 proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 	@command -v protoc >/dev/null || { echo "protoc not installed"; exit 1; }
-	@# Pinned to the runtime versions in backend/go.mod rather than @latest, so a
-	@# regeneration changes what the proto changed and nothing else — a newer
-	@# generator rewrites every file's header and helpers, and buries the diff.
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
-	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.30.0
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.30.0
+	@cd backend && GOBIN=$(PROTOC_PLUGINS) go install tool
 	@mkdir -p docs/api
-	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=proto \
+	PATH="$(PROTOC_PLUGINS):$$PATH" protoc --proto_path=proto \
 		--go_out=backend/shared/proto --go_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		--go-grpc_out=backend/shared/proto --go-grpc_opt=module=github.com/ishakdeveloper/surge/shared/proto \
 		--grpc-gateway_out=backend/shared/proto \
@@ -300,4 +324,4 @@ clean: ## Remove build output
 	rm -rf $(BIN) apps/*/build packages/*/build apps/web/.output
 
 nuke: ## Remove infrastructure AND its data
-	$(COMPOSE) --profile observability down -v
+	$(COMPOSE) --profile observability --profile app down -v

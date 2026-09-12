@@ -1,0 +1,77 @@
+name: valhalla
+
+# Rebuilds surge-valhalla-ams, the routing engine with Noord-Holland's tiles
+# already in it. Weekly, because Geofabrik publishes a new extract daily and a
+# week-old road network is plenty for routing a simulator and a test.
+#
+# Pushed to GitHub's own registry with the workflow's token: no cloud account
+# is involved, and the end-to-end job pulls it the same way. It is test
+# infrastructure; what the cluster runs is promoted into Artifact Registry by
+# digest, like every other image.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - deploy/docker/valhalla.Dockerfile
+      - .github/workflows/valhalla.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: tags
+        id: tags
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/surge-valhalla-ams
+        run: |
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "dated=$IMAGE:$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # The dated tag is the record; `latest` is what the end-to-end job pulls.
+      # A moving tag is acceptable here and nowhere else: this image is never
+      # deployed by tag.
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: deploy/docker
+          file: deploy/docker/valhalla.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.dated }}
+            ${{ steps.tags.outputs.image }}:latest
+
+      # A routing engine that starts is not one that routes. Ask it for a real
+      # trip across the city before anyone relies on this build.
+      - name: it routes
+        env:
+          IMAGE: ${{ steps.tags.outputs.dated }}
+        run: |
+          docker run -d --name valhalla -p 8002:8002 "$IMAGE"
+          for _ in $(seq 1 60); do
+            curl -fsS localhost:8002/status >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS localhost:8002/route --data '{"locations":[{"lat":52.3791,"lon":4.9003},{"lat":52.3389,"lon":4.8730}],"costing":"auto"}' \
+            | jq -e '.trip.summary.length > 0'

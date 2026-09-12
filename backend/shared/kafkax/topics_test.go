@@ -10,14 +10,16 @@ import (
 	"github.com/ishakdeveloper/surge/shared/kafkax"
 )
 
-func brokers(t *testing.T) []string {
+// localCluster is the broker the integration tests run against: KAFKA_BROKERS,
+// or the compose one. Always one replica, which a single broker can satisfy.
+func localCluster(t *testing.T) kafkax.Cluster {
 	t.Helper()
 
 	value := os.Getenv("KAFKA_BROKERS")
 	if value == "" {
 		value = "localhost:19092"
 	}
-	return strings.Split(value, ",")
+	return kafkax.Cluster{Brokers: strings.Split(value, ","), Replication: 1}
 }
 
 // Provisioning has to be safe to run from every service on every boot, because
@@ -26,11 +28,12 @@ func TestEnsureTopicsIsIdempotent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := kafkax.EnsureTopics(ctx, brokers(t)); err != nil {
-		t.Skipf("no broker at %v: %v", brokers(t), err)
+	cluster := localCluster(t)
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
+		t.Skipf("no broker at %v: %v", cluster.Brokers, err)
 	}
 
-	if err := kafkax.EnsureTopics(ctx, brokers(t)); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		t.Fatalf("second run should be a no-op, got: %v", err)
 	}
 
@@ -38,11 +41,11 @@ func TestEnsureTopicsIsIdempotent(t *testing.T) {
 	// of partitions, or "owning partition N of geo.events means owning
 	// partition N of geo.state" is false and restore-on-assign reads the wrong
 	// cells' checkpoints.
-	events, err := kafkax.TopicPartitions(ctx, brokers(t), kafkax.TopicGeoEvents)
+	events, err := kafkax.TopicPartitions(ctx, cluster, kafkax.TopicGeoEvents)
 	if err != nil {
 		t.Fatalf("partitions for %s: %v", kafkax.TopicGeoEvents, err)
 	}
-	state, err := kafkax.TopicPartitions(ctx, brokers(t), kafkax.TopicGeoState)
+	state, err := kafkax.TopicPartitions(ctx, cluster, kafkax.TopicGeoState)
 	if err != nil {
 		t.Fatalf("partitions for %s: %v", kafkax.TopicGeoState, err)
 	}

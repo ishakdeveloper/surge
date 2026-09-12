@@ -1,0 +1,17 @@
+{
+  "name": "@surge/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "ISC",
+  "scripts": {
+    "test": "playwright test",
+    "check": "tsc -b tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "pg": "catalog:"
+  }
+}

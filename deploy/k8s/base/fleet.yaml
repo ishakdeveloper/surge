@@ -1,9 +1,8 @@
 # fleet
-    #
-    # Scales on drivers, which is the smallest number in the system: a
-    # driver is vetted once and swept over nightly. Postgres is the limit
-    # long before the process is, and every replica runs the sweeper, which
-    # is safe because expiring a document twice is the same document.
+#
+# Scales on drivers, which is the smallest number in the system: a driver is
+# vetted once and swept over nightly. Every replica runs the sweeper, which is
+# safe because expiring a document twice is the same document.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,35 +19,48 @@ spec:
     spec:
       containers:
         - name: fleet
-          image: surge/fleet:dev
-          imagePullPolicy: IfNotPresent
+          image: surge/fleet
           envFrom:
-            - configMapRef: { name: surge-config }
+            - configMapRef: { name: surge-shared }
+            - configMapRef: { name: fleet-config }
+            # The Identity key, the bucket's credentials, and the reader's.
             - secretRef: { name: surge-secrets }
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: surge-database, key: DATABASE_URL } }
           ports:
             - name: grpc
               containerPort: 8115
             - name: metrics
               containerPort: 9110
-          # Liveness only, for trip's reason: a readiness probe would take a
-          # pod out of rotation when a dependency blinks, and none of this
-          # service's dependencies are on the dispatch path anyway.
+          startupProbe:
+            httpGet: { path: /health, port: metrics }
+            periodSeconds: 5
+            failureThreshold: 60
           livenessProbe:
-            httpGet: { path: /health, port: 9110 }
-            initialDelaySeconds: 10
+            httpGet: { path: /health, port: metrics }
             periodSeconds: 20
             failureThreshold: 3
+          # The gRPC health service, which reports NOT_SERVING the moment
+          # shutdown begins, so the gateway stops being sent here before
+          # GracefulStop starts refusing.
+          readinessProbe:
+            grpc: { port: 8115 }
+            periodSeconds: 5
           resources:
             requests: { cpu: 50m, memory: 64Mi }
             limits: { memory: 512Mi }
       terminationGracePeriodSeconds: 30
 ---
+# Headless, like trip: gRPC holds one long-lived HTTP/2 connection, so a
+# ClusterIP would pin each gateway to a single pod.
 apiVersion: v1
 kind: Service
 metadata:
   name: fleet
   namespace: surge
 spec:
+  clusterIP: None
   selector: { app: fleet }
   ports:
     - name: grpc

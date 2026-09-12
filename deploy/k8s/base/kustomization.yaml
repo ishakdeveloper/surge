@@ -1,10 +1,9 @@
 # What every environment has in common.
 #
-# Base is deliberately not deployable on its own: it names a ConfigMap whose
-# values differ per environment and images without a registry. An overlay
-# supplies both. That is the point of the split — the shape of the system lives
-# here, and the things that genuinely differ between a laptop and production
-# live next to the environment that differs.
+# Base is deliberately not deployable on its own: it names images without a
+# registry and leaves out every value that differs between a laptop and
+# production. An overlay supplies both. The shape of the system lives here, and
+# the things that genuinely differ live next to the environment that differs.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -13,10 +12,12 @@ namespace: surge
 resources:
   - namespace.yaml
   - auth.yaml
+  - web.yaml
   - gateway.yaml
   - ingest.yaml
   - matcher.yaml
   - trip.yaml
+  - payments.yaml
   - chat.yaml
   - fleet.yaml
   - migrate-job.yaml
@@ -27,11 +28,25 @@ labels:
       app.kubernetes.io/part-of: surge
     includeSelectors: false
 
-# A generator rather than a plain ConfigMap, so kustomize appends a content
-# hash to the name and rewrites every reference to it. Changing a value then
-# changes the ConfigMap's name, which rolls the Deployments that read it — the
-# alternative is editing config and wondering why nothing picked it up.
+# One ConfigMap per workload, each generated from its own file.
+#
+# Generated, so kustomize appends a content hash to each name and rewrites the
+# references: changing a value renames that ConfigMap and rolls exactly the
+# workloads that read it. With one ConfigMap for everything, changing the
+# matcher's search radius rolled the gateway, the payments service and every
+# other Deployment in the namespace.
+#
+# `surge-shared` holds only what every Go service genuinely reads — where the
+# brokers are, how many replicas a topic gets, where traces go — so changing it
+# rolling everything is correct rather than collateral.
 configMapGenerator:
-  - name: surge-config
-    envs:
-      - config.env
+  - { name: surge-shared, envs: [config/shared.env] }
+  - { name: auth-config, envs: [config/auth.env] }
+  - { name: web-config, envs: [config/web.env] }
+  - { name: gateway-config, envs: [config/gateway.env] }
+  - { name: ingest-config, envs: [config/ingest.env] }
+  - { name: matcher-config, envs: [config/matcher.env] }
+  - { name: trip-config, envs: [config/trip.env] }
+  - { name: payments-config, envs: [config/payments.env] }
+  - { name: chat-config, envs: [config/chat.env] }
+  - { name: fleet-config, envs: [config/fleet.env] }

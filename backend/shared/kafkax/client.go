@@ -15,9 +15,8 @@ import (
 // individual produce requests is a syscall storm; 5ms of linger batches them
 // into roughly 200 requests a second carrying 50 records each, at a cost of
 // 5ms of added delay on a pipeline whose ping interval is 4,000ms.
-func NewProducer(brokers []string, options ...kgo.Opt) (*kgo.Client, error) {
+func NewProducer(cluster Cluster, options ...kgo.Opt) (*kgo.Client, error) {
 	defaults := []kgo.Opt{
-		kgo.SeedBrokers(brokers...),
 		kgo.ProducerLinger(5 * time.Millisecond),
 		kgo.ProducerBatchMaxBytes(1 << 20),
 		// Idempotent by default (franz-go's default), so a retry after a
@@ -28,7 +27,7 @@ func NewProducer(brokers []string, options ...kgo.Opt) (*kgo.Client, error) {
 		kgo.RequiredAcks(kgo.AllISRAcks()),
 	}
 
-	client, err := kgo.NewClient(append(defaults, options...)...)
+	client, err := cluster.Client(append(defaults, options...)...)
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: producer: %w", err)
 	}
@@ -46,9 +45,8 @@ func NewProducer(brokers []string, options ...kgo.Opt) (*kgo.Client, error) {
 // Auto-commit is off. A shard's offset must not advance until its state has
 // been checkpointed, or a crash silently drops the events between the last
 // commit and the last checkpoint.
-func NewConsumerGroup(brokers []string, group string, topics []string, options ...kgo.Opt) (*kgo.Client, error) {
+func NewConsumerGroup(cluster Cluster, group string, topics []string, options ...kgo.Opt) (*kgo.Client, error) {
 	defaults := []kgo.Opt{
-		kgo.SeedBrokers(brokers...),
 		kgo.ConsumerGroup(group),
 		kgo.ConsumeTopics(topics...),
 		kgo.Balancers(kgo.CooperativeStickyBalancer()),
@@ -64,7 +62,7 @@ func NewConsumerGroup(brokers []string, group string, topics []string, options .
 		kgo.HeartbeatInterval(3 * time.Second),
 	}
 
-	client, err := kgo.NewClient(append(defaults, options...)...)
+	client, err := cluster.Client(append(defaults, options...)...)
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: consumer group %s: %w", group, err)
 	}
@@ -78,9 +76,8 @@ func NewConsumerGroup(brokers []string, group string, topics []string, options .
 // advance until its state has been checkpointed, or a crash silently drops
 // every event between the last commit and the last checkpoint — and those are
 // exactly the events that were creating reservations.
-func NewShardConsumer(brokers []string, group string, topics []string, options ...kgo.Opt) (*kgo.Client, error) {
+func NewShardConsumer(cluster Cluster, group string, topics []string, options ...kgo.Opt) (*kgo.Client, error) {
 	defaults := []kgo.Opt{
-		kgo.SeedBrokers(brokers...),
 		kgo.ConsumerGroup(group),
 		kgo.ConsumeTopics(topics...),
 		// Cooperative, not eager. An eager rebalance revokes every partition
@@ -102,7 +99,7 @@ func NewShardConsumer(brokers []string, group string, topics []string, options .
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()),
 	}
 
-	client, err := kgo.NewClient(append(defaults, options...)...)
+	client, err := cluster.Client(append(defaults, options...)...)
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: shard consumer %s: %w", group, err)
 	}
@@ -120,7 +117,7 @@ func NewShardConsumer(brokers []string, group string, topics []string, options .
 // session and be handed them all over again.
 //
 // Every requested partition is present in the result, empty if it held nothing.
-func ReadCompacted(ctx context.Context, brokers []string, topic string, partitions []int32) (map[int32]map[string][]byte, error) {
+func ReadCompacted(ctx context.Context, cluster Cluster, topic string, partitions []int32) (map[int32]map[string][]byte, error) {
 	latest := make(map[int32]map[string][]byte, len(partitions))
 	for _, partition := range partitions {
 		latest[partition] = map[string][]byte{}
@@ -129,7 +126,7 @@ func ReadCompacted(ctx context.Context, brokers []string, topic string, partitio
 		return latest, nil
 	}
 
-	admin, err := kgo.NewClient(kgo.SeedBrokers(brokers...))
+	admin, err := cluster.Client()
 	if err != nil {
 		return nil, fmt.Errorf("kafkax: admin client: %w", err)
 	}
@@ -154,8 +151,7 @@ func ReadCompacted(ctx context.Context, brokers []string, topic string, partitio
 		return latest, nil
 	}
 
-	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
+	client, err := cluster.Client(
 		kgo.ConsumePartitions(map[string]map[int32]kgo.Offset{topic: start}),
 	)
 	if err != nil {

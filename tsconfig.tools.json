@@ -11,7 +11,6 @@
   },
   "include": [
     "*.ts",
-    ".railway/*.ts",
     "apps/*/vite.config.ts",
     "apps/*/vitest.config.ts",
     "apps/*/vitest.config.mts",

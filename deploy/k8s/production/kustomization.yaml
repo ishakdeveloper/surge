@@ -2,18 +2,26 @@
 #
 # The differences from development are the ones worth being explicit about:
 #
-#   - No infrastructure. Postgres, Kafka and the routing engine are managed
-#     services, addressed through a Secret. Running a single-replica Redpanda
-#     on emptyDir next to the thing that depends on it is fine on a laptop and
-#     is data loss anywhere else.
+#   - No infrastructure. Postgres is Cloud SQL and Redpanda its own Helm
+#     release, both outside this kustomization. Valhalla is the one exception
+#     that runs beside the services — read-only tiles, stateless — and arrives
+#     with the pre-baked image in Phase 3.
 #   - No simulator. It mints its own driver identities; it has no business
 #     anywhere a real rider might be, and SIM_ENABLED is absent so the gateway
 #     would refuse those tokens even if it were deployed by accident.
-#   - Images come from a registry with an immutable tag, set by CI.
-#   - Real replica counts, requests that reflect measured usage, and a
-#     PodDisruptionBudget so a node drain cannot take a whole tier down.
+#   - Images are named here without a tag. The deploy pins each one to the
+#     digest CI built, with `kustomize edit set image`, so a service whose
+#     image did not change keeps its digest and does not roll. Rendered as
+#     committed, every image has no tag and no digest, which is `latest` —
+#     and `latest` is never deployed.
+#   - Secrets are supplied, never generated: surge-secrets and surge-database
+#     must exist in the namespace before anything here starts.
+#   - Real replica counts, and a PodDisruptionBudget so a node drain cannot
+#     take a whole tier down.
 #
-#   kubectl apply -k deploy/k8s/production
+# The domain below is a placeholder until Cloud DNS exists.
+#
+#   kubectl kustomize deploy/k8s/production
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -24,48 +32,77 @@ resources:
   - hpa.yaml
   - pdb.yaml
 
-# CI replaces the tag with the commit sha:
-#   kustomize edit set image surge/gateway=ghcr.io/ishakdeveloper/surge-gateway:$SHA
 images:
-  - { name: surge/auth, newName: ghcr.io/ishakdeveloper/surge-auth, newTag: latest }
-  - { name: surge/gateway, newName: ghcr.io/ishakdeveloper/surge-gateway, newTag: latest }
-  - { name: surge/ingest, newName: ghcr.io/ishakdeveloper/surge-ingest, newTag: latest }
-  - { name: surge/matcher, newName: ghcr.io/ishakdeveloper/surge-matcher, newTag: latest }
-  - { name: surge/trip, newName: ghcr.io/ishakdeveloper/surge-trip, newTag: latest }
-  - { name: surge/chat, newName: ghcr.io/ishakdeveloper/surge-chat, newTag: latest }
-  - { name: surge/fleet, newName: ghcr.io/ishakdeveloper/surge-fleet, newTag: latest }
-  - { name: surge/migrate, newName: ghcr.io/ishakdeveloper/surge-migrate, newTag: latest }
+  - { name: surge/auth, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/auth }
+  - { name: surge/web, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/web }
+  - { name: surge/gateway, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/gateway }
+  - { name: surge/ingest, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/ingest }
+  - { name: surge/matcher, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/matcher }
+  - { name: surge/trip, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/trip }
+  - { name: surge/payments, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/payments }
+  - { name: surge/chat, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/chat }
+  - { name: surge/fleet, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/fleet }
+  - { name: surge/migrate, newName: europe-west4-docker.pkg.dev/surge-artifacts/images/migrate }
 
 configMapGenerator:
-  - name: surge-config
+  - name: surge-shared
     behavior: merge
     literals:
-      # Addresses of managed services. Credentials are NOT here — DATABASE_URL
-      # and KAFKA_BROKERS carry hostnames and passwords, so they come from the
-      # secret instead.
-      - OTEL_TRACES_SAMPLER_ARG=0.01
+      - KAFKA_BROKERS=redpanda.redpanda.svc.cluster.local:9093
+      # Three brokers, three replicas: a broker can be lost without losing a
+      # record. One would be accepted just as happily, and lose data.
+      - KAFKA_REPLICATION_FACTOR=3
+  - name: auth-config
+    behavior: merge
+    literals:
+      - AUTH_BASE_URL=https://auth.surge.example
+      - WEB_URL=https://app.surge.example
+      # Web and auth are sibling subdomains, so the session cookie is scoped to
+      # their parent to be same-site between them.
+      - AUTH_COOKIE_DOMAIN=.surge.example
+  - name: web-config
+    behavior: merge
+    literals:
+      - SURGE_API_URL=https://api.surge.example
+      - SURGE_WS_URL=wss://api.surge.example/ws
+      - AUTH_BASE_URL=https://auth.surge.example
+  - name: gateway-config
+    behavior: merge
+    literals:
+      # The public address auth signs as, not the in-cluster one. A mismatch
+      # rejects every token, and looks exactly like being signed out.
+      - AUTH_ISSUER=https://auth.surge.example
       - GATEWAY_ORIGINS=https://app.surge.example
+  - name: trip-config
+    behavior: merge
+    literals:
+      # A booking waits for the fare to be held before it is dispatched.
+      - TRIP_REQUIRE_PAYMENT=true
+  - name: payments-config
+    behavior: merge
+    literals:
+      - PAYMENTS_WEB_URL=https://app.surge.example
+  - name: chat-config
+    behavior: merge
+    literals:
       # Real phones. EXPO_ACCESS_TOKEN, if the project requires one, belongs in
       # the secret.
       - CHAT_PUSH_PROVIDER=expo
+  - name: fleet-config
+    behavior: merge
+    literals:
       # Real drivers, real documents. The keys are in the secret.
-      #
-      # And nobody is dispatched who the fleet has not approved: the matcher
-      # follows `fleet.drivers` and refuses anyone it does not find there.
-      - MATCHER_REQUIRE_APPROVAL=true
       - FLEET_IDENTITY_PROVIDER=stripe
       - FLEET_DOCUMENT_STORE=r2
       - FLEET_REGISTER=rdw
+  - name: matcher-config
+    behavior: merge
+    literals:
+      # And nobody is dispatched who the fleet has not approved: the matcher
+      # follows `fleet.drivers` and refuses anyone it does not find there.
+      - MATCHER_REQUIRE_APPROVAL=true
 
 patches:
-  # Pull from a registry, unlike development where images are built locally and
-  # a pull would fail on every rollout.
-  - target: { kind: Deployment }
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/imagePullPolicy
-        value: IfNotPresent
-
   # Replica counts follow what each tier scales on.
   - target: { kind: Deployment, name: gateway }
     patch: |-
@@ -84,18 +121,3 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 8
-
-  # Credentials come from the secret, overriding the development ConfigMap
-  # values that point at in-cluster services.
-  - target: { kind: Deployment, name: trip }
-    path: patch-managed-services.yaml
-  - target: { kind: Deployment, name: chat }
-    path: patch-managed-services.yaml
-  - target: { kind: Deployment, name: fleet }
-    path: patch-managed-services.yaml
-  - target: { kind: Deployment, name: ingest }
-    path: patch-managed-services.yaml
-  - target: { kind: Deployment, name: matcher }
-    path: patch-managed-services.yaml
-  - target: { kind: Deployment, name: gateway }
-    path: patch-managed-services.yaml

@@ -1,0 +1,42 @@
+# Coverage floors, per package. Raise one when its package passes it;
+# never lower one. A package missing here is held to 80%.
+# Written by scripts/go-coverage-gate.sh --write.
+github.com/ishakdeveloper/surge/migrations 84
+github.com/ishakdeveloper/surge/services/gateway/internal/domain 94
+github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/events 0
+github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/grpc 0
+github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/http 74
+github.com/ishakdeveloper/surge/services/gateway/internal/infrastructure/ws 0
+github.com/ishakdeveloper/surge/services/ingest/internal/domain 86
+github.com/ishakdeveloper/surge/services/ingest/internal/infrastructure/events 0
+github.com/ishakdeveloper/surge/services/ingest/internal/infrastructure/http 0
+github.com/ishakdeveloper/surge/services/ingest/internal/service 0
+github.com/ishakdeveloper/surge/services/matcher/internal/domain 79
+github.com/ishakdeveloper/surge/services/matcher/internal/infrastructure/events 0
+github.com/ishakdeveloper/surge/services/payments/internal/domain 74
+github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/events 0
+github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/fake 0
+github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/grpc 1
+github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/repository 34
+github.com/ishakdeveloper/surge/services/payments/internal/infrastructure/stripe 16
+github.com/ishakdeveloper/surge/services/payments/internal/service 75
+github.com/ishakdeveloper/surge/services/simulator/internal/control 91
+github.com/ishakdeveloper/surge/services/simulator/internal/sim 8
+github.com/ishakdeveloper/surge/services/trip/internal/domain 92
+github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/events 9
+github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/grpc 0
+github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/repository 29
+github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/routing 0
+github.com/ishakdeveloper/surge/services/trip/internal/infrastructure/wirestatus 0
+github.com/ishakdeveloper/surge/services/trip/internal/service 85
+github.com/ishakdeveloper/surge/shared/authz 58
+github.com/ishakdeveloper/surge/shared/config 68
+github.com/ishakdeveloper/surge/shared/geo 78
+github.com/ishakdeveloper/surge/shared/kafkax 72
+github.com/ishakdeveloper/surge/shared/obs 0
+github.com/ishakdeveloper/surge/shared/outbox 60
+github.com/ishakdeveloper/surge/shared/pgtest 0
+github.com/ishakdeveloper/surge/shared/retry 0
+github.com/ishakdeveloper/surge/shared/routing 9
+github.com/ishakdeveloper/surge/shared/tracing 21
+github.com/ishakdeveloper/surge/shared/wire 51

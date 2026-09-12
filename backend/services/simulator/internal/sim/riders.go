@@ -96,8 +96,8 @@ type Riders struct {
 	policy *OfferPolicy
 }
 
-func NewRiders(brokers []string, group string, pool *RoutePool, config RiderConfig, policy *OfferPolicy, hooks RiderHooks) (*Riders, error) {
-	producer, err := kafkax.NewProducer(brokers)
+func NewRiders(cluster kafkax.Cluster, group string, pool *RoutePool, config RiderConfig, policy *OfferPolicy, hooks RiderHooks) (*Riders, error) {
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func NewRiders(brokers []string, group string, pool *RoutePool, config RiderConf
 	// Offers are ephemeral: an offer produced while nobody was listening is one
 	// whose deadline has almost certainly passed, so starting at the end is
 	// right rather than merely convenient.
-	consumer, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicWSPush},
+	consumer, err := kafkax.NewConsumerGroup(cluster, group, []string{kafkax.TopicWSPush},
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))
 	if err != nil {
 		producer.Close()

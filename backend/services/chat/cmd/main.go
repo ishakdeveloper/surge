@@ -52,7 +52,11 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
+
 	metricsAddr := config.StringOr("CHAT_METRICS_ADDR", ":9108")
 	// Listen address, not the address the gateway dials, as trip and payments
 	// split them.
@@ -98,7 +102,7 @@ func run() error {
 	registry := obs.NewRegistry("chat")
 	metrics := newMetrics(registry)
 
-	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -111,7 +115,7 @@ func run() error {
 		return fmt.Errorf("chat: ping: %w", err)
 	}
 
-	producer, err := kafkax.NewProducer(brokers)
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return err
 	}
@@ -136,7 +140,7 @@ func run() error {
 		return err
 	}
 
-	lifecycle, err := events.NewLifecycle(brokers, group, chat, events.Hooks{
+	lifecycle, err := events.NewLifecycle(cluster, group, chat, events.Hooks{
 		OnApplied: func(tag string) { metrics.applied.WithLabelValues(tag).Inc() },
 		OnSkipped: func(reason string) { metrics.skipped.WithLabelValues(reason).Inc() },
 		OnRetry:   func() { metrics.retries.Inc() },

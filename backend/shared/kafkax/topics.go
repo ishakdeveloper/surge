@@ -11,7 +11,6 @@ import (
 
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
-	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // Topic names follow the starter's convention, which was the one good idea in
@@ -143,10 +142,16 @@ func specs() []topicSpec {
 // EnsureTopics creates any topic that does not exist, and leaves existing ones
 // alone. Safe to call from every service on boot.
 //
-// Replication factor 1 because this is a single-broker development cluster;
-// anything else fails to create rather than silently degrading.
-func EnsureTopics(ctx context.Context, brokers []string) error {
-	client, err := kgo.NewClient(kgo.SeedBrokers(brokers...))
+// The replication factor is the cluster's: one on a single-broker development
+// cluster, three on a real one. More than there are brokers fails to create
+// rather than silently degrading, and it is never inferred — a three-broker
+// cluster accepts a factor of one, and loses data with the first broker it loses.
+func EnsureTopics(ctx context.Context, cluster Cluster) error {
+	if cluster.Replication < 1 {
+		return fmt.Errorf("kafkax: replication factor %d; build the cluster with ClusterFromEnv", cluster.Replication)
+	}
+
+	client, err := cluster.Client()
 	if err != nil {
 		return fmt.Errorf("kafkax: client: %w", err)
 	}
@@ -155,7 +160,7 @@ func EnsureTopics(ctx context.Context, brokers []string) error {
 	admin := kadm.NewClient(client)
 
 	for _, spec := range specs() {
-		responses, err := admin.CreateTopics(ctx, spec.partitions, 1, spec.configs, spec.name)
+		responses, err := admin.CreateTopics(ctx, spec.partitions, cluster.Replication, spec.configs, spec.name)
 		if err != nil {
 			return fmt.Errorf("kafkax: create %s: %w", spec.name, err)
 		}
@@ -175,8 +180,8 @@ func EnsureTopics(ctx context.Context, brokers []string) error {
 // TopicPartitions reports the live partition count for a topic, which the
 // matcher logs at startup — a partition count that drifted from GeoPartitions
 // silently changes how many shards exist.
-func TopicPartitions(ctx context.Context, brokers []string, topic string) (int, error) {
-	client, err := kgo.NewClient(kgo.SeedBrokers(brokers...))
+func TopicPartitions(ctx context.Context, cluster Cluster, topic string) (int, error) {
+	client, err := cluster.Client()
 	if err != nil {
 		return 0, fmt.Errorf("kafkax: client: %w", err)
 	}

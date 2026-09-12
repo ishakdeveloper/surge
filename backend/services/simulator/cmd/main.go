@@ -54,7 +54,10 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
 	valhallaURL := config.StringOr("VALHALLA_URL", "http://localhost:8002")
 	controlAddr := config.StringOr("SIM_CONTROL_ADDR", ":8101")
 	// The same knob over gRPC, for the gateway to put behind /v1/simulator.
@@ -141,7 +144,7 @@ func run() error {
 
 	switch transportKind {
 	case "ws":
-		if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+		if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 			return err
 		}
 
@@ -200,10 +203,10 @@ func run() error {
 		slog.Warn("pings are discarded; this measures the simulator only")
 
 	default:
-		if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+		if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 			return err
 		}
-		kafka, err := sim.NewKafkaTransport(brokers, func(error) { metrics.pingErrors.Inc() })
+		kafka, err := sim.NewKafkaTransport(cluster, func(error) { metrics.pingErrors.Inc() })
 		if err != nil {
 			return err
 		}
@@ -262,7 +265,7 @@ func run() error {
 	// transport is a control run measuring the simulator itself, and there is
 	// nothing on the other end to match against.
 	if transportKind != "discard" {
-		riders, err := sim.NewRiders(brokers, config.StringOr("SIM_RIDER_GROUP", "sim-drivers"), pool, riderSettings, policy,
+		riders, err := sim.NewRiders(cluster, config.StringOr("SIM_RIDER_GROUP", "sim-drivers"), pool, riderSettings, policy,
 			sim.RiderHooks{
 				OnRequest:  func() { metrics.requests.Inc() },
 				OnOffer:    func() { metrics.offers.Inc() },

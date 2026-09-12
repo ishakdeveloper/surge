@@ -3,6 +3,7 @@ import { webPlatform } from "@/atom/platform.js";
 import { NotFound } from "@/components/app/not-found.js";
 import { RouteCrash } from "@/components/app/route-crash.js";
 import { Toaster } from "@/components/ui/sonner.js";
+import { publicConfig, publicConfigScript } from "@/lib/public-config.js";
 import { RegistryProvider } from "@effect/atom-react";
 import { platformAtom } from "@surge/common/atom/runtime";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
@@ -39,6 +40,15 @@ export const Route = createRootRoute({
 const RootDocument = ({ children }: Readonly<{ children: React.ReactNode; }>) => (
   <html lang="en">
     <head>
+      {
+        /*
+        First in the head, so it has run before any module reads `publicConfig`:
+        the addresses this server was given at runtime, handed to the browser.
+        The browser renders the same string back from what it read, so hydration
+        sees no difference.
+      */
+      }
+      <script dangerouslySetInnerHTML={{ __html: publicConfigScript(publicConfig) }} />
       <HeadContent />
     </head>
     <body>

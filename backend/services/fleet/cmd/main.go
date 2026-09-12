@@ -59,7 +59,11 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
+
 	metricsAddr := config.StringOr("FLEET_METRICS_ADDR", ":9110")
 	// Listen address, not the address the gateway dials: the same split trip
 	// and payments make.
@@ -107,7 +111,7 @@ func run() error {
 	registry := obs.NewRegistry("fleet")
 	metrics := newMetrics(registry)
 
-	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -120,7 +124,7 @@ func run() error {
 		return fmt.Errorf("fleet: ping: %w", err)
 	}
 
-	producer, err := kafkax.NewProducer(brokers)
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return err
 	}

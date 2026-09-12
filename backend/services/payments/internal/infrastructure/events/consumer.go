@@ -36,8 +36,8 @@ type Consumer struct {
 	hooks   Hooks
 }
 
-func NewConsumer(brokers []string, group string, payments *service.Service, hooks Hooks) (*Consumer, error) {
-	client, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicTripLifecycle})
+func NewConsumer(cluster kafkax.Cluster, group string, payments *service.Service, hooks Hooks) (*Consumer, error) {
+	client, err := kafkax.NewConsumerGroup(cluster, group, []string{kafkax.TopicTripLifecycle})
 	if err != nil {
 		return nil, err
 	}

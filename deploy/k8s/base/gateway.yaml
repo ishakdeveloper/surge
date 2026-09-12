@@ -1,8 +1,8 @@
 # gateway
-    #
-    # Scales on connection count. Stateful about WHO is connected, so a
-    # pod restart drops sockets and clients reconnect — which is why the
-    # simulator redials on its next ping rather than giving up.
+#
+# Scales on connection count. Stateful about WHO is connected, so a pod
+# restart drops sockets and clients reconnect — which is why the simulator
+# redials on its next ping rather than giving up.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,33 +19,45 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: surge/gateway:dev
-          # Never pulls: these images are built locally by Tilt or by `make
-          # images`, and a cluster that tried to fetch them from a registry
-          # would fail on every rollout.
-          imagePullPolicy: IfNotPresent
+          image: surge/gateway
           envFrom:
-            - configMapRef: { name: surge-config }
+            - configMapRef: { name: surge-shared }
+            - configMapRef: { name: gateway-config }
+            # SIM_ENABLED and SIM_TOKEN_SECRET, where they exist at all.
             - secretRef: { name: surge-secrets }
           ports:
             - name: http
               containerPort: 8100
             - name: metrics
               containerPort: 9104
-          # Liveness only. A readiness probe on these would take a pod out of
-          # rotation when Kafka is briefly unavailable, which turns one broker
-          # hiccup into an outage — the service is fine, its dependency is not.
+          # Nothing answers until the JWKS has loaded, which waits on auth for
+          # up to a few minutes rather than crashlooping. The startup probe is
+          # that patience; liveness only begins once it has passed.
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            failureThreshold: 120
           livenessProbe:
-            httpGet: { path: /health, port: 8100 }
-            initialDelaySeconds: 10
+            httpGet: { path: /health, port: http }
             periodSeconds: 20
             failureThreshold: 3
+          # This pod's own prerequisites only: started, and not shutting down.
+          # Never a shared dependency — a probe on trip would take every
+          # gateway out of rotation the moment trip had a bad minute.
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          # Terminating pods leave the Service's endpoints at once, but load
+          # balancers and kube-proxy learn it a few seconds later. Sleeping
+          # before SIGTERM means no new socket arrives at a pod that is about
+          # to close every one it holds.
+          lifecycle:
+            preStop:
+              exec: { command: ["sleep", "10"] }
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 1Gi }
-      # Long enough for the matcher to checkpoint its in-flight offers on the
-      # way out. A shorter grace period turns every rollout into the ungraceful
-      # path, where recovery rests entirely on offer deadlines.
       terminationGracePeriodSeconds: 45
 ---
 apiVersion: v1

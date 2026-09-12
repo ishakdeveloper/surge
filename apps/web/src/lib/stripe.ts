@@ -1,3 +1,4 @@
+import { publicConfig } from "@/lib/public-config.js";
 import { loadStripe, type Stripe, type StripeError } from "@stripe/stripe-js";
 import { StripeRefused } from "@surge/common/payments/stripe-refused";
 import { Option } from "effect";
@@ -5,7 +6,7 @@ import { Option } from "effect";
 /**
  * Stripe's browser half, when there is a Stripe to talk to.
  *
- * Read straight from `import.meta.env` rather than through the runtime's
+ * Read straight from `publicConfig` rather than through the runtime's
  * `ConfigProvider`: nothing in `packages/client` needs it, and the components
  * that do — Stripe's own Elements and Connect providers — take a key, not an
  * Effect.
@@ -15,7 +16,7 @@ import { Option } from "effect";
  * test card with a plain button and render none of Stripe's components.
  */
 export const publishableKey: Option.Option<string> = Option.fromNullishOr(
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY,
+  publicConfig.STRIPE_PUBLISHABLE_KEY,
 ).pipe(Option.filter((key) => key !== ""));
 
 /**

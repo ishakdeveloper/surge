@@ -85,12 +85,12 @@ type Consumer struct {
 	hooks  Hooks
 }
 
-func NewConsumer(brokers []string, group string, pusher Pusher, hooks Hooks) (*Consumer, error) {
+func NewConsumer(cluster kafkax.Cluster, group string, pusher Pusher, hooks Hooks) (*Consumer, error) {
 	// Each instance needs every message, so each gets its own group. A shared
 	// group would give each partition to exactly one gateway, and an offer
 	// would reach the instance that happened to own that partition rather than
 	// the one holding the driver's socket.
-	client, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicWSPush},
+	client, err := kafkax.NewConsumerGroup(cluster, group, []string{kafkax.TopicWSPush},
 		// An offer produced while this instance was down has almost certainly
 		// expired; replaying it would dispatch a stale ride.
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))

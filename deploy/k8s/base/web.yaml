@@ -1,0 +1,42 @@
+# web: the TanStack Start server — console, rider and driver.
+#
+# Renders pages and serves its own assets, and proxies nothing: the browser
+# talks to the gateway and to auth directly. What addresses it tells the browser
+# to use come from web-config at runtime, so the image that was tested is the
+# image that ships to every environment.
+apiVersion: v1
+kind: Service
+metadata: { name: web, namespace: surge }
+spec:
+  selector: { app: web }
+  ports: [{ name: http, port: 5273, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: surge
+  labels: { app: web }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: web } }
+  template:
+    metadata: { labels: { app: web } }
+    spec:
+      containers:
+        - name: web
+          image: surge/web
+          envFrom:
+            - configMapRef: { name: web-config }
+          ports: [{ name: http, containerPort: 5273 }]
+          # A TCP check rather than a page: rendering one resolves a session
+          # against auth, and web being in rotation should not depend on that.
+          readinessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }

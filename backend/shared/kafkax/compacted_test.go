@@ -19,10 +19,10 @@ func TestReadCompactedReturnsTheLatestValuePerKeyPerPartition(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	seeds := brokers(t)
-	admin, err := kgo.NewClient(kgo.SeedBrokers(seeds...))
+	cluster := localCluster(t)
+	admin, err := cluster.Client()
 	if err != nil {
-		t.Skipf("no broker at %v: %v", seeds, err)
+		t.Skipf("no broker at %v: %v", cluster.Brokers, err)
 	}
 	defer admin.Close()
 	topics := kadm.NewClient(admin)
@@ -30,11 +30,11 @@ func TestReadCompactedReturnsTheLatestValuePerKeyPerPartition(t *testing.T) {
 	topic := fmt.Sprintf("surge-test-compacted-%d", time.Now().UnixNano())
 	compact := "compact"
 	if _, err := topics.CreateTopic(ctx, 3, 1, map[string]*string{"cleanup.policy": &compact}, topic); err != nil {
-		t.Skipf("no broker at %v: %v", seeds, err)
+		t.Skipf("no broker at %v: %v", cluster.Brokers, err)
 	}
 	t.Cleanup(func() { _, _ = topics.DeleteTopic(context.Background(), topic) })
 
-	producer, err := kgo.NewClient(kgo.SeedBrokers(seeds...), kgo.RecordPartitioner(kgo.ManualPartitioner()))
+	producer, err := cluster.Client(kgo.RecordPartitioner(kgo.ManualPartitioner()))
 	if err != nil {
 		t.Fatalf("producer: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestReadCompactedReturnsTheLatestValuePerKeyPerPartition(t *testing.T) {
 		t.Fatalf("produce: %v", err)
 	}
 
-	got, err := kafkax.ReadCompacted(ctx, seeds, topic, []int32{0, 1, 2})
+	got, err := kafkax.ReadCompacted(ctx, cluster, topic, []int32{0, 1, 2})
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
