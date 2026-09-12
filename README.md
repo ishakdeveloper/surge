@@ -229,3 +229,9 @@ OpenTofu
 
 Built on the [forge-effect](https://github.com/ishakdeveloper/forge-effect)
 boilerplate, with its server half replaced by Go.
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE). The Amsterdam vehicle data comes from the
+RDW's open register, and the map tiles from OpenStreetMap via Valhalla and
+Mapbox, each under its own terms.

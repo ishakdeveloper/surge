@@ -2,7 +2,7 @@
   "name": "@surge/mobile",
   "version": "0.0.0",
   "private": true,
-  "license": "ISC",
+  "license": "Apache-2.0",
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
