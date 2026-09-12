@@ -68,7 +68,10 @@ vehicles and documents, and works out standing from them every time it is
 asked: identity verified, one vehicle approved, every document valid today. A
 licence or an inspection that lapses overnight withdraws the driver without
 anybody deciding anything, and the result is published on `fleet.drivers`,
-compacted and keyed by driver, for whoever dispatches. Its integrations are
+compacted and keyed by driver, for whoever dispatches. The matcher is that
+consumer: with `MATCHER_REQUIRE_APPROVAL=true` every instance follows the whole
+topic and offers no trip to a driver it does not find approved there. It is off
+on a laptop, because the simulator's drivers never uploaded anything. Its integrations are
 the RDW's open vehicle register, Stripe Identity on a restricted key, and a
 model that reads insurance certificates for the reviewer. The two papers a
 real Amsterdam driver needs — the VOG and the chauffeurskaart — have no API

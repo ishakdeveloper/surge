@@ -66,6 +66,18 @@ func run() error {
 		return err
 	}
 
+	// Whether a driver must be approved by the fleet to be offered work.
+	//
+	// Off by default, and the default is the honest one: the simulator invents
+	// forty thousand drivers who never uploaded a licence, and every benchmark
+	// in docs/benchmarks was run on them. A deployment carrying real drivers
+	// turns it on — deploy/k8s does — and what is running either way is stated
+	// at startup rather than left to be inferred from a match rate of zero.
+	requireApproval, err := config.BoolOr("MATCHER_REQUIRE_APPROVAL", false)
+	if err != nil {
+		return err
+	}
+
 	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
 		return err
 	}
@@ -74,6 +86,18 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// Who the fleet has approved, read in full before anything is matched.
+	// Nothing is gated until it has been: an empty roster and a strict matcher
+	// is a city with no drivers in it.
+	var roster *events.Roster
+	if requireApproval {
+		if roster, err = events.NewRoster(ctx, brokers); err != nil {
+			return err
+		}
+		defer roster.Close()
+		settings.Approved = roster.Approved
+	}
+
 	// A partition count that has drifted from the constant silently changes how
 	// many shards exist, so it is stated at startup rather than assumed.
 	slog.Info("shard topology",
@@ -83,6 +107,8 @@ func run() error {
 		"searchRings", settings.SearchRings,
 		"strategy", settings.Strategy,
 		"batchWindow", settings.BatchWindow,
+		"requireApproval", requireApproval,
+		"driversKnown", rosterSize(roster),
 	)
 
 	shutdownTracing, err := tracing.Init(ctx, "matcher",
@@ -173,9 +199,12 @@ func run() error {
 		OnProduceFailure: func(err error) { metrics.errors.WithLabelValues("produce").Inc() },
 	})
 
-	errs := make(chan error, 2)
+	errs := make(chan error, 3)
 	go func() { errs <- registry.ServeMetrics(ctx, metricsAddr) }()
 	go func() { errs <- runner.Run(ctx, group) }()
+	if roster != nil {
+		go func() { errs <- roster.Run(ctx) }()
+	}
 
 	select {
 	case <-ctx.Done():
@@ -185,6 +214,15 @@ func run() error {
 	case err := <-errs:
 		return err
 	}
+}
+
+// rosterSize is how many drivers the fleet has spoken about, or -1 when the
+// matcher is not gating at all — a zero there would read as "nobody approved".
+func rosterSize(roster *events.Roster) int {
+	if roster == nil {
+		return -1
+	}
+	return roster.Size()
 }
 
 func partitionLabel(partition int32) string {

@@ -75,6 +75,16 @@ type Config struct {
 	// SurgeHeartbeat republishes a surging cell that has not changed, so the
 	// trip service can tell a steady price from a matcher that stopped.
 	SurgeHeartbeat time.Duration
+
+	// Approved is whether the fleet has vetted a driver: identity verified, a
+	// car approved, every paper valid today. Nil means every driver is, which
+	// is what the simulator's hundred thousand invented cars need and what
+	// every test here relies on.
+	//
+	// A predicate rather than a set, because the answer changes under the
+	// shard — a licence expires at midnight and the driver holding it stops
+	// being dispatchable without any event reaching this partition.
+	Approved func(driverID string) bool
 }
 
 func DefaultConfig() Config {
@@ -115,6 +125,20 @@ type driverState struct {
 
 func (d *driverState) available() bool {
 	return d.status.Available() && d.reservedFor == ""
+}
+
+// dispatchable is available, and vetted.
+//
+// Checked at every point a driver could be chosen rather than once at the
+// index, because approval is not the shard's to hold: a driver whose insurance
+// lapsed this morning is still standing in the cell, still pinging, and still
+// wrong to send to a rider.
+func (s *Shard) dispatchable(driver *driverState) bool {
+	return driver.available() && s.approved(driver.id)
+}
+
+func (s *Shard) approved(driverID string) bool {
+	return s.config.Approved == nil || s.config.Approved(driverID)
 }
 
 // departedDriver is a driver who has left, kept briefly so a request can follow
@@ -491,9 +515,10 @@ func (s *Shard) advance(request *pendingRequest, now time.Time) Outcome {
 		}
 
 		driver, ok := s.drivers[next.driverID]
-		if !ok || !driver.available() {
+		if !ok || !s.dispatchable(driver) {
 			// Taken since ranking — by another request in this very loop. This
-			// is the contention case, and handling it is a `continue`.
+			// is the contention case, and handling it is a `continue`. A driver
+			// withdrawn since ranking lands here too, and is the same `continue`.
 			continue
 		}
 
@@ -562,6 +587,11 @@ func (s *Shard) reserveDriver(event wire.GeoEvent, now time.Time) (Outcome, erro
 		return reject(wire.RejectBusy), nil
 	case !driver.status.Available():
 		return reject(wire.RejectUnavailable), nil
+	case !s.approved(driver.id):
+		// Checked again on this side because the two shards read the roster at
+		// different moments, and the one holding the driver is the one whose
+		// answer is acted on.
+		return reject(wire.RejectUnapproved), nil
 	}
 
 	driver.reservedFor = payload.TripID
@@ -757,7 +787,7 @@ func (s *Shard) rank(pickup geo.Point, now time.Time) ([]candidate, error) {
 	for _, cell := range ring {
 		for id := range s.cells[cell] {
 			driver, ok := s.drivers[id]
-			if !ok || !driver.available() {
+			if !ok || !s.dispatchable(driver) {
 				continue
 			}
 			found = append(found, candidate{
@@ -774,6 +804,13 @@ func (s *Shard) rank(pickup geo.Point, now time.Time) ([]candidate, error) {
 	// reservation path in normal operation rather than only under a rebalance.
 	for id, departed := range s.departed {
 		if now.Sub(departed.at) > s.config.DepartedGrace {
+			continue
+		}
+		// Approval is not geography: every instance follows the whole of
+		// `fleet.drivers`, so a driver this shard may not dispatch is one the
+		// shard they moved to may not either, and asking costs a round trip to
+		// learn nothing.
+		if !s.approved(id) {
 			continue
 		}
 		distance := geo.DistanceMeters(pickup, departed.point)
