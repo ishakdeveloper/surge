@@ -74,6 +74,12 @@ const (
 	// the current state of pricing, not as a history.
 	TopicSurgeCells = "surge.cells"
 
+	// TopicFleetDrivers is who may be offered work, keyed by driver id and
+	// compacted: the current standing of every driver, not a history of the
+	// decisions that got them there. A matcher starting cold reads it from the
+	// beginning and knows who it may dispatch.
+	TopicFleetDrivers = "fleet.drivers"
+
 	// TopicPickupsObserved is every pickup the fleet made, keyed by the
 	// pickup's cell. Kept a day, so a gateway starting mid-afternoon learns
 	// the morning's traffic rather than predicting from nothing.
@@ -119,6 +125,11 @@ func specs() []topicSpec {
 		{TopicTripLifecycle, 16, nil},
 		{TopicPaymentEvents, 16, nil},
 		{TopicWSPush, 16, map[string]*string{"retention.ms": stringPtr("600000")}},
+		{TopicFleetDrivers, 16, map[string]*string{
+			"cleanup.policy":            compact,
+			"min.cleanable.dirty.ratio": stringPtr("0.1"),
+			"segment.ms":                stringPtr("60000"),
+		}},
 		{TopicFleetFrames, GeoPartitions, map[string]*string{"retention.ms": stringPtr("60000")}},
 		{TopicPickupsObserved, 8, map[string]*string{"retention.ms": stringPtr("86400000")}},
 		{TopicSurgeCells, 8, map[string]*string{

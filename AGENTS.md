@@ -54,6 +54,7 @@ Six Go services earn their separation, and nothing else does.
 | `trip`     | transactional state machine, outbox, idempotency                     | not much    |
 | `payments` | the only holder of processor credentials; Stripe must not stall trip | not much    |
 | `chat`     | the only holder of the push credential; Expo must not stall trip     | messages    |
+| `fleet`    | holds the identity key and the documents bucket; vets drivers        | drivers     |
 
 **Chat's socket traffic is doorbells.** A message is stored with a gapless
 per-conversation seq and announced on `ws.push` as `ChatChanged`, which names
@@ -61,6 +62,21 @@ the conversation and its newest seq. The client then reads what it has not
 seen over REST, so a push that is lost or late costs nothing. A `ws.push` key
 of `role:ops` reaches every connected ops user, which is how support's queue
 stays live. The details are in `backend/services/chat/README.md`.
+
+**A driver is approved by derivation, not by decree.** The fleet holds
+vehicles and documents, and works out standing from them every time it is
+asked: identity verified, one vehicle approved, every document valid today. A
+licence or an inspection that lapses overnight withdraws the driver without
+anybody deciding anything, and the result is published on `fleet.drivers`,
+compacted and keyed by driver, for whoever dispatches. The matcher is that
+consumer: with `MATCHER_REQUIRE_APPROVAL=true` every instance follows the whole
+topic and offers no trip to a driver it does not find approved there. It is off
+on a laptop, because the simulator's drivers never uploaded anything. Its integrations are
+the RDW's open vehicle register, Stripe Identity on a restricted key, and a
+model that reads insurance certificates for the reviewer. The two papers a
+real Amsterdam driver needs — the VOG and the chauffeurskaart — have no API
+anywhere, so they are modelled as states rather than pretended to be calls.
+The details are in `backend/services/fleet/README.md`.
 
 `core` holds everything boring — users, vehicles, pricing — as one service until
 it hurts. It starts with profiles: the first name and photo a rider and a
@@ -225,6 +241,7 @@ Everything routine is a make target; `make help` lists them.
 | `make dev-ingest` / `make dev-sim`    | the Go services, on the host           |
 | `make dev-trip` / `make dev-payments` | trip, and payments beside it           |
 | `make dev-chat`                       | chat, with notifications faked         |
+| `make dev-fleet`                      | driver vetting, against the real RDW   |
 | `make stripe-listen`                  | Stripe's webhooks to the gateway       |
 | `make bench-payments RPS=5`           | what holding the fare adds to dispatch |
 | `make load DRIVERS=40000`             | turn the knob                          |
@@ -260,12 +277,15 @@ server had it, and auth and the gateway each trust a single web origin.
 Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101
 (and 8111 for its gRPC control, which the gateway serves as `/v1/simulator`),
 `ingest` 8102/9102, `trip` gRPC on 8110 and metrics on 9105, `payments` gRPC on
-8112 and metrics on 9107, `chat` gRPC on 8113 and metrics on 9108, `core` gRPC
-on 8114 and metrics on 9109.
+8112 and metrics on 9107, `chat` gRPC on 8113 and metrics on 9108, `core`
+gRPC on 8114 and metrics on 9109, and `fleet` gRPC on 8115 and metrics on
+9110.
 
 `CHAT_PUSH_PROVIDER` has no default and takes `expo` or `fake`, for the same
 reason: a deploy that forgets to choose fails at boot rather than running
-while nobody's phone ever buzzes.
+while nobody's phone ever buzzes. `FLEET_IDENTITY_PROVIDER` and
+`FLEET_DOCUMENT_STORE` have no defaults for the same reason again — the one
+that approves drivers nobody checked is the worst of the three.
 
 `PAYMENTS_PROCESSOR` defaults to `stripe` and needs `STRIPE_SECRET_KEY` and
 `STRIPE_WEBHOOK_SECRET`, so a deploy that forgets to choose fails for want of a

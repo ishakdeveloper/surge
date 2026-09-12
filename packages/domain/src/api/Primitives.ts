@@ -54,6 +54,16 @@ export const RefundId = Schema.String.pipe(Schema.brand("RefundId")).annotate({
 });
 export type RefundId = typeof RefundId.Type;
 
+export const VehicleId = Schema.String.pipe(Schema.brand("VehicleId")).annotate({
+  identifier: "VehicleId",
+});
+export type VehicleId = typeof VehicleId.Type;
+
+export const DocumentId = Schema.String.pipe(Schema.brand("DocumentId")).annotate({
+  identifier: "DocumentId",
+});
+export type DocumentId = typeof DocumentId.Type;
+
 export const ConversationId = Schema.String.pipe(Schema.brand("ConversationId")).annotate({
   identifier: "ConversationId",
 });

@@ -19,6 +19,7 @@ import (
 	"github.com/ishakdeveloper/surge/shared/authz"
 	chatpb "github.com/ishakdeveloper/surge/shared/proto/chat"
 	commonpb "github.com/ishakdeveloper/surge/shared/proto/common"
+	fleetpb "github.com/ishakdeveloper/surge/shared/proto/fleet"
 	paymentspb "github.com/ishakdeveloper/surge/shared/proto/payments"
 	profilepb "github.com/ishakdeveloper/surge/shared/proto/profile"
 	simpb "github.com/ishakdeveloper/surge/shared/proto/sim"
@@ -30,7 +31,7 @@ import (
 )
 
 // NewMux builds the REST surface over a gRPC connection.
-func NewMux(ctx context.Context, trip, simulator, payments, chat, core *grpc.ClientConn) (*runtime.ServeMux, error) {
+func NewMux(ctx context.Context, trip, simulator, payments, chat, core, fleet *grpc.ClientConn) (*runtime.ServeMux, error) {
 	mux := runtime.NewServeMux(
 		// Canonical proto3 JSON: camelCase, enums by name, int64 as a string.
 		// EmitUnpopulated because a zero value is meaningful — a trip with no
@@ -73,6 +74,10 @@ func NewMux(ctx context.Context, trip, simulator, payments, chat, core *grpc.Cli
 	// Profiles are core's: /v1/profile for the caller's own, and
 	// /v1/users/{user_id}/profile for anyone else's.
 	if err := profilepb.RegisterProfileServiceHandler(ctx, mux, core); err != nil {
+		return nil, err
+	}
+	// Who may drive, and the review queue behind it.
+	if err := fleetpb.RegisterFleetServiceHandler(ctx, mux, fleet); err != nil {
 		return nil, err
 	}
 	return mux, nil

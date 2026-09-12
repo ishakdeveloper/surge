@@ -42,3 +42,5 @@ scrape_configs:
         labels: { service: payments }
       - targets: ["host.docker.internal:9108"]
         labels: { service: chat }
+      - targets: ["host.docker.internal:9110"]
+        labels: { service: fleet }

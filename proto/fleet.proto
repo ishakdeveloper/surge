@@ -1,0 +1,655 @@
+syntax = "proto3";
+
+package surge.fleet.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/fleet;fleet";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// FleetService is who may drive, and what they may drive.
+//
+// A driver is approved when three things hold at once: an identity check has
+// verified them against their licence, one of their vehicles is approved, and
+// every document they owe is present and unexpired. All three are checked
+// again whenever any of them changes, so approval is derived rather than
+// remembered — nobody can be left approved with a licence that lapsed in
+// March.
+//
+// Two of the papers a real Amsterdam driver needs have no API anywhere: the
+// VOG that Justis issues and the chauffeurskaart that Kiwa posts. Both take
+// weeks and both are decided by a person. They are modelled here as states a
+// driver moves through with evidence attached, rather than pretended to be a
+// call.
+//
+// The caller is never a field, as in trip.proto: it arrives as metadata from
+// the gateway's verified token.
+service FleetService {
+  // GetMyDriver is the caller's own standing: what is done, what is waiting,
+  // and what they must do next.
+  rpc GetMyDriver(GetMyDriverRequest) returns (GetMyDriverResponse) {
+    option (google.api.http) = {get: "/v1/fleet/driver"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "getMyDriver"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // StartIdentityCheck opens a verification session and returns the link the
+  // driver finishes it at. Starting one again while a session is open returns
+  // that session rather than paying for a second.
+  rpc StartIdentityCheck(StartIdentityCheckRequest) returns (StartIdentityCheckResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/identity"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "startIdentityCheck"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // AddVehicle registers a car by its plate. The register is asked what the
+  // car is, so a driver types six characters rather than a form: make, model,
+  // colour, seats, its APK expiry, whether it is registered for taxi use and
+  // whether it is insured all come back from the RDW.
+  rpc AddVehicle(AddVehicleRequest) returns (AddVehicleResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/vehicles"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "addVehicle"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ListVehicles is the caller's vehicles, newest first.
+  rpc ListVehicles(ListVehiclesRequest) returns (ListVehiclesResponse) {
+    option (google.api.http) = {get: "/v1/fleet/vehicles"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "listVehicles"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // RetireVehicle takes a car off the road for this driver, freeing its plate.
+  rpc RetireVehicle(RetireVehicleRequest) returns (RetireVehicleResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/vehicles/{vehicle_id}:retire"
+      body: "*"
+      additional_bindings: {
+        post: "/v1/fleet/vehicles/{vehicle_id}/retire"
+        body: "*"
+      }
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "retireVehicle"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // StartUpload returns a link the app puts a file to, and the document it
+  // will belong to. The file goes straight to storage: it never passes
+  // through this API, which is what keeps a scanned certificate from being
+  // base64 in a JSON body.
+  rpc StartUpload(StartUploadRequest) returns (StartUploadResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/documents/uploads"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "startUpload"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // FinishUpload says the file arrived. The document moves to submitted, and
+  // what can be read off it is read before a person sees it.
+  rpc FinishUpload(FinishUploadRequest) returns (FinishUploadResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/documents/{document_id}:finish"
+      body: "*"
+      additional_bindings: {
+        post: "/v1/fleet/documents/{document_id}/finish"
+        body: "*"
+      }
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "finishUpload"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // DeclareAuthorityDocument records that the driver has applied for a VOG or
+  // a chauffeurskaart. Neither has an API: Justis answers in weeks and Kiwa
+  // posts a smartcard. Until evidence arrives the document waits, visibly,
+  // rather than blocking silently.
+  rpc DeclareAuthorityDocument(DeclareAuthorityDocumentRequest) returns (DeclareAuthorityDocumentResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/documents/authority"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "declareAuthorityDocument"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ListDocuments is the caller's own documents. Reviewers read somebody
+  // else's through the review queue.
+  rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse) {
+    option (google.api.http) = {get: "/v1/fleet/documents"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "fleet"
+      operation_id: "listDocuments"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // ListReviewQueue is what is waiting for a reviewer, oldest first. Ops only.
+  rpc ListReviewQueue(ListReviewQueueRequest) returns (ListReviewQueueResponse) {
+    option (google.api.http) = {get: "/v1/fleet/review"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "review"
+      operation_id: "list"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // GetReviewItem is one driver's whole case: their standing, their vehicles,
+  // their documents, and a link to each file that lasts as long as the review.
+  // Ops only.
+  rpc GetReviewItem(GetReviewItemRequest) returns (GetReviewItemResponse) {
+    option (google.api.http) = {get: "/v1/fleet/review/{driver_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "review"
+      operation_id: "get"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // DecideDocument approves or rejects one document, with the expiry the
+  // reviewer read off it. Ops only.
+  rpc DecideDocument(DecideDocumentRequest) returns (DecideDocumentResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/review/documents/{document_id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "review"
+      operation_id: "decideDocument"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // DecideVehicle approves or rejects a vehicle. Ops only.
+  rpc DecideVehicle(DecideVehicleRequest) returns (DecideVehicleResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/review/vehicles/{vehicle_id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "review"
+      operation_id: "decideVehicle"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // BlockDriver stops a driver being offered work, with a reason. Ops only.
+  rpc BlockDriver(BlockDriverRequest) returns (BlockDriverResponse) {
+    option (google.api.http) = {
+      post: "/v1/fleet/review/{driver_id}:block"
+      body: "*"
+      additional_bindings: {
+        post: "/v1/fleet/review/{driver_id}/block"
+        body: "*"
+      }
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "review"
+      operation_id: "block"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // DeliverWebhook hands this service an identity provider's webhook exactly
+  // as it arrived.
+  //
+  // Internal, and deliberately without an HTTP binding, as payments' is: the
+  // gateway forwards it from a raw route outside /v1, because a webhook
+  // carries no bearer token — its signature is what authenticates it, and
+  // only this service holds the secret that checks one.
+  rpc DeliverWebhook(DeliverWebhookRequest) returns (DeliverWebhookResponse);
+}
+
+// Driver is a driver's standing, and what stands between them and work.
+message Driver {
+  string driver_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  DriverStatus status = 2;
+  // Why a blocked driver is blocked. Empty otherwise.
+  string blocked_reason = 3;
+  IdentityStatus identity = 4;
+  // The name the identity check read off the licence. Empty until it passes.
+  string verified_name = 5;
+  // When the licence expires, as RFC 3339. Empty until the check passes.
+  string licence_expires_at = 6;
+  // What the driver must do next, in order, and empty when nothing is
+  // outstanding.
+  repeated Requirement outstanding = 7;
+  string approved_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+enum DriverStatus {
+  DRIVER_STATUS_UNSPECIFIED = 0;
+  // Something is still outstanding; see `outstanding`.
+  DRIVER_STATUS_ONBOARDING = 1;
+  // Identity verified, a vehicle approved, every document valid.
+  DRIVER_STATUS_APPROVED = 2;
+  // Stopped by a reviewer, whatever the paperwork says.
+  DRIVER_STATUS_BLOCKED = 3;
+}
+
+enum IdentityStatus {
+  IDENTITY_STATUS_UNSPECIFIED = 0;
+  IDENTITY_STATUS_UNSTARTED = 1;
+  // The driver has a session open and has not finished it.
+  IDENTITY_STATUS_PENDING = 2;
+  // The provider is deciding.
+  IDENTITY_STATUS_PROCESSING = 3;
+  IDENTITY_STATUS_VERIFIED = 4;
+  // The provider could not verify them; the reason is in `blocked_reason`.
+  IDENTITY_STATUS_FAILED = 5;
+}
+
+// Requirement is one thing standing between a driver and their first trip.
+message Requirement {
+  RequirementKind kind = 1;
+  // What to tell the driver, in a sentence.
+  string detail = 2;
+}
+
+enum RequirementKind {
+  REQUIREMENT_KIND_UNSPECIFIED = 0;
+  REQUIREMENT_KIND_IDENTITY = 1;
+  REQUIREMENT_KIND_VEHICLE = 2;
+  REQUIREMENT_KIND_INSURANCE = 3;
+  REQUIREMENT_KIND_REGISTRATION = 4;
+  REQUIREMENT_KIND_VOG = 5;
+  REQUIREMENT_KIND_CHAUFFEURSKAART = 6;
+}
+
+// Vehicle is a car as the register describes it, and what we decided about it.
+message Vehicle {
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "vehicle-id"}];
+  string driver_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  // Uppercase, no dashes, as the register holds it.
+  string plate = 3;
+  string make = 4;
+  string model = 5;
+  string colour = 6;
+  int32 seats = 7;
+  // The ride class this car may serve, from trip's catalogue.
+  string package_slug = 8;
+  VehicleStatus status = 9;
+  string rejected_reason = 10;
+  // From the register, as RFC 3339. Empty when the register did not say.
+  string apk_expires_at = 11;
+  // Whether the register has it down for taxi use, and whether an insurer has
+  // registered a policy against the plate.
+  bool taxi_registered = 12;
+  bool insured = 13;
+  string first_registered_at = 14;
+  // When the register was last asked about this car.
+  string register_checked_at = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+enum VehicleStatus {
+  VEHICLE_STATUS_UNSPECIFIED = 0;
+  VEHICLE_STATUS_PENDING = 1;
+  VEHICLE_STATUS_APPROVED = 2;
+  VEHICLE_STATUS_REJECTED = 3;
+  VEHICLE_STATUS_RETIRED = 4;
+}
+
+// Document is a paper a driver owes, whether or not a file has arrived.
+message Document {
+  string id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "document-id"}];
+  string driver_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  // The vehicle it belongs to, for insurance and registration. Empty for the
+  // documents that belong to the person.
+  string vehicle_id = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "vehicle-id"}];
+  DocumentKind kind = 4;
+  DocumentStatus status = 5;
+  // When it stops being valid, as RFC 3339. What a reviewer decided, which is
+  // not always what was read off it.
+  string expires_at = 6;
+  // What was read off the file. Advice to a reviewer, never a decision, and
+  // never shown to the driver as fact.
+  Extraction extracted = 7;
+  string review_note = 8;
+  string reviewed_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+enum DocumentKind {
+  DOCUMENT_KIND_UNSPECIFIED = 0;
+  // The certificate for the car, naming the insurer and the policy.
+  DOCUMENT_KIND_INSURANCE = 1;
+  // The kentekenbewijs, for a car whose keeper is not the driver.
+  DOCUMENT_KIND_REGISTRATION = 2;
+  // Justis issues it in one to four weeks, and there is no API.
+  DOCUMENT_KIND_VOG = 3;
+  // Kiwa posts a smartcard about four weeks after a complete application, and
+  // there is no API.
+  DOCUMENT_KIND_CHAUFFEURSKAART = 4;
+}
+
+enum DocumentStatus {
+  DOCUMENT_STATUS_UNSPECIFIED = 0;
+  // We are waiting for the driver to put a file to the link they were given.
+  DOCUMENT_STATUS_AWAITING_FILE = 1;
+  // We are waiting for an authority that answers in weeks and has no API.
+  DOCUMENT_STATUS_AWAITING_AUTHORITY = 2;
+  // A person has it to look at.
+  DOCUMENT_STATUS_SUBMITTED = 3;
+  DOCUMENT_STATUS_APPROVED = 4;
+  DOCUMENT_STATUS_REJECTED = 5;
+  // It was approved once and its date has passed.
+  DOCUMENT_STATUS_EXPIRED = 6;
+}
+
+// Extraction is what a machine read off a document, with where it read it.
+//
+// Shown to a reviewer beside the file, never used to decide on its own: the
+// reviewer types the expiry they can see, and this is only what saves them
+// typing it.
+message Extraction {
+  ExtractionStatus status = 1;
+  string insurer = 2;
+  string policy_number = 3;
+  // As RFC 3339, and empty when nothing legible was found.
+  string expires_at = 4;
+  // The sentences these fields were read from, so a reviewer can check the
+  // machine rather than trust it.
+  repeated string quotes = 5;
+}
+
+enum ExtractionStatus {
+  EXTRACTION_STATUS_UNSPECIFIED = 0;
+  // Nothing has read it: a state-only document, or extraction is switched off.
+  EXTRACTION_STATUS_NONE = 1;
+  EXTRACTION_STATUS_PENDING = 2;
+  EXTRACTION_STATUS_DONE = 3;
+  // It could not be read. The reviewer reads it themselves; nothing is blocked.
+  EXTRACTION_STATUS_FAILED = 4;
+}
+
+message GetMyDriverRequest {}
+
+message GetMyDriverResponse {
+  Driver driver = 1;
+  repeated Vehicle vehicles = 2;
+  repeated Document documents = 3;
+}
+
+message StartIdentityCheckRequest {
+  // Where the provider sends the driver back to when they are done.
+  string return_url = 1;
+}
+
+message StartIdentityCheckResponse {
+  // Single use and short lived: open it at once, and never send it anywhere
+  // else — it is the driver's identity check.
+  string url = 1;
+  IdentityStatus status = 2;
+}
+
+message AddVehicleRequest {
+  // Six characters, with or without dashes; the register is asked for the
+  // rest.
+  string plate = 1;
+  // Which ride class this car is offered for, from trip's catalogue.
+  string package_slug = 2;
+}
+
+message AddVehicleResponse {
+  Vehicle vehicle = 1;
+}
+
+message ListVehiclesRequest {}
+
+message ListVehiclesResponse {
+  repeated Vehicle vehicles = 1;
+}
+
+message RetireVehicleRequest {
+  string vehicle_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "vehicle-id"}];
+}
+
+message RetireVehicleResponse {
+  Vehicle vehicle = 1;
+}
+
+message StartUploadRequest {
+  DocumentKind kind = 1;
+  // The vehicle an insurance certificate or registration belongs to.
+  string vehicle_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "vehicle-id"}];
+  // image/jpeg, image/png, image/webp or application/pdf.
+  string content_type = 3;
+  int64 byte_size = 4;
+}
+
+message StartUploadResponse {
+  Document document = 1;
+  // PUT the file here, with exactly the Content-Type that was asked for. It
+  // is good for a few minutes and for that one document.
+  string upload_url = 2;
+  string expires_at = 3;
+}
+
+message FinishUploadRequest {
+  string document_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "document-id"}];
+}
+
+message FinishUploadResponse {
+  Document document = 1;
+}
+
+message DeclareAuthorityDocumentRequest {
+  // VOG or chauffeurskaart; nothing else waits on an authority.
+  DocumentKind kind = 1;
+}
+
+message DeclareAuthorityDocumentResponse {
+  Document document = 1;
+}
+
+message ListDocumentsRequest {}
+
+message ListDocumentsResponse {
+  repeated Document documents = 1;
+}
+
+message ListReviewQueueRequest {
+  // Clamped by the server.
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListReviewQueueResponse {
+  repeated ReviewItem items = 1;
+  string next_page_token = 2;
+}
+
+// ReviewItem is one driver waiting, and how long they have been waiting.
+message ReviewItem {
+  Driver driver = 1;
+  // How many of their documents are waiting for a person.
+  int32 waiting = 2;
+  // When the oldest of them arrived, as RFC 3339.
+  string waiting_since = 3;
+}
+
+message GetReviewItemRequest {
+  string driver_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+}
+
+message GetReviewItemResponse {
+  Driver driver = 1;
+  repeated Vehicle vehicles = 2;
+  repeated ReviewDocument documents = 3;
+}
+
+// ReviewDocument is a document with a link to the file behind it.
+message ReviewDocument {
+  Document document = 1;
+  // Good for the length of a review, and for this reviewer's eyes. Empty for
+  // a document that is a state rather than a file.
+  string file_url = 2;
+}
+
+message DecideDocumentRequest {
+  string document_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "document-id"}];
+  bool approve = 2;
+  // When it expires, as RFC 3339, read off the document by the reviewer.
+  // Required when approving something that expires.
+  string expires_at = 3;
+  // Why, for a rejection. The driver reads it.
+  string note = 4;
+}
+
+message DecideDocumentResponse {
+  Document document = 1;
+  Driver driver = 2;
+}
+
+message DecideVehicleRequest {
+  string vehicle_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "vehicle-id"}];
+  bool approve = 2;
+  string note = 3;
+}
+
+message DecideVehicleResponse {
+  Vehicle vehicle = 1;
+  Driver driver = 2;
+}
+
+message BlockDriverRequest {
+  string driver_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  // Empty lifts the block, and the driver's standing is worked out again from
+  // their papers.
+  string reason = 2;
+}
+
+message BlockDriverResponse {
+  Driver driver = 1;
+}
+
+message DeliverWebhookRequest {
+  // The body, byte for byte. The signature is over these exact bytes, so
+  // anything that re-encodes it on the way breaks verification.
+  bytes payload = 1;
+  // The Stripe-Signature header.
+  string signature = 2;
+}
+
+message DeliverWebhookResponse {}

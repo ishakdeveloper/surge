@@ -1,5 +1,6 @@
 import type { AuthToken } from "@surge/client/AuthToken";
 import { Chat } from "@surge/client/Chat";
+import { Fleet } from "@surge/client/Fleet";
 import type { Geolocation } from "@surge/client/Geolocation";
 import { Places } from "@surge/client/Places";
 import { Realtime } from "@surge/client/Realtime";
@@ -76,9 +77,10 @@ const noPlatform: Platform = {
 export const platformAtom: Atom.Atom<Platform> = Atom.keepAlive(Atom.readable(() => noPlatform));
 
 export const runtime = Atom.runtime((get) =>
-  // Chat is built over the same SurgeApi and Realtime the atoms use, so the
-  // registry holds one socket rather than one per service built on it.
-  Chat.layer.pipe(
+  // Chat and the fleet are built over the same SurgeApi and Realtime the atoms
+  // use, so the registry holds one socket rather than one per service built on
+  // it.
+  Layer.mergeAll(Chat.layer, Fleet.layer).pipe(
     Layer.provideMerge(Layer.mergeAll(SurgeApi.layer, Realtime.layer, Places.layer)),
     Layer.provideMerge(get(platformAtom).layer),
   )
