@@ -30,9 +30,24 @@ jest.mock("@stripe/stripe-react-native", () => require("@stripe/stripe-react-nat
 
 // A map is a native view with nothing to assert on under Jest; its markers and
 // route are what the screen computes, and the lists beside it carry the same.
-jest.mock("react-native-maps", () => {
+// Mapbox is also the one module here with work at import time — it hands the
+// native side an access token — so a stub has to answer that too.
+jest.mock("@rnmapbox/maps", () => {
   const Stub = (props) => props.children ?? null;
-  return { __esModule: true, default: Stub, Marker: Stub, Polyline: Stub };
+  return {
+    __esModule: true,
+    default: Stub,
+    MapView: Stub,
+    Camera: Stub,
+    MarkerView: Stub,
+    ShapeSource: Stub,
+    SymbolLayer: Stub,
+    LineLayer: Stub,
+    Images: Stub,
+    Image: Stub,
+    setAccessToken: async () => null,
+    setTelemetryEnabled: () => {},
+  };
 });
 
 jest.mock("react-native-webview", () => ({ WebView: () => null }));

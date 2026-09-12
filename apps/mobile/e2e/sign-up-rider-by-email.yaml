@@ -7,9 +7,9 @@
 # is `book-a-ride.yaml`.
 #
 # Pass -e APP_URL=… and -e AUTH_URL=… to point it elsewhere; the defaults are
-# Expo Go on Metro's default port and the auth service's. For a development
-# build, -e APP_ID=com.ishakdeveloper.surge -e APP_URL=surge://.
-appId: ${APP_ID || 'host.exp.Exponent'}
+# the development build against Metro on its default port, and the auth
+# service's own address.
+appId: ${APP_ID || 'com.ishakdeveloper.surge'}
 ---
 - runFlow: common/start-signed-out.yaml
 - evalScript: ${output.email = 'rider-' + Date.now() + '@example.com'}

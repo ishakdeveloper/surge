@@ -52,7 +52,7 @@ catalog:
   motion: ^13.2.0
   cmdk: ^1.1.1
   '@base-ui/react': ^1.7.0
-  maplibre-gl: ^6.9.0
+  mapbox-gl: ^3.30.0
   '@deck.gl/core': ^9.4.0
   '@deck.gl/layers': ^9.4.0
   '@deck.gl/mapbox': ^9.4.0

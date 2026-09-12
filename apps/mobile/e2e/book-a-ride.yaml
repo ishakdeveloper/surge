@@ -10,7 +10,7 @@
 # plain button, which is what "Save test card" below is. With
 # TRIP_REQUIRE_PAYMENT=true the booking waits in `payment_pending` until the
 # fare is held, so both statuses below are the honest ones to wait for.
-appId: ${APP_ID || 'host.exp.Exponent'}
+appId: ${APP_ID || 'com.ishakdeveloper.surge'}
 ---
 - runFlow: common/start-signed-out.yaml
 - evalScript: ${output.email = 'rider-' + Date.now() + '@example.com'}

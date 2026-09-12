@@ -11,18 +11,30 @@
 # The Account tab is matched as `Account.*`: iOS labels a tab button with its
 # position as well as its title ("Account, tab, 3 of 3"), and a Maestro text
 # matches the whole label.
-appId: ${APP_ID || 'host.exp.Exponent'}
+#
+# The app is the development build — Expo Go cannot load it, since the map and
+# background location are native — so the link is the dev client's own, naming
+# the Metro server to load the bundle from.
+appId: ${APP_ID || 'com.ishakdeveloper.surge'}
 ---
 - launchApp
-- openLink: ${APP_URL || 'exp://127.0.0.1:8081'}
-# Expo Go gives up if Metro was slow to answer the first request.
+- openLink: ${APP_URL || 'surge://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081'}
+# The link is handed to the app from outside it, and iOS asks before handing
+# over. The title carries the app's name in curly quotes, so it is matched
+# loosely and the button is what is tapped.
+- runFlow:
+    when:
+      visible: "Open in .*"
+    commands:
+      - tapOn: "Open"
+# The dev client gives up if Metro was slow to answer the first request.
 - runFlow:
     when:
       visible: "Try again"
     commands:
       - tapOn: "Try again"
-# Expo Go opens its developer menu over the app on a fresh launch, covering
-# the screen underneath — so it counts as loaded, and is closed first.
+# The dev client opens its developer menu over the app on a fresh launch,
+# covering the screen underneath — so it counts as loaded, and is closed first.
 - extendedWaitUntil:
     visible:
       text: "Email me a code|Account.*|Get started|This is the developer menu.*"

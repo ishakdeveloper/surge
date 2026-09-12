@@ -87,7 +87,11 @@ export const ShiftPanel = () => {
       </Sign>
 
       <Button
-        className={cn("h-14", shift.online && "bg-secondary active:opacity-90")}
+        // Going off shift is a service, not the next step, so the pill turns
+        // ink — through the variant, which carries the white label with it. A
+        // background swapped by class alone left an ink label on an ink pill.
+        variant={shift.online ? "secondary" : "default"}
+        className="h-14"
         disabled={!placed}
         feedback={shift.online ? "warning" : "success"}
         onPress={() => {

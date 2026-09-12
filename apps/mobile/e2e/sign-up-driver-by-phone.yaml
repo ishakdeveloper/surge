@@ -3,7 +3,7 @@
 # The status the matcher is told is shown on the Drive tab as it is sent, so
 # `idle` appearing is the ping loop running against the gateway with the
 # driver available. Takes the same -e overrides as the rider flow.
-appId: ${APP_ID || 'host.exp.Exponent'}
+appId: ${APP_ID || 'com.ishakdeveloper.surge'}
 ---
 - runFlow: common/start-signed-out.yaml
 # The phone link is a quiet line under the form, off the bottom of a small

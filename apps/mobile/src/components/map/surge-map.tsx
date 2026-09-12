@@ -1,9 +1,22 @@
 import { colors } from "@/lib/theme.js";
 import { cn } from "@/lib/utils.js";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import {
+  Camera,
+  Image as MapImage,
+  Images,
+  LineLayer,
+  type MapState,
+  MapView as MapboxMap,
+  MarkerView,
+  setAccessToken,
+  setTelemetryEnabled,
+  ShapeSource,
+  SymbolLayer,
+} from "@rnmapbox/maps";
+import type { Feature, FeatureCollection, LineString, Point } from "geojson";
 import * as React from "react";
-import { Platform, View } from "react-native";
-import NativeMap, { Marker, Polyline, type Region } from "react-native-maps";
+import { View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,9 +31,13 @@ import Animated, {
  * screen asks for the live city, the free cars nearby and a yellow ring
  * wherever someone has just booked.
  *
- * Apple Maps on iOS and Google Maps on Android, through react-native-maps —
- * both in Expo Go without a key. The web draws with MapLibre; the props are the
- * same so a screen reads the same on both.
+ * Mapbox on both phones, against the same near-white basemap the web draws
+ * with MapLibre — one picture of Amsterdam rather than Apple's on an iPhone
+ * and Google's on an Android, and a pale one either way so the route's yellow
+ * is the loudest thing on the screen. It needs a development build: the native
+ * SDK is fetched at build time, which is more than Expo Go carries.
+ *
+ * The props are the web's, so a screen reads the same on both.
  *
  * The map is never the only way to do something. Every place a tap on it
  * chooses — a pickup, where a driver stands — has a list or a search beside
@@ -62,6 +79,28 @@ export interface MapView {
   readonly zoom: number;
 }
 
+/**
+ * The public token, which is what the app ships with and what every tile
+ * request carries. The secret one beside it in `.env` is the build's, for
+ * fetching the SDK, and never reaches a phone.
+ */
+// oxlint-disable-next-line effecttsgo/process-env
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+
+void setAccessToken(MAPBOX_TOKEN ?? null);
+
+// Where a rider is going is the product's business and nobody else's; the map
+// needs tiles, not a record of the journey.
+setTelemetryEnabled(false);
+
+/**
+ * Mapbox's own pale basemap: near-white ground, grey streets, no colour of its
+ * own worth the name. The web's OpenFreeMap positron is the same picture from
+ * the other vendor, which is what keeps the two surfaces looking like one
+ * product.
+ */
+const STYLE = "mapbox://styles/mapbox/light-v11";
+
 const MARKER_TITLES: Record<MapMarker["kind"], string> = {
   pickup: "Pickup",
   dropoff: "Dropoff",
@@ -74,32 +113,52 @@ const MARKER_TITLES: Record<MapMarker["kind"], string> = {
  * cars are drawn from the first frame. Where the camera starts before there
  * is anything to follow.
  */
-const AMSTERDAM: Region = {
-  latitude: 52.3702,
-  longitude: 4.8952,
-  latitudeDelta: 0.05,
-  longitudeDelta: 0.05,
+const AMSTERDAM = [4.8952, 52.3702];
+const START_ZOOM = 12;
+
+/**
+ * What that opening camera sees, near enough for the gateway to start sending
+ * a city. The map reports its own view the moment it settles; this is only
+ * what the feed is asked for in the meantime.
+ */
+const AMSTERDAM_VIEW: MapView = {
+  west: 4.83,
+  south: 52.34,
+  east: 4.96,
+  north: 52.40,
+  zoom: START_ZOOM,
 };
 
-const EDGE = { top: 48, right: 48, bottom: 48, left: 48 };
+/** Kept clear at each edge when a route is fitted: top, right, bottom, left. */
+const EDGE = [48, 48, 48, 48];
+
+/** How close the camera comes when it has one point to sit on. */
+const FOLLOW_ZOOM = 14;
+
+/** How long the camera takes to get anywhere, in milliseconds. */
+const CAMERA_MS = 600;
 
 /** How long a booking's ring runs. */
 const FLASH_MS = 1800;
 
-const toLatLng = (point: MapPoint) => ({ latitude: point.lat, longitude: point.lng });
+/** The image the car layer draws, and the size it is rendered at. */
+const CAR_IMAGE = "surge-car";
+const CAR_SIZE = 22;
 
-/**
- * A region as the web's map reports its view. The zoom is MapLibre's, from
- * the longitude span across the map's width in 512-point tiles, so the
- * gateway's "cars from zoom 12" means the same distance on both.
- */
-const viewOf = (region: Region, width: number): MapView => ({
-  west: region.longitude - region.longitudeDelta / 2,
-  east: region.longitude + region.longitudeDelta / 2,
-  south: region.latitude - region.latitudeDelta / 2,
-  north: region.latitude + region.latitudeDelta / 2,
-  zoom: Math.log2((360 * width) / (512 * Math.max(region.longitudeDelta, 1e-6))),
-});
+/** One empty array rather than a new one per render, which the shape is keyed on. */
+const NO_CARS: ReadonlyArray<MapCar> = [];
+
+const toPosition = (point: MapPoint): [number, number] => [point.lng, point.lat];
+
+/** The map's own account of what it shows, which is the city feed's viewport. */
+const viewOf = (state: MapState): MapView | undefined => {
+  const [east, north] = state.properties.bounds.ne;
+  const [west, south] = state.properties.bounds.sw;
+  if (east === undefined || north === undefined || west === undefined || south === undefined) {
+    return undefined;
+  }
+  return { west, south, east, north, zoom: state.properties.zoom };
+};
 
 /**
  * A marker as the sheet's rail draws it: the pickup a yellow disc ringed in
@@ -139,39 +198,38 @@ const SignMarker = (props: { readonly kind: MapMarker["kind"]; }) => {
 };
 
 /**
- * A free car: an ink arrowhead on a white halo, turned the way it drives and
- * lying flat on the map, so it turns with the map too.
+ * The arrowhead a free car is drawn as, rendered once into an image the map
+ * keeps: an ink triangle on a white disc. The layer below turns a copy of it
+ * per car, which is how two hundred of them cost one draw rather than two
+ * hundred views.
+ *
+ * The triangle is laid out rather than set in an icon font, because this view
+ * is photographed the moment it mounts and a font that has not arrived yet
+ * would be photographed as nothing.
  */
-const CarMarker = React.memo((props: { readonly car: MapCar; }) => (
-  <Marker
-    coordinate={toLatLng(props.car.position)}
-    anchor={{ x: 0.5, y: 0.5 }}
-    rotation={props.car.heading}
-    flat
-    tappable={false}
-    tracksViewChanges={false}
+const CarImage = () => (
+  <View
+    // Pinned: React Native folds a view away when it thinks nothing is lost by
+    // it, and the triangle inside would be hoisted up to sit beside this one —
+    // which the map image refuses, since it photographs exactly one view.
+    collapsable={false}
+    className="items-center justify-center rounded-full bg-white"
+    style={{ width: CAR_SIZE, height: CAR_SIZE }}
   >
     <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      className="size-[22px] items-center justify-center rounded-full bg-white"
       style={{
-        shadowColor: "#000000",
-        shadowOpacity: 0.18,
-        shadowRadius: 3,
-        shadowOffset: { width: 0, height: 1 },
+        width: 0,
+        height: 0,
+        borderLeftWidth: 5,
+        borderRightWidth: 5,
+        borderBottomWidth: 9,
+        borderLeftColor: "transparent",
+        borderRightColor: "transparent",
+        borderBottomColor: colors.foreground,
       }}
-    >
-      {/* Ionicons' arrow points north-east; turned back a quarter, it points north. */}
-      <Ionicons
-        name="navigate"
-        size={13}
-        color={colors.foreground}
-        style={{ transform: [{ rotate: "-45deg" }] }}
-      />
-    </View>
-  </Marker>
-));
+    />
+  </View>
+);
 
 /**
  * A booking: a yellow ring swelling out of a small ink-ringed dot and fading,
@@ -191,14 +249,7 @@ const FlashMarker = (props: { readonly flash: MapFlash; }) => {
   const core = useAnimatedStyle(() => ({ opacity: 1 - progress.value * progress.value }));
 
   return (
-    <Marker
-      coordinate={toLatLng(props.flash.position)}
-      anchor={{ x: 0.5, y: 0.5 }}
-      tappable={false}
-      // Google's markers are pictures of their views, retaken only while this
-      // is on; Apple's are live views and animate on their own.
-      tracksViewChanges={Platform.OS === "android"}
-    >
+    <MarkerView coordinate={toPosition(props.flash.position)} allowOverlap>
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
@@ -214,7 +265,7 @@ const FlashMarker = (props: { readonly flash: MapFlash; }) => {
           style={core}
         />
       </View>
-    </Marker>
+    </MarkerView>
   );
 };
 
@@ -261,8 +312,8 @@ export const SurgeMap = (props: {
   readonly onView?: (view: MapView) => void;
   readonly className?: string;
 }) => {
-  const map = React.useRef<NativeMap>(null);
-  const width = React.useRef(390);
+  // `Camera` names both the component and its ref, which is what it exports.
+  const camera = React.useRef<Camera>(null);
 
   // Keyed by the points rather than the array, which is new on every render: the
   // camera moves when what it follows moves, not whenever the screen re-renders.
@@ -275,89 +326,132 @@ export const SurgeMap = (props: {
     const [only] = points;
     if (only === undefined) return;
     if (points.length === 1) {
-      map.current?.animateToRegion({
-        ...toLatLng(only),
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
+      camera.current?.setCamera({
+        centerCoordinate: toPosition(only),
+        zoomLevel: FOLLOW_ZOOM,
+        animationDuration: CAMERA_MS,
       });
-    } else {
-      map.current?.fitToCoordinates(points.map(toLatLng), { edgePadding: EDGE, animated: true });
+      return;
     }
+    const lngs = points.map((point) => point.lng);
+    const lats = points.map((point) => point.lat);
+    camera.current?.fitBounds(
+      [Math.max(...lngs), Math.max(...lats)],
+      [Math.min(...lngs), Math.min(...lats)],
+      EDGE,
+      CAMERA_MS,
+    );
   }, [followKey]);
 
   // The first view is the starting one; after that, wherever the map settles.
   const onView = props.onView;
   React.useEffect(() => {
-    onView?.(viewOf(AMSTERDAM, width.current));
+    onView?.(AMSTERDAM_VIEW);
   }, [onView]);
 
-  const path = props.route.map(toLatLng);
+  const cars = props.cars ?? NO_CARS;
+  const carShape = React.useMemo(
+    (): FeatureCollection<Point, { readonly heading: number; }> => ({
+      type: "FeatureCollection",
+      features: cars.map((car) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: toPosition(car.position) },
+        properties: { heading: car.heading },
+      })),
+    }),
+    [cars],
+  );
+
+  const path = props.route.map(toPosition);
+  const routeShape: Feature<LineString> = {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: path },
+    properties: {},
+  };
 
   return (
-    <View
-      className={cn("flex-1 overflow-hidden bg-muted", props.className)}
-      onLayout={(event) => {
-        width.current = event.nativeEvent.layout.width;
-      }}
-    >
-      <NativeMap
-        ref={map}
+    <View className={cn("flex-1 overflow-hidden bg-muted", props.className)}>
+      <MapboxMap
         style={{ flex: 1 }}
-        initialRegion={AMSTERDAM}
-        userInterfaceStyle="light"
-        // Apple's desaturated style, so the route's sign yellow is the loudest
-        // thing on the map. Google's has no equivalent without a key.
-        mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
-        toolbarEnabled={false}
-        showsPointsOfInterests={false}
+        styleURL={STYLE}
         accessibilityLabel="Map"
-        onRegionChangeComplete={(region) => {
-          props.onView?.(viewOf(region, width.current));
+        // A map that stays north-up and flat is one a route reads straight
+        // off; tilting it is a thing to fiddle with, not a thing to use.
+        rotateEnabled={false}
+        pitchEnabled={false}
+        compassEnabled={false}
+        scaleBarEnabled={false}
+        // Mapbox is owed its mark wherever its tiles are drawn. Lifted clear of
+        // the sheet's top edge, which covers the last few points of the band.
+        logoPosition={{ bottom: 34, left: 10 }}
+        attributionPosition={{ bottom: 34, left: 78 }}
+        onMapIdle={(state) => {
+          const view = viewOf(state);
+          if (view !== undefined) props.onView?.(view);
         }}
-        onPress={(event) => {
-          // Android reports a tap on a marker as a tap on the map as well.
-          if (event.nativeEvent.action === "marker-press") {
-            return;
-          }
-          props.onPick?.({
-            lat: event.nativeEvent.coordinate.latitude,
-            lng: event.nativeEvent.coordinate.longitude,
-          });
+        onPress={(feature) => {
+          const [lng, lat] = feature.geometry.coordinates;
+          if (lng === undefined || lat === undefined) return;
+          props.onPick?.({ lat, lng });
         }}
       >
-        {props.cars?.map((car) => <CarMarker key={car.key} car={car} />)}
-        {props.flashes !== undefined && <Flashes flashes={props.flashes} />}
-        {path.length > 1 && (
-          <>
-            {/* Yellow alone vanishes against a pale map; the black casing is what carries it. */}
-            <Polyline
-              coordinates={path}
-              strokeColor={colors.foreground}
-              strokeWidth={9}
-              lineCap="round"
-              lineJoin="round"
+        <Camera
+          ref={camera}
+          defaultSettings={{ centerCoordinate: AMSTERDAM, zoomLevel: START_ZOOM }}
+        />
+        <Images>
+          <MapImage name={CAR_IMAGE}>
+            <CarImage />
+          </MapImage>
+        </Images>
+        {cars.length > 0 && (
+          <ShapeSource id="cars" shape={carShape}>
+            <SymbolLayer
+              id="cars-arrows"
+              style={{
+                iconImage: CAR_IMAGE,
+                iconRotate: ["get", "heading"],
+                // Lying flat on the map, so a car turns with it as a car does.
+                iconRotationAlignment: "map",
+                iconAllowOverlap: true,
+                iconIgnorePlacement: true,
+              }}
             />
-            <Polyline
-              coordinates={path}
-              strokeColor={colors.primary}
-              strokeWidth={5}
-              lineCap="round"
-              lineJoin="round"
-            />
-          </>
+          </ShapeSource>
         )}
+        {path.length > 1 && (
+          // Yellow alone vanishes against a pale map; the black casing is what
+          // carries it. Drawn after the cars, so the trip reads over the city.
+          <ShapeSource id="route" shape={routeShape}>
+            <LineLayer
+              id="route-casing"
+              style={{
+                lineColor: colors.foreground,
+                lineWidth: 9,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+            <LineLayer
+              id="route-line"
+              style={{
+                lineColor: colors.primary,
+                lineWidth: 5,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+          </ShapeSource>
+        )}
+        {props.flashes !== undefined && <Flashes flashes={props.flashes} />}
         {props.markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            coordinate={toLatLng(marker.position)}
-            anchor={{ x: 0.5, y: 0.5 }}
-            title={MARKER_TITLES[marker.kind]}
-            tracksViewChanges={false}
-          >
-            <SignMarker kind={marker.kind} />
-          </Marker>
+          <MarkerView key={marker.id} coordinate={toPosition(marker.position)} allowOverlap>
+            <View accessible accessibilityLabel={MARKER_TITLES[marker.kind]}>
+              <SignMarker kind={marker.kind} />
+            </View>
+          </MarkerView>
         ))}
-      </NativeMap>
+      </MapboxMap>
     </View>
   );
 };
