@@ -18,6 +18,7 @@ resources:
   - matcher.yaml
   - trip.yaml
   - chat.yaml
+  - fleet.yaml
   - migrate-job.yaml
   - migrate-auth-job.yaml
 

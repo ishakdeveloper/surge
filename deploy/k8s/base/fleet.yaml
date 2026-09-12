@@ -1,0 +1,59 @@
+# fleet
+    #
+    # Scales on drivers, which is the smallest number in the system: a
+    # driver is vetted once and swept over nightly. Postgres is the limit
+    # long before the process is, and every replica runs the sweeper, which
+    # is safe because expiring a document twice is the same document.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleet
+  namespace: surge
+  labels: { app: fleet }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: fleet }
+  template:
+    metadata:
+      labels: { app: fleet }
+    spec:
+      containers:
+        - name: fleet
+          image: surge/fleet:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: surge-config }
+            - secretRef: { name: surge-secrets }
+          ports:
+            - name: grpc
+              containerPort: 8115
+            - name: metrics
+              containerPort: 9110
+          # Liveness only, for trip's reason: a readiness probe would take a
+          # pod out of rotation when a dependency blinks, and none of this
+          # service's dependencies are on the dispatch path anyway.
+          livenessProbe:
+            httpGet: { path: /health, port: 9110 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 512Mi }
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet
+  namespace: surge
+spec:
+  selector: { app: fleet }
+  ports:
+    - name: grpc
+      port: 8115
+      targetPort: grpc
+    - name: metrics
+      port: 9110
+      targetPort: metrics

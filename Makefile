@@ -27,7 +27,7 @@ help: ## Show this help
 KCTX ?= orbstack
 
 images: ## Build every container image
-	@for s in gateway ingest matcher trip chat simulator migrate; do \
+	@for s in gateway ingest matcher trip chat fleet simulator migrate; do \
 		echo "  building $$s"; \
 		docker build -q -f deploy/docker/$$s.Dockerfile -t surge/$$s:dev . > /dev/null; \
 	done
@@ -138,7 +138,7 @@ proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 		--grpc-gateway_opt=generate_unbound_methods=false \
 		--openapiv2_out=docs/api \
 		--openapiv2_opt=allow_merge=true,merge_file_name=surge,disable_default_errors=true \
-		proto/trip.proto proto/driver.proto proto/common.proto proto/sim.proto proto/payments.proto proto/chat.proto
+		proto/trip.proto proto/driver.proto proto/common.proto proto/sim.proto proto/payments.proto proto/chat.proto proto/fleet.proto
 	cd backend && gofmt -w shared/proto
 	# The gateway embeds the document it serves, so a rebuild cannot leave the
 	# published spec describing an older API.
@@ -155,6 +155,7 @@ build: ## Build every Go binary
 	$(GO) build -o bin/gateway ./services/gateway/cmd
 	$(GO) build -o bin/payments ./services/payments/cmd
 	$(GO) build -o bin/chat ./services/chat/cmd
+	$(GO) build -o bin/fleet ./services/fleet/cmd
 	$(GO) build -o bin/migrate ./tools/migrate
 
 test: ## Run both test suites
@@ -229,6 +230,15 @@ dev-payments: build ## Run the payments service (metrics on :9107)
 dev-chat: build ## Run the chat service (gRPC on :8113)
 	@set -a; . ./.env; set +a; \
 	CHAT_PUSH_PROVIDER=$${CHAT_PUSH_PROVIDER:-fake} $(BIN)/chat
+
+# The register is the RDW's open data, which needs no key, so the real one is
+# the default here too. Identity and the documents bucket are faked unless .env
+# says otherwise.
+dev-fleet: build ## Run the fleet service (gRPC on :8115)
+	@set -a; . ./.env; set +a; \
+	FLEET_IDENTITY_PROVIDER=$${FLEET_IDENTITY_PROVIDER:-fake} \
+	FLEET_DOCUMENT_STORE=$${FLEET_DOCUMENT_STORE:-memory} \
+	$(BIN)/fleet
 
 # Stripe's events, forwarded to the gateway's webhook routes. The key comes from
 # .env rather than `stripe login`, so there is one place a key lives; the

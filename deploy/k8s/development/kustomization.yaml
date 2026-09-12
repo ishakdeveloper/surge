@@ -28,6 +28,7 @@ images:
   - { name: surge/matcher, newTag: dev }
   - { name: surge/trip, newTag: dev }
   - { name: surge/chat, newTag: dev }
+  - { name: surge/fleet, newTag: dev }
   - { name: surge/simulator, newTag: dev }
   - { name: surge/migrate, newTag: dev }
 
@@ -51,6 +52,9 @@ configMapGenerator:
       - SIM_REQUESTS_PER_SECOND=5
       # A laptop notifies nobody's phone.
       - CHAT_PUSH_PROVIDER=fake
+      # Nobody's licence is checked on a laptop, and documents go nowhere.
+      - FLEET_IDENTITY_PROVIDER=fake
+      - FLEET_DOCUMENT_STORE=memory
 
 patches:
   # One replica of everything. Three matchers on a laptop is three copies of the
@@ -72,6 +76,11 @@ patches:
         path: /spec/replicas
         value: 1
   - target: { kind: Deployment, name: chat }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: { kind: Deployment, name: fleet }
     patch: |-
       - op: replace
         path: /spec/replicas

@@ -67,6 +67,7 @@ services = [
     ('matcher',   ['redpanda'],                                  ['9103:9103']),
     ('trip',      ['redpanda', 'postgres', 'valhalla', 'migrate'], ['8110:8110', '9105:9105']),
     ('chat',      ['redpanda', 'postgres', 'migrate', 'trip'],   ['8113:8113', '9108:9108']),
+    ('fleet',     ['redpanda', 'postgres', 'migrate'],            ['8115:8115', '9110:9110']),
     ('simulator', ['gateway', 'valhalla'],                       ['8101:8101', '9101:9101']),
 ]
 

@@ -26,6 +26,7 @@ import {
 import {
   CentsFromString,
   ConversationId,
+  DocumentId,
   DriverId,
   ErrorCode,
   FareId,
@@ -36,6 +37,7 @@ import {
   RiderId,
   TripId,
   UserId,
+  VehicleId,
   WithdrawalId,
 } from "./Primitives.js";
 // non-recursive definitions
@@ -295,6 +297,1229 @@ export type V1UnregisterPushTokenResponse = typeof V1UnregisterPushTokenResponse
 export const V1UnregisterPushTokenResponse = Schema.Struct({}).annotate({
   "identifier": "v1UnregisterPushTokenResponse",
 });
+export type V1ListDocumentsResponse = typeof V1ListDocumentsResponse.Type;
+export const V1ListDocumentsResponse = Schema.Struct({
+  "documents": Schema.Array(
+    Schema.Struct({
+      "id": DocumentId,
+      "driverId": UserId,
+      "vehicleId": VehicleId,
+      "kind": Schema.Literals([
+        "DOCUMENT_KIND_UNSPECIFIED",
+        "DOCUMENT_KIND_INSURANCE",
+        "DOCUMENT_KIND_REGISTRATION",
+        "DOCUMENT_KIND_VOG",
+        "DOCUMENT_KIND_CHAUFFEURSKAART",
+      ]).annotate({
+        "description":
+          " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+        "default": "DOCUMENT_KIND_UNSPECIFIED",
+      }),
+      "status": Schema.Literals([
+        "DOCUMENT_STATUS_UNSPECIFIED",
+        "DOCUMENT_STATUS_AWAITING_FILE",
+        "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+        "DOCUMENT_STATUS_SUBMITTED",
+        "DOCUMENT_STATUS_APPROVED",
+        "DOCUMENT_STATUS_REJECTED",
+        "DOCUMENT_STATUS_EXPIRED",
+      ]).annotate({
+        "description":
+          " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed.",
+        "default": "DOCUMENT_STATUS_UNSPECIFIED",
+      }),
+      "expiresAt": Schema.String.annotate({
+        "description":
+          "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it.",
+      }),
+      "extracted": Schema.Struct({
+        "status": Schema.Literals([
+          "EXTRACTION_STATUS_UNSPECIFIED",
+          "EXTRACTION_STATUS_NONE",
+          "EXTRACTION_STATUS_PENDING",
+          "EXTRACTION_STATUS_DONE",
+          "EXTRACTION_STATUS_FAILED",
+        ]).annotate({
+          "description":
+            " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked.",
+          "default": "EXTRACTION_STATUS_UNSPECIFIED",
+        }),
+        "insurer": Schema.String,
+        "policyNumber": Schema.String,
+        "expiresAt": Schema.String.annotate({
+          "description": "As RFC 3339, and empty when nothing legible was found.",
+        }),
+        "quotes": Schema.Array(Schema.String).annotate({
+          "description":
+            "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it.",
+        }),
+      }).annotate({
+        "description":
+          "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it.",
+      }),
+      "reviewNote": Schema.String,
+      "reviewedAt": Schema.String,
+      "createdAt": Schema.String.annotate({ "format": "date-time" }),
+      "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+    }).annotate({
+      "description": "Document is a paper a driver owes, whether or not a file has arrived.",
+    }),
+  ),
+}).annotate({ "identifier": "v1ListDocumentsResponse" });
+export type V1DeclareAuthorityDocumentRequest = typeof V1DeclareAuthorityDocumentRequest.Type;
+export const V1DeclareAuthorityDocumentRequest = Schema.Struct({
+  "kind": Schema.Literals([
+    "DOCUMENT_KIND_UNSPECIFIED",
+    "DOCUMENT_KIND_INSURANCE",
+    "DOCUMENT_KIND_REGISTRATION",
+    "DOCUMENT_KIND_VOG",
+    "DOCUMENT_KIND_CHAUFFEURSKAART",
+  ]).annotate({
+    "description":
+      " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+    "default": "DOCUMENT_KIND_UNSPECIFIED",
+  }),
+}).annotate({ "identifier": "v1DeclareAuthorityDocumentRequest" });
+export type V1DeclareAuthorityDocumentResponse = typeof V1DeclareAuthorityDocumentResponse.Type;
+export const V1DeclareAuthorityDocumentResponse = Schema.Struct({
+  "document": Schema.Struct({
+    "id": DocumentId,
+    "driverId": UserId,
+    "vehicleId": VehicleId,
+    "kind": Schema.Literals([
+      "DOCUMENT_KIND_UNSPECIFIED",
+      "DOCUMENT_KIND_INSURANCE",
+      "DOCUMENT_KIND_REGISTRATION",
+      "DOCUMENT_KIND_VOG",
+      "DOCUMENT_KIND_CHAUFFEURSKAART",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+      "default": "DOCUMENT_KIND_UNSPECIFIED",
+    }),
+    "status": Schema.Literals([
+      "DOCUMENT_STATUS_UNSPECIFIED",
+      "DOCUMENT_STATUS_AWAITING_FILE",
+      "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+      "DOCUMENT_STATUS_SUBMITTED",
+      "DOCUMENT_STATUS_APPROVED",
+      "DOCUMENT_STATUS_REJECTED",
+      "DOCUMENT_STATUS_EXPIRED",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed.",
+      "default": "DOCUMENT_STATUS_UNSPECIFIED",
+    }),
+    "expiresAt": Schema.String.annotate({
+      "description":
+        "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it.",
+    }),
+    "extracted": Schema.Struct({
+      "status": Schema.Literals([
+        "EXTRACTION_STATUS_UNSPECIFIED",
+        "EXTRACTION_STATUS_NONE",
+        "EXTRACTION_STATUS_PENDING",
+        "EXTRACTION_STATUS_DONE",
+        "EXTRACTION_STATUS_FAILED",
+      ]).annotate({
+        "description":
+          " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked.",
+        "default": "EXTRACTION_STATUS_UNSPECIFIED",
+      }),
+      "insurer": Schema.String,
+      "policyNumber": Schema.String,
+      "expiresAt": Schema.String.annotate({
+        "description": "As RFC 3339, and empty when nothing legible was found.",
+      }),
+      "quotes": Schema.Array(Schema.String).annotate({
+        "description":
+          "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it.",
+      }),
+    }).annotate({
+      "description":
+        "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it.",
+    }),
+    "reviewNote": Schema.String,
+    "reviewedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Document is a paper a driver owes, whether or not a file has arrived.",
+  }),
+}).annotate({ "identifier": "v1DeclareAuthorityDocumentResponse" });
+export type V1StartUploadRequest = typeof V1StartUploadRequest.Type;
+export const V1StartUploadRequest = Schema.Struct({
+  "kind": Schema.Literals([
+    "DOCUMENT_KIND_UNSPECIFIED",
+    "DOCUMENT_KIND_INSURANCE",
+    "DOCUMENT_KIND_REGISTRATION",
+    "DOCUMENT_KIND_VOG",
+    "DOCUMENT_KIND_CHAUFFEURSKAART",
+  ]).annotate({
+    "description":
+      " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+    "default": "DOCUMENT_KIND_UNSPECIFIED",
+  }),
+  "vehicleId": VehicleId,
+  "contentType": Schema.String.annotate({
+    "description": "image/jpeg, image/png, image/webp or application/pdf.",
+  }),
+  "byteSize": Int64FromString,
+}).annotate({ "identifier": "v1StartUploadRequest" });
+export type V1StartUploadResponse = typeof V1StartUploadResponse.Type;
+export const V1StartUploadResponse = Schema.Struct({
+  "document": Schema.Struct({
+    "id": DocumentId,
+    "driverId": UserId,
+    "vehicleId": VehicleId,
+    "kind": Schema.Literals([
+      "DOCUMENT_KIND_UNSPECIFIED",
+      "DOCUMENT_KIND_INSURANCE",
+      "DOCUMENT_KIND_REGISTRATION",
+      "DOCUMENT_KIND_VOG",
+      "DOCUMENT_KIND_CHAUFFEURSKAART",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+      "default": "DOCUMENT_KIND_UNSPECIFIED",
+    }),
+    "status": Schema.Literals([
+      "DOCUMENT_STATUS_UNSPECIFIED",
+      "DOCUMENT_STATUS_AWAITING_FILE",
+      "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+      "DOCUMENT_STATUS_SUBMITTED",
+      "DOCUMENT_STATUS_APPROVED",
+      "DOCUMENT_STATUS_REJECTED",
+      "DOCUMENT_STATUS_EXPIRED",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed.",
+      "default": "DOCUMENT_STATUS_UNSPECIFIED",
+    }),
+    "expiresAt": Schema.String.annotate({
+      "description":
+        "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it.",
+    }),
+    "extracted": Schema.Struct({
+      "status": Schema.Literals([
+        "EXTRACTION_STATUS_UNSPECIFIED",
+        "EXTRACTION_STATUS_NONE",
+        "EXTRACTION_STATUS_PENDING",
+        "EXTRACTION_STATUS_DONE",
+        "EXTRACTION_STATUS_FAILED",
+      ]).annotate({
+        "description":
+          " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked.",
+        "default": "EXTRACTION_STATUS_UNSPECIFIED",
+      }),
+      "insurer": Schema.String,
+      "policyNumber": Schema.String,
+      "expiresAt": Schema.String.annotate({
+        "description": "As RFC 3339, and empty when nothing legible was found.",
+      }),
+      "quotes": Schema.Array(Schema.String).annotate({
+        "description":
+          "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it.",
+      }),
+    }).annotate({
+      "description":
+        "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it.",
+    }),
+    "reviewNote": Schema.String,
+    "reviewedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Document is a paper a driver owes, whether or not a file has arrived.",
+  }),
+  "uploadUrl": Schema.String.annotate({
+    "description":
+      "PUT the file here, with exactly the Content-Type that was asked for. It\nis good for a few minutes and for that one document.",
+  }),
+  "expiresAt": Schema.String,
+}).annotate({ "identifier": "v1StartUploadResponse" });
+export type FleetServiceFinishUploadBody = typeof FleetServiceFinishUploadBody.Type;
+export const FleetServiceFinishUploadBody = Schema.Struct({}).annotate({
+  "identifier": "FleetServiceFinishUploadBody",
+});
+export type V1FinishUploadResponse = typeof V1FinishUploadResponse.Type;
+export const V1FinishUploadResponse = Schema.Struct({
+  "document": Schema.Struct({
+    "id": DocumentId,
+    "driverId": UserId,
+    "vehicleId": VehicleId,
+    "kind": Schema.Literals([
+      "DOCUMENT_KIND_UNSPECIFIED",
+      "DOCUMENT_KIND_INSURANCE",
+      "DOCUMENT_KIND_REGISTRATION",
+      "DOCUMENT_KIND_VOG",
+      "DOCUMENT_KIND_CHAUFFEURSKAART",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+      "default": "DOCUMENT_KIND_UNSPECIFIED",
+    }),
+    "status": Schema.Literals([
+      "DOCUMENT_STATUS_UNSPECIFIED",
+      "DOCUMENT_STATUS_AWAITING_FILE",
+      "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+      "DOCUMENT_STATUS_SUBMITTED",
+      "DOCUMENT_STATUS_APPROVED",
+      "DOCUMENT_STATUS_REJECTED",
+      "DOCUMENT_STATUS_EXPIRED",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed.",
+      "default": "DOCUMENT_STATUS_UNSPECIFIED",
+    }),
+    "expiresAt": Schema.String.annotate({
+      "description":
+        "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it.",
+    }),
+    "extracted": Schema.Struct({
+      "status": Schema.Literals([
+        "EXTRACTION_STATUS_UNSPECIFIED",
+        "EXTRACTION_STATUS_NONE",
+        "EXTRACTION_STATUS_PENDING",
+        "EXTRACTION_STATUS_DONE",
+        "EXTRACTION_STATUS_FAILED",
+      ]).annotate({
+        "description":
+          " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked.",
+        "default": "EXTRACTION_STATUS_UNSPECIFIED",
+      }),
+      "insurer": Schema.String,
+      "policyNumber": Schema.String,
+      "expiresAt": Schema.String.annotate({
+        "description": "As RFC 3339, and empty when nothing legible was found.",
+      }),
+      "quotes": Schema.Array(Schema.String).annotate({
+        "description":
+          "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it.",
+      }),
+    }).annotate({
+      "description":
+        "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it.",
+    }),
+    "reviewNote": Schema.String,
+    "reviewedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Document is a paper a driver owes, whether or not a file has arrived.",
+  }),
+}).annotate({ "identifier": "v1FinishUploadResponse" });
+export type V1GetMyDriverResponse = typeof V1GetMyDriverResponse.Type;
+export const V1GetMyDriverResponse = Schema.Struct({
+  "driver": Schema.Struct({
+    "driverId": UserId,
+    "status": Schema.Literals([
+      "DRIVER_STATUS_UNSPECIFIED",
+      "DRIVER_STATUS_ONBOARDING",
+      "DRIVER_STATUS_APPROVED",
+      "DRIVER_STATUS_BLOCKED",
+    ]).annotate({
+      "description":
+        " - DRIVER_STATUS_ONBOARDING: Something is still outstanding; see `outstanding`.\n - DRIVER_STATUS_APPROVED: Identity verified, a vehicle approved, every document valid.\n - DRIVER_STATUS_BLOCKED: Stopped by a reviewer, whatever the paperwork says.",
+      "default": "DRIVER_STATUS_UNSPECIFIED",
+    }),
+    "blockedReason": Schema.String.annotate({
+      "description": "Why a blocked driver is blocked. Empty otherwise.",
+    }),
+    "identity": Schema.Literals([
+      "IDENTITY_STATUS_UNSPECIFIED",
+      "IDENTITY_STATUS_UNSTARTED",
+      "IDENTITY_STATUS_PENDING",
+      "IDENTITY_STATUS_PROCESSING",
+      "IDENTITY_STATUS_VERIFIED",
+      "IDENTITY_STATUS_FAILED",
+    ]).annotate({
+      "description":
+        " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`.",
+      "default": "IDENTITY_STATUS_UNSPECIFIED",
+    }),
+    "verifiedName": Schema.String.annotate({
+      "description": "The name the identity check read off the licence. Empty until it passes.",
+    }),
+    "licenceExpiresAt": Schema.String.annotate({
+      "description": "When the licence expires, as RFC 3339. Empty until the check passes.",
+    }),
+    "outstanding": Schema.Array(
+      Schema.Struct({
+        "kind": Schema.Literals([
+          "REQUIREMENT_KIND_UNSPECIFIED",
+          "REQUIREMENT_KIND_IDENTITY",
+          "REQUIREMENT_KIND_VEHICLE",
+          "REQUIREMENT_KIND_INSURANCE",
+          "REQUIREMENT_KIND_REGISTRATION",
+          "REQUIREMENT_KIND_VOG",
+          "REQUIREMENT_KIND_CHAUFFEURSKAART",
+        ]).annotate({ "default": "REQUIREMENT_KIND_UNSPECIFIED" }),
+        "detail": Schema.String.annotate({
+          "description": "What to tell the driver, in a sentence.",
+        }),
+      }).annotate({
+        "description": "Requirement is one thing standing between a driver and their first trip.",
+      }),
+    ).annotate({
+      "description":
+        "What the driver must do next, in order, and empty when nothing is\noutstanding.",
+    }),
+    "approvedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Driver is a driver's standing, and what stands between them and work.",
+  }),
+  "vehicles": Schema.Array(
+    Schema.Struct({
+      "id": VehicleId,
+      "driverId": UserId,
+      "plate": Schema.String.annotate({
+        "description": "Uppercase, no dashes, as the register holds it.",
+      }),
+      "make": Schema.String,
+      "model": Schema.String,
+      "colour": Schema.String,
+      "seats": Schema.Number.annotate({ "format": "int32" }).check(
+        Schema.isInt().annotate({ "expected": "an integer" }),
+      ),
+      "packageSlug": Schema.String.annotate({
+        "description": "The ride class this car may serve, from trip's catalogue.",
+      }),
+      "status": Schema.Literals([
+        "VEHICLE_STATUS_UNSPECIFIED",
+        "VEHICLE_STATUS_PENDING",
+        "VEHICLE_STATUS_APPROVED",
+        "VEHICLE_STATUS_REJECTED",
+        "VEHICLE_STATUS_RETIRED",
+      ]).annotate({ "default": "VEHICLE_STATUS_UNSPECIFIED" }),
+      "rejectedReason": Schema.String,
+      "apkExpiresAt": Schema.String.annotate({
+        "description": "From the register, as RFC 3339. Empty when the register did not say.",
+      }),
+      "taxiRegistered": Schema.Boolean.annotate({
+        "description":
+          "Whether the register has it down for taxi use, and whether an insurer has\nregistered a policy against the plate.",
+      }),
+      "insured": Schema.Boolean,
+      "firstRegisteredAt": Schema.String,
+      "registerCheckedAt": Schema.String.annotate({
+        "description": "When the register was last asked about this car.",
+      }),
+      "createdAt": Schema.String.annotate({ "format": "date-time" }),
+      "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+    }).annotate({
+      "description": "Vehicle is a car as the register describes it, and what we decided about it.",
+    }),
+  ),
+  "documents": Schema.Array(
+    Schema.Struct({
+      "id": DocumentId,
+      "driverId": UserId,
+      "vehicleId": VehicleId,
+      "kind": Schema.Literals([
+        "DOCUMENT_KIND_UNSPECIFIED",
+        "DOCUMENT_KIND_INSURANCE",
+        "DOCUMENT_KIND_REGISTRATION",
+        "DOCUMENT_KIND_VOG",
+        "DOCUMENT_KIND_CHAUFFEURSKAART",
+      ]).annotate({
+        "description":
+          " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+        "default": "DOCUMENT_KIND_UNSPECIFIED",
+      }),
+      "status": Schema.Literals([
+        "DOCUMENT_STATUS_UNSPECIFIED",
+        "DOCUMENT_STATUS_AWAITING_FILE",
+        "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+        "DOCUMENT_STATUS_SUBMITTED",
+        "DOCUMENT_STATUS_APPROVED",
+        "DOCUMENT_STATUS_REJECTED",
+        "DOCUMENT_STATUS_EXPIRED",
+      ]).annotate({
+        "description":
+          " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed.",
+        "default": "DOCUMENT_STATUS_UNSPECIFIED",
+      }),
+      "expiresAt": Schema.String.annotate({
+        "description":
+          "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it.",
+      }),
+      "extracted": Schema.Struct({
+        "status": Schema.Literals([
+          "EXTRACTION_STATUS_UNSPECIFIED",
+          "EXTRACTION_STATUS_NONE",
+          "EXTRACTION_STATUS_PENDING",
+          "EXTRACTION_STATUS_DONE",
+          "EXTRACTION_STATUS_FAILED",
+        ]).annotate({
+          "description":
+            " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked.",
+          "default": "EXTRACTION_STATUS_UNSPECIFIED",
+        }),
+        "insurer": Schema.String,
+        "policyNumber": Schema.String,
+        "expiresAt": Schema.String.annotate({
+          "description": "As RFC 3339, and empty when nothing legible was found.",
+        }),
+        "quotes": Schema.Array(Schema.String).annotate({
+          "description":
+            "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it.",
+        }),
+      }).annotate({
+        "description":
+          "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it.",
+      }),
+      "reviewNote": Schema.String,
+      "reviewedAt": Schema.String,
+      "createdAt": Schema.String.annotate({ "format": "date-time" }),
+      "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+    }).annotate({
+      "description": "Document is a paper a driver owes, whether or not a file has arrived.",
+    }),
+  ),
+}).annotate({ "identifier": "v1GetMyDriverResponse" });
+export type V1StartIdentityCheckRequest = typeof V1StartIdentityCheckRequest.Type;
+export const V1StartIdentityCheckRequest = Schema.Struct({
+  "returnUrl": Schema.String.annotate({
+    "description": "Where the provider sends the driver back to when they are done.",
+  }),
+}).annotate({ "identifier": "v1StartIdentityCheckRequest" });
+export type V1StartIdentityCheckResponse = typeof V1StartIdentityCheckResponse.Type;
+export const V1StartIdentityCheckResponse = Schema.Struct({
+  "url": Schema.String.annotate({
+    "description":
+      "Single use and short lived: open it at once, and never send it anywhere\nelse — it is the driver's identity check.",
+  }),
+  "status": Schema.Literals([
+    "IDENTITY_STATUS_UNSPECIFIED",
+    "IDENTITY_STATUS_UNSTARTED",
+    "IDENTITY_STATUS_PENDING",
+    "IDENTITY_STATUS_PROCESSING",
+    "IDENTITY_STATUS_VERIFIED",
+    "IDENTITY_STATUS_FAILED",
+  ]).annotate({
+    "description":
+      " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`.",
+    "default": "IDENTITY_STATUS_UNSPECIFIED",
+  }),
+}).annotate({ "identifier": "v1StartIdentityCheckResponse" });
+export type V1ListReviewQueueResponse = typeof V1ListReviewQueueResponse.Type;
+export const V1ListReviewQueueResponse = Schema.Struct({
+  "items": Schema.Array(
+    Schema.Struct({
+      "driver": Schema.Struct({
+        "driverId": UserId,
+        "status": Schema.Literals([
+          "DRIVER_STATUS_UNSPECIFIED",
+          "DRIVER_STATUS_ONBOARDING",
+          "DRIVER_STATUS_APPROVED",
+          "DRIVER_STATUS_BLOCKED",
+        ]).annotate({
+          "description":
+            " - DRIVER_STATUS_ONBOARDING: Something is still outstanding; see `outstanding`.\n - DRIVER_STATUS_APPROVED: Identity verified, a vehicle approved, every document valid.\n - DRIVER_STATUS_BLOCKED: Stopped by a reviewer, whatever the paperwork says.",
+          "default": "DRIVER_STATUS_UNSPECIFIED",
+        }),
+        "blockedReason": Schema.String.annotate({
+          "description": "Why a blocked driver is blocked. Empty otherwise.",
+        }),
+        "identity": Schema.Literals([
+          "IDENTITY_STATUS_UNSPECIFIED",
+          "IDENTITY_STATUS_UNSTARTED",
+          "IDENTITY_STATUS_PENDING",
+          "IDENTITY_STATUS_PROCESSING",
+          "IDENTITY_STATUS_VERIFIED",
+          "IDENTITY_STATUS_FAILED",
+        ]).annotate({
+          "description":
+            " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`.",
+          "default": "IDENTITY_STATUS_UNSPECIFIED",
+        }),
+        "verifiedName": Schema.String.annotate({
+          "description": "The name the identity check read off the licence. Empty until it passes.",
+        }),
+        "licenceExpiresAt": Schema.String.annotate({
+          "description": "When the licence expires, as RFC 3339. Empty until the check passes.",
+        }),
+        "outstanding": Schema.Array(
+          Schema.Struct({
+            "kind": Schema.Literals([
+              "REQUIREMENT_KIND_UNSPECIFIED",
+              "REQUIREMENT_KIND_IDENTITY",
+              "REQUIREMENT_KIND_VEHICLE",
+              "REQUIREMENT_KIND_INSURANCE",
+              "REQUIREMENT_KIND_REGISTRATION",
+              "REQUIREMENT_KIND_VOG",
+              "REQUIREMENT_KIND_CHAUFFEURSKAART",
+            ]).annotate({ "default": "REQUIREMENT_KIND_UNSPECIFIED" }),
+            "detail": Schema.String.annotate({
+              "description": "What to tell the driver, in a sentence.",
+            }),
+          }).annotate({
+            "description":
+              "Requirement is one thing standing between a driver and their first trip.",
+          }),
+        ).annotate({
+          "description":
+            "What the driver must do next, in order, and empty when nothing is\noutstanding.",
+        }),
+        "approvedAt": Schema.String,
+        "createdAt": Schema.String.annotate({ "format": "date-time" }),
+        "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+      }).annotate({
+        "description": "Driver is a driver's standing, and what stands between them and work.",
+      }),
+      "waiting": Schema.Number.annotate({
+        "description": "How many of their documents are waiting for a person.",
+        "format": "int32",
+      }).check(Schema.isInt().annotate({ "expected": "an integer" })),
+      "waitingSince": Schema.String.annotate({
+        "description": "When the oldest of them arrived, as RFC 3339.",
+      }),
+    }).annotate({
+      "description": "ReviewItem is one driver waiting, and how long they have been waiting.",
+    }),
+  ),
+  "nextPageToken": Schema.String,
+}).annotate({ "identifier": "v1ListReviewQueueResponse" });
+export type FleetServiceDecideDocumentBody = typeof FleetServiceDecideDocumentBody.Type;
+export const FleetServiceDecideDocumentBody = Schema.Struct({
+  "approve": Schema.Boolean,
+  "expiresAt": Schema.String.annotate({
+    "description":
+      "When it expires, as RFC 3339, read off the document by the reviewer.\nRequired when approving something that expires.",
+  }),
+  "note": Schema.String.annotate({ "description": "Why, for a rejection. The driver reads it." }),
+}).annotate({ "identifier": "FleetServiceDecideDocumentBody" });
+export type V1DecideDocumentResponse = typeof V1DecideDocumentResponse.Type;
+export const V1DecideDocumentResponse = Schema.Struct({
+  "document": Schema.Struct({
+    "id": DocumentId,
+    "driverId": UserId,
+    "vehicleId": VehicleId,
+    "kind": Schema.Literals([
+      "DOCUMENT_KIND_UNSPECIFIED",
+      "DOCUMENT_KIND_INSURANCE",
+      "DOCUMENT_KIND_REGISTRATION",
+      "DOCUMENT_KIND_VOG",
+      "DOCUMENT_KIND_CHAUFFEURSKAART",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+      "default": "DOCUMENT_KIND_UNSPECIFIED",
+    }),
+    "status": Schema.Literals([
+      "DOCUMENT_STATUS_UNSPECIFIED",
+      "DOCUMENT_STATUS_AWAITING_FILE",
+      "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+      "DOCUMENT_STATUS_SUBMITTED",
+      "DOCUMENT_STATUS_APPROVED",
+      "DOCUMENT_STATUS_REJECTED",
+      "DOCUMENT_STATUS_EXPIRED",
+    ]).annotate({
+      "description":
+        " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed.",
+      "default": "DOCUMENT_STATUS_UNSPECIFIED",
+    }),
+    "expiresAt": Schema.String.annotate({
+      "description":
+        "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it.",
+    }),
+    "extracted": Schema.Struct({
+      "status": Schema.Literals([
+        "EXTRACTION_STATUS_UNSPECIFIED",
+        "EXTRACTION_STATUS_NONE",
+        "EXTRACTION_STATUS_PENDING",
+        "EXTRACTION_STATUS_DONE",
+        "EXTRACTION_STATUS_FAILED",
+      ]).annotate({
+        "description":
+          " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked.",
+        "default": "EXTRACTION_STATUS_UNSPECIFIED",
+      }),
+      "insurer": Schema.String,
+      "policyNumber": Schema.String,
+      "expiresAt": Schema.String.annotate({
+        "description": "As RFC 3339, and empty when nothing legible was found.",
+      }),
+      "quotes": Schema.Array(Schema.String).annotate({
+        "description":
+          "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it.",
+      }),
+    }).annotate({
+      "description":
+        "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it.",
+    }),
+    "reviewNote": Schema.String,
+    "reviewedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Document is a paper a driver owes, whether or not a file has arrived.",
+  }),
+  "driver": Schema.Struct({
+    "driverId": UserId,
+    "status": Schema.Literals([
+      "DRIVER_STATUS_UNSPECIFIED",
+      "DRIVER_STATUS_ONBOARDING",
+      "DRIVER_STATUS_APPROVED",
+      "DRIVER_STATUS_BLOCKED",
+    ]).annotate({
+      "description":
+        " - DRIVER_STATUS_ONBOARDING: Something is still outstanding; see `outstanding`.\n - DRIVER_STATUS_APPROVED: Identity verified, a vehicle approved, every document valid.\n - DRIVER_STATUS_BLOCKED: Stopped by a reviewer, whatever the paperwork says.",
+      "default": "DRIVER_STATUS_UNSPECIFIED",
+    }),
+    "blockedReason": Schema.String.annotate({
+      "description": "Why a blocked driver is blocked. Empty otherwise.",
+    }),
+    "identity": Schema.Literals([
+      "IDENTITY_STATUS_UNSPECIFIED",
+      "IDENTITY_STATUS_UNSTARTED",
+      "IDENTITY_STATUS_PENDING",
+      "IDENTITY_STATUS_PROCESSING",
+      "IDENTITY_STATUS_VERIFIED",
+      "IDENTITY_STATUS_FAILED",
+    ]).annotate({
+      "description":
+        " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`.",
+      "default": "IDENTITY_STATUS_UNSPECIFIED",
+    }),
+    "verifiedName": Schema.String.annotate({
+      "description": "The name the identity check read off the licence. Empty until it passes.",
+    }),
+    "licenceExpiresAt": Schema.String.annotate({
+      "description": "When the licence expires, as RFC 3339. Empty until the check passes.",
+    }),
+    "outstanding": Schema.Array(
+      Schema.Struct({
+        "kind": Schema.Literals([
+          "REQUIREMENT_KIND_UNSPECIFIED",
+          "REQUIREMENT_KIND_IDENTITY",
+          "REQUIREMENT_KIND_VEHICLE",
+          "REQUIREMENT_KIND_INSURANCE",
+          "REQUIREMENT_KIND_REGISTRATION",
+          "REQUIREMENT_KIND_VOG",
+          "REQUIREMENT_KIND_CHAUFFEURSKAART",
+        ]).annotate({ "default": "REQUIREMENT_KIND_UNSPECIFIED" }),
+        "detail": Schema.String.annotate({
+          "description": "What to tell the driver, in a sentence.",
+        }),
+      }).annotate({
+        "description": "Requirement is one thing standing between a driver and their first trip.",
+      }),
+    ).annotate({
+      "description":
+        "What the driver must do next, in order, and empty when nothing is\noutstanding.",
+    }),
+    "approvedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Driver is a driver's standing, and what stands between them and work.",
+  }),
+}).annotate({ "identifier": "v1DecideDocumentResponse" });
+export type FleetServiceDecideVehicleBody = typeof FleetServiceDecideVehicleBody.Type;
+export const FleetServiceDecideVehicleBody = Schema.Struct({
+  "approve": Schema.Boolean,
+  "note": Schema.String,
+}).annotate({ "identifier": "FleetServiceDecideVehicleBody" });
+export type V1DecideVehicleResponse = typeof V1DecideVehicleResponse.Type;
+export const V1DecideVehicleResponse = Schema.Struct({
+  "vehicle": Schema.Struct({
+    "id": VehicleId,
+    "driverId": UserId,
+    "plate": Schema.String.annotate({
+      "description": "Uppercase, no dashes, as the register holds it.",
+    }),
+    "make": Schema.String,
+    "model": Schema.String,
+    "colour": Schema.String,
+    "seats": Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+    "packageSlug": Schema.String.annotate({
+      "description": "The ride class this car may serve, from trip's catalogue.",
+    }),
+    "status": Schema.Literals([
+      "VEHICLE_STATUS_UNSPECIFIED",
+      "VEHICLE_STATUS_PENDING",
+      "VEHICLE_STATUS_APPROVED",
+      "VEHICLE_STATUS_REJECTED",
+      "VEHICLE_STATUS_RETIRED",
+    ]).annotate({ "default": "VEHICLE_STATUS_UNSPECIFIED" }),
+    "rejectedReason": Schema.String,
+    "apkExpiresAt": Schema.String.annotate({
+      "description": "From the register, as RFC 3339. Empty when the register did not say.",
+    }),
+    "taxiRegistered": Schema.Boolean.annotate({
+      "description":
+        "Whether the register has it down for taxi use, and whether an insurer has\nregistered a policy against the plate.",
+    }),
+    "insured": Schema.Boolean,
+    "firstRegisteredAt": Schema.String,
+    "registerCheckedAt": Schema.String.annotate({
+      "description": "When the register was last asked about this car.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Vehicle is a car as the register describes it, and what we decided about it.",
+  }),
+  "driver": Schema.Struct({
+    "driverId": UserId,
+    "status": Schema.Literals([
+      "DRIVER_STATUS_UNSPECIFIED",
+      "DRIVER_STATUS_ONBOARDING",
+      "DRIVER_STATUS_APPROVED",
+      "DRIVER_STATUS_BLOCKED",
+    ]).annotate({
+      "description":
+        " - DRIVER_STATUS_ONBOARDING: Something is still outstanding; see `outstanding`.\n - DRIVER_STATUS_APPROVED: Identity verified, a vehicle approved, every document valid.\n - DRIVER_STATUS_BLOCKED: Stopped by a reviewer, whatever the paperwork says.",
+      "default": "DRIVER_STATUS_UNSPECIFIED",
+    }),
+    "blockedReason": Schema.String.annotate({
+      "description": "Why a blocked driver is blocked. Empty otherwise.",
+    }),
+    "identity": Schema.Literals([
+      "IDENTITY_STATUS_UNSPECIFIED",
+      "IDENTITY_STATUS_UNSTARTED",
+      "IDENTITY_STATUS_PENDING",
+      "IDENTITY_STATUS_PROCESSING",
+      "IDENTITY_STATUS_VERIFIED",
+      "IDENTITY_STATUS_FAILED",
+    ]).annotate({
+      "description":
+        " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`.",
+      "default": "IDENTITY_STATUS_UNSPECIFIED",
+    }),
+    "verifiedName": Schema.String.annotate({
+      "description": "The name the identity check read off the licence. Empty until it passes.",
+    }),
+    "licenceExpiresAt": Schema.String.annotate({
+      "description": "When the licence expires, as RFC 3339. Empty until the check passes.",
+    }),
+    "outstanding": Schema.Array(
+      Schema.Struct({
+        "kind": Schema.Literals([
+          "REQUIREMENT_KIND_UNSPECIFIED",
+          "REQUIREMENT_KIND_IDENTITY",
+          "REQUIREMENT_KIND_VEHICLE",
+          "REQUIREMENT_KIND_INSURANCE",
+          "REQUIREMENT_KIND_REGISTRATION",
+          "REQUIREMENT_KIND_VOG",
+          "REQUIREMENT_KIND_CHAUFFEURSKAART",
+        ]).annotate({ "default": "REQUIREMENT_KIND_UNSPECIFIED" }),
+        "detail": Schema.String.annotate({
+          "description": "What to tell the driver, in a sentence.",
+        }),
+      }).annotate({
+        "description": "Requirement is one thing standing between a driver and their first trip.",
+      }),
+    ).annotate({
+      "description":
+        "What the driver must do next, in order, and empty when nothing is\noutstanding.",
+    }),
+    "approvedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Driver is a driver's standing, and what stands between them and work.",
+  }),
+}).annotate({ "identifier": "v1DecideVehicleResponse" });
+export type V1GetReviewItemResponse = typeof V1GetReviewItemResponse.Type;
+export const V1GetReviewItemResponse = Schema.Struct({
+  "driver": Schema.Struct({
+    "driverId": UserId,
+    "status": Schema.Literals([
+      "DRIVER_STATUS_UNSPECIFIED",
+      "DRIVER_STATUS_ONBOARDING",
+      "DRIVER_STATUS_APPROVED",
+      "DRIVER_STATUS_BLOCKED",
+    ]).annotate({
+      "description":
+        " - DRIVER_STATUS_ONBOARDING: Something is still outstanding; see `outstanding`.\n - DRIVER_STATUS_APPROVED: Identity verified, a vehicle approved, every document valid.\n - DRIVER_STATUS_BLOCKED: Stopped by a reviewer, whatever the paperwork says.",
+      "default": "DRIVER_STATUS_UNSPECIFIED",
+    }),
+    "blockedReason": Schema.String.annotate({
+      "description": "Why a blocked driver is blocked. Empty otherwise.",
+    }),
+    "identity": Schema.Literals([
+      "IDENTITY_STATUS_UNSPECIFIED",
+      "IDENTITY_STATUS_UNSTARTED",
+      "IDENTITY_STATUS_PENDING",
+      "IDENTITY_STATUS_PROCESSING",
+      "IDENTITY_STATUS_VERIFIED",
+      "IDENTITY_STATUS_FAILED",
+    ]).annotate({
+      "description":
+        " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`.",
+      "default": "IDENTITY_STATUS_UNSPECIFIED",
+    }),
+    "verifiedName": Schema.String.annotate({
+      "description": "The name the identity check read off the licence. Empty until it passes.",
+    }),
+    "licenceExpiresAt": Schema.String.annotate({
+      "description": "When the licence expires, as RFC 3339. Empty until the check passes.",
+    }),
+    "outstanding": Schema.Array(
+      Schema.Struct({
+        "kind": Schema.Literals([
+          "REQUIREMENT_KIND_UNSPECIFIED",
+          "REQUIREMENT_KIND_IDENTITY",
+          "REQUIREMENT_KIND_VEHICLE",
+          "REQUIREMENT_KIND_INSURANCE",
+          "REQUIREMENT_KIND_REGISTRATION",
+          "REQUIREMENT_KIND_VOG",
+          "REQUIREMENT_KIND_CHAUFFEURSKAART",
+        ]).annotate({ "default": "REQUIREMENT_KIND_UNSPECIFIED" }),
+        "detail": Schema.String.annotate({
+          "description": "What to tell the driver, in a sentence.",
+        }),
+      }).annotate({
+        "description": "Requirement is one thing standing between a driver and their first trip.",
+      }),
+    ).annotate({
+      "description":
+        "What the driver must do next, in order, and empty when nothing is\noutstanding.",
+    }),
+    "approvedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Driver is a driver's standing, and what stands between them and work.",
+  }),
+  "vehicles": Schema.Array(
+    Schema.Struct({
+      "id": VehicleId,
+      "driverId": UserId,
+      "plate": Schema.String.annotate({
+        "description": "Uppercase, no dashes, as the register holds it.",
+      }),
+      "make": Schema.String,
+      "model": Schema.String,
+      "colour": Schema.String,
+      "seats": Schema.Number.annotate({ "format": "int32" }).check(
+        Schema.isInt().annotate({ "expected": "an integer" }),
+      ),
+      "packageSlug": Schema.String.annotate({
+        "description": "The ride class this car may serve, from trip's catalogue.",
+      }),
+      "status": Schema.Literals([
+        "VEHICLE_STATUS_UNSPECIFIED",
+        "VEHICLE_STATUS_PENDING",
+        "VEHICLE_STATUS_APPROVED",
+        "VEHICLE_STATUS_REJECTED",
+        "VEHICLE_STATUS_RETIRED",
+      ]).annotate({ "default": "VEHICLE_STATUS_UNSPECIFIED" }),
+      "rejectedReason": Schema.String,
+      "apkExpiresAt": Schema.String.annotate({
+        "description": "From the register, as RFC 3339. Empty when the register did not say.",
+      }),
+      "taxiRegistered": Schema.Boolean.annotate({
+        "description":
+          "Whether the register has it down for taxi use, and whether an insurer has\nregistered a policy against the plate.",
+      }),
+      "insured": Schema.Boolean,
+      "firstRegisteredAt": Schema.String,
+      "registerCheckedAt": Schema.String.annotate({
+        "description": "When the register was last asked about this car.",
+      }),
+      "createdAt": Schema.String.annotate({ "format": "date-time" }),
+      "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+    }).annotate({
+      "description": "Vehicle is a car as the register describes it, and what we decided about it.",
+    }),
+  ),
+  "documents": Schema.Array(
+    Schema.Struct({
+      "document": Schema.Struct({
+        "id": DocumentId,
+        "driverId": UserId,
+        "vehicleId": VehicleId,
+        "kind": Schema.Literals([
+          "DOCUMENT_KIND_UNSPECIFIED",
+          "DOCUMENT_KIND_INSURANCE",
+          "DOCUMENT_KIND_REGISTRATION",
+          "DOCUMENT_KIND_VOG",
+          "DOCUMENT_KIND_CHAUFFEURSKAART",
+        ]).annotate({
+          "description":
+            " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API.",
+          "default": "DOCUMENT_KIND_UNSPECIFIED",
+        }),
+        "status": Schema.Literals([
+          "DOCUMENT_STATUS_UNSPECIFIED",
+          "DOCUMENT_STATUS_AWAITING_FILE",
+          "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+          "DOCUMENT_STATUS_SUBMITTED",
+          "DOCUMENT_STATUS_APPROVED",
+          "DOCUMENT_STATUS_REJECTED",
+          "DOCUMENT_STATUS_EXPIRED",
+        ]).annotate({
+          "description":
+            " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed.",
+          "default": "DOCUMENT_STATUS_UNSPECIFIED",
+        }),
+        "expiresAt": Schema.String.annotate({
+          "description":
+            "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it.",
+        }),
+        "extracted": Schema.Struct({
+          "status": Schema.Literals([
+            "EXTRACTION_STATUS_UNSPECIFIED",
+            "EXTRACTION_STATUS_NONE",
+            "EXTRACTION_STATUS_PENDING",
+            "EXTRACTION_STATUS_DONE",
+            "EXTRACTION_STATUS_FAILED",
+          ]).annotate({
+            "description":
+              " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked.",
+            "default": "EXTRACTION_STATUS_UNSPECIFIED",
+          }),
+          "insurer": Schema.String,
+          "policyNumber": Schema.String,
+          "expiresAt": Schema.String.annotate({
+            "description": "As RFC 3339, and empty when nothing legible was found.",
+          }),
+          "quotes": Schema.Array(Schema.String).annotate({
+            "description":
+              "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it.",
+          }),
+        }).annotate({
+          "description":
+            "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it.",
+        }),
+        "reviewNote": Schema.String,
+        "reviewedAt": Schema.String,
+        "createdAt": Schema.String.annotate({ "format": "date-time" }),
+        "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+      }).annotate({
+        "description": "Document is a paper a driver owes, whether or not a file has arrived.",
+      }),
+      "fileUrl": Schema.String.annotate({
+        "description":
+          "Good for the length of a review, and for this reviewer's eyes. Empty for\na document that is a state rather than a file.",
+      }),
+    }).annotate({
+      "description": "ReviewDocument is a document with a link to the file behind it.",
+    }),
+  ),
+}).annotate({ "identifier": "v1GetReviewItemResponse" });
+export type FleetServiceBlockDriverBody = typeof FleetServiceBlockDriverBody.Type;
+export const FleetServiceBlockDriverBody = Schema.Struct({
+  "reason": Schema.String.annotate({
+    "description":
+      "Empty lifts the block, and the driver's standing is worked out again from\ntheir papers.",
+  }),
+}).annotate({ "identifier": "FleetServiceBlockDriverBody" });
+export type V1BlockDriverResponse = typeof V1BlockDriverResponse.Type;
+export const V1BlockDriverResponse = Schema.Struct({
+  "driver": Schema.Struct({
+    "driverId": UserId,
+    "status": Schema.Literals([
+      "DRIVER_STATUS_UNSPECIFIED",
+      "DRIVER_STATUS_ONBOARDING",
+      "DRIVER_STATUS_APPROVED",
+      "DRIVER_STATUS_BLOCKED",
+    ]).annotate({
+      "description":
+        " - DRIVER_STATUS_ONBOARDING: Something is still outstanding; see `outstanding`.\n - DRIVER_STATUS_APPROVED: Identity verified, a vehicle approved, every document valid.\n - DRIVER_STATUS_BLOCKED: Stopped by a reviewer, whatever the paperwork says.",
+      "default": "DRIVER_STATUS_UNSPECIFIED",
+    }),
+    "blockedReason": Schema.String.annotate({
+      "description": "Why a blocked driver is blocked. Empty otherwise.",
+    }),
+    "identity": Schema.Literals([
+      "IDENTITY_STATUS_UNSPECIFIED",
+      "IDENTITY_STATUS_UNSTARTED",
+      "IDENTITY_STATUS_PENDING",
+      "IDENTITY_STATUS_PROCESSING",
+      "IDENTITY_STATUS_VERIFIED",
+      "IDENTITY_STATUS_FAILED",
+    ]).annotate({
+      "description":
+        " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`.",
+      "default": "IDENTITY_STATUS_UNSPECIFIED",
+    }),
+    "verifiedName": Schema.String.annotate({
+      "description": "The name the identity check read off the licence. Empty until it passes.",
+    }),
+    "licenceExpiresAt": Schema.String.annotate({
+      "description": "When the licence expires, as RFC 3339. Empty until the check passes.",
+    }),
+    "outstanding": Schema.Array(
+      Schema.Struct({
+        "kind": Schema.Literals([
+          "REQUIREMENT_KIND_UNSPECIFIED",
+          "REQUIREMENT_KIND_IDENTITY",
+          "REQUIREMENT_KIND_VEHICLE",
+          "REQUIREMENT_KIND_INSURANCE",
+          "REQUIREMENT_KIND_REGISTRATION",
+          "REQUIREMENT_KIND_VOG",
+          "REQUIREMENT_KIND_CHAUFFEURSKAART",
+        ]).annotate({ "default": "REQUIREMENT_KIND_UNSPECIFIED" }),
+        "detail": Schema.String.annotate({
+          "description": "What to tell the driver, in a sentence.",
+        }),
+      }).annotate({
+        "description": "Requirement is one thing standing between a driver and their first trip.",
+      }),
+    ).annotate({
+      "description":
+        "What the driver must do next, in order, and empty when nothing is\noutstanding.",
+    }),
+    "approvedAt": Schema.String,
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Driver is a driver's standing, and what stands between them and work.",
+  }),
+}).annotate({ "identifier": "v1BlockDriverResponse" });
+export type V1ListVehiclesResponse = typeof V1ListVehiclesResponse.Type;
+export const V1ListVehiclesResponse = Schema.Struct({
+  "vehicles": Schema.Array(
+    Schema.Struct({
+      "id": VehicleId,
+      "driverId": UserId,
+      "plate": Schema.String.annotate({
+        "description": "Uppercase, no dashes, as the register holds it.",
+      }),
+      "make": Schema.String,
+      "model": Schema.String,
+      "colour": Schema.String,
+      "seats": Schema.Number.annotate({ "format": "int32" }).check(
+        Schema.isInt().annotate({ "expected": "an integer" }),
+      ),
+      "packageSlug": Schema.String.annotate({
+        "description": "The ride class this car may serve, from trip's catalogue.",
+      }),
+      "status": Schema.Literals([
+        "VEHICLE_STATUS_UNSPECIFIED",
+        "VEHICLE_STATUS_PENDING",
+        "VEHICLE_STATUS_APPROVED",
+        "VEHICLE_STATUS_REJECTED",
+        "VEHICLE_STATUS_RETIRED",
+      ]).annotate({ "default": "VEHICLE_STATUS_UNSPECIFIED" }),
+      "rejectedReason": Schema.String,
+      "apkExpiresAt": Schema.String.annotate({
+        "description": "From the register, as RFC 3339. Empty when the register did not say.",
+      }),
+      "taxiRegistered": Schema.Boolean.annotate({
+        "description":
+          "Whether the register has it down for taxi use, and whether an insurer has\nregistered a policy against the plate.",
+      }),
+      "insured": Schema.Boolean,
+      "firstRegisteredAt": Schema.String,
+      "registerCheckedAt": Schema.String.annotate({
+        "description": "When the register was last asked about this car.",
+      }),
+      "createdAt": Schema.String.annotate({ "format": "date-time" }),
+      "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+    }).annotate({
+      "description": "Vehicle is a car as the register describes it, and what we decided about it.",
+    }),
+  ),
+}).annotate({ "identifier": "v1ListVehiclesResponse" });
+export type V1AddVehicleRequest = typeof V1AddVehicleRequest.Type;
+export const V1AddVehicleRequest = Schema.Struct({
+  "plate": Schema.String.annotate({
+    "description": "Six characters, with or without dashes; the register is asked for the\nrest.",
+  }),
+  "packageSlug": Schema.String.annotate({
+    "description": "Which ride class this car is offered for, from trip's catalogue.",
+  }),
+}).annotate({ "identifier": "v1AddVehicleRequest" });
+export type V1AddVehicleResponse = typeof V1AddVehicleResponse.Type;
+export const V1AddVehicleResponse = Schema.Struct({
+  "vehicle": Schema.Struct({
+    "id": VehicleId,
+    "driverId": UserId,
+    "plate": Schema.String.annotate({
+      "description": "Uppercase, no dashes, as the register holds it.",
+    }),
+    "make": Schema.String,
+    "model": Schema.String,
+    "colour": Schema.String,
+    "seats": Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+    "packageSlug": Schema.String.annotate({
+      "description": "The ride class this car may serve, from trip's catalogue.",
+    }),
+    "status": Schema.Literals([
+      "VEHICLE_STATUS_UNSPECIFIED",
+      "VEHICLE_STATUS_PENDING",
+      "VEHICLE_STATUS_APPROVED",
+      "VEHICLE_STATUS_REJECTED",
+      "VEHICLE_STATUS_RETIRED",
+    ]).annotate({ "default": "VEHICLE_STATUS_UNSPECIFIED" }),
+    "rejectedReason": Schema.String,
+    "apkExpiresAt": Schema.String.annotate({
+      "description": "From the register, as RFC 3339. Empty when the register did not say.",
+    }),
+    "taxiRegistered": Schema.Boolean.annotate({
+      "description":
+        "Whether the register has it down for taxi use, and whether an insurer has\nregistered a policy against the plate.",
+    }),
+    "insured": Schema.Boolean,
+    "firstRegisteredAt": Schema.String,
+    "registerCheckedAt": Schema.String.annotate({
+      "description": "When the register was last asked about this car.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Vehicle is a car as the register describes it, and what we decided about it.",
+  }),
+}).annotate({ "identifier": "v1AddVehicleResponse" });
+export type FleetServiceRetireVehicleBody = typeof FleetServiceRetireVehicleBody.Type;
+export const FleetServiceRetireVehicleBody = Schema.Struct({}).annotate({
+  "identifier": "FleetServiceRetireVehicleBody",
+});
+export type V1RetireVehicleResponse = typeof V1RetireVehicleResponse.Type;
+export const V1RetireVehicleResponse = Schema.Struct({
+  "vehicle": Schema.Struct({
+    "id": VehicleId,
+    "driverId": UserId,
+    "plate": Schema.String.annotate({
+      "description": "Uppercase, no dashes, as the register holds it.",
+    }),
+    "make": Schema.String,
+    "model": Schema.String,
+    "colour": Schema.String,
+    "seats": Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+    "packageSlug": Schema.String.annotate({
+      "description": "The ride class this car may serve, from trip's catalogue.",
+    }),
+    "status": Schema.Literals([
+      "VEHICLE_STATUS_UNSPECIFIED",
+      "VEHICLE_STATUS_PENDING",
+      "VEHICLE_STATUS_APPROVED",
+      "VEHICLE_STATUS_REJECTED",
+      "VEHICLE_STATUS_RETIRED",
+    ]).annotate({ "default": "VEHICLE_STATUS_UNSPECIFIED" }),
+    "rejectedReason": Schema.String,
+    "apkExpiresAt": Schema.String.annotate({
+      "description": "From the register, as RFC 3339. Empty when the register did not say.",
+    }),
+    "taxiRegistered": Schema.Boolean.annotate({
+      "description":
+        "Whether the register has it down for taxi use, and whether an insurer has\nregistered a policy against the plate.",
+    }),
+    "insured": Schema.Boolean,
+    "firstRegisteredAt": Schema.String,
+    "registerCheckedAt": Schema.String.annotate({
+      "description": "When the register was last asked about this car.",
+    }),
+    "createdAt": Schema.String.annotate({ "format": "date-time" }),
+    "updatedAt": Schema.String.annotate({ "format": "date-time" }),
+  }).annotate({
+    "description": "Vehicle is a car as the register describes it, and what we decided about it.",
+  }),
+}).annotate({ "identifier": "v1RetireVehicleResponse" });
 export type V1CreateAccountSessionRequest = typeof V1CreateAccountSessionRequest.Type;
 export const V1CreateAccountSessionRequest = Schema.Struct({}).annotate({
   "identifier": "v1CreateAccountSessionRequest",
@@ -1666,6 +2891,363 @@ export type DevicesUnregisterPushToken503 = typeof DevicesUnregisterPushToken503
 export const DevicesUnregisterPushToken503 = V1ErrorBody;
 export type DevicesUnregisterPushToken504 = typeof DevicesUnregisterPushToken504.Type;
 export const DevicesUnregisterPushToken504 = V1ErrorBody;
+export type FleetListDocuments200 = typeof FleetListDocuments200.Type;
+export const FleetListDocuments200 = V1ListDocumentsResponse;
+export type FleetListDocuments400 = typeof FleetListDocuments400.Type;
+export const FleetListDocuments400 = V1ErrorBody;
+export type FleetListDocuments401 = typeof FleetListDocuments401.Type;
+export const FleetListDocuments401 = V1ErrorBody;
+export type FleetListDocuments403 = typeof FleetListDocuments403.Type;
+export const FleetListDocuments403 = V1ErrorBody;
+export type FleetListDocuments404 = typeof FleetListDocuments404.Type;
+export const FleetListDocuments404 = V1ErrorBody;
+export type FleetListDocuments409 = typeof FleetListDocuments409.Type;
+export const FleetListDocuments409 = V1ErrorBody;
+export type FleetListDocuments429 = typeof FleetListDocuments429.Type;
+export const FleetListDocuments429 = V1ErrorBody;
+export type FleetListDocuments500 = typeof FleetListDocuments500.Type;
+export const FleetListDocuments500 = V1ErrorBody;
+export type FleetListDocuments501 = typeof FleetListDocuments501.Type;
+export const FleetListDocuments501 = V1ErrorBody;
+export type FleetListDocuments503 = typeof FleetListDocuments503.Type;
+export const FleetListDocuments503 = V1ErrorBody;
+export type FleetListDocuments504 = typeof FleetListDocuments504.Type;
+export const FleetListDocuments504 = V1ErrorBody;
+export type FleetDeclareAuthorityDocumentRequestJson =
+  typeof FleetDeclareAuthorityDocumentRequestJson.Type;
+export const FleetDeclareAuthorityDocumentRequestJson = V1DeclareAuthorityDocumentRequest;
+export type FleetDeclareAuthorityDocument200 = typeof FleetDeclareAuthorityDocument200.Type;
+export const FleetDeclareAuthorityDocument200 = V1DeclareAuthorityDocumentResponse;
+export type FleetDeclareAuthorityDocument400 = typeof FleetDeclareAuthorityDocument400.Type;
+export const FleetDeclareAuthorityDocument400 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument401 = typeof FleetDeclareAuthorityDocument401.Type;
+export const FleetDeclareAuthorityDocument401 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument403 = typeof FleetDeclareAuthorityDocument403.Type;
+export const FleetDeclareAuthorityDocument403 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument404 = typeof FleetDeclareAuthorityDocument404.Type;
+export const FleetDeclareAuthorityDocument404 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument409 = typeof FleetDeclareAuthorityDocument409.Type;
+export const FleetDeclareAuthorityDocument409 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument429 = typeof FleetDeclareAuthorityDocument429.Type;
+export const FleetDeclareAuthorityDocument429 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument500 = typeof FleetDeclareAuthorityDocument500.Type;
+export const FleetDeclareAuthorityDocument500 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument501 = typeof FleetDeclareAuthorityDocument501.Type;
+export const FleetDeclareAuthorityDocument501 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument503 = typeof FleetDeclareAuthorityDocument503.Type;
+export const FleetDeclareAuthorityDocument503 = V1ErrorBody;
+export type FleetDeclareAuthorityDocument504 = typeof FleetDeclareAuthorityDocument504.Type;
+export const FleetDeclareAuthorityDocument504 = V1ErrorBody;
+export type FleetStartUploadRequestJson = typeof FleetStartUploadRequestJson.Type;
+export const FleetStartUploadRequestJson = V1StartUploadRequest;
+export type FleetStartUpload200 = typeof FleetStartUpload200.Type;
+export const FleetStartUpload200 = V1StartUploadResponse;
+export type FleetStartUpload400 = typeof FleetStartUpload400.Type;
+export const FleetStartUpload400 = V1ErrorBody;
+export type FleetStartUpload401 = typeof FleetStartUpload401.Type;
+export const FleetStartUpload401 = V1ErrorBody;
+export type FleetStartUpload403 = typeof FleetStartUpload403.Type;
+export const FleetStartUpload403 = V1ErrorBody;
+export type FleetStartUpload404 = typeof FleetStartUpload404.Type;
+export const FleetStartUpload404 = V1ErrorBody;
+export type FleetStartUpload409 = typeof FleetStartUpload409.Type;
+export const FleetStartUpload409 = V1ErrorBody;
+export type FleetStartUpload429 = typeof FleetStartUpload429.Type;
+export const FleetStartUpload429 = V1ErrorBody;
+export type FleetStartUpload500 = typeof FleetStartUpload500.Type;
+export const FleetStartUpload500 = V1ErrorBody;
+export type FleetStartUpload501 = typeof FleetStartUpload501.Type;
+export const FleetStartUpload501 = V1ErrorBody;
+export type FleetStartUpload503 = typeof FleetStartUpload503.Type;
+export const FleetStartUpload503 = V1ErrorBody;
+export type FleetStartUpload504 = typeof FleetStartUpload504.Type;
+export const FleetStartUpload504 = V1ErrorBody;
+export type FleetFinishUploadPathParams = typeof FleetFinishUploadPathParams.Type;
+export const FleetFinishUploadPathParams = Schema.Struct({ "documentId": DocumentId });
+export type FleetFinishUploadRequestJson = typeof FleetFinishUploadRequestJson.Type;
+export const FleetFinishUploadRequestJson = FleetServiceFinishUploadBody;
+export type FleetFinishUpload200 = typeof FleetFinishUpload200.Type;
+export const FleetFinishUpload200 = V1FinishUploadResponse;
+export type FleetFinishUpload400 = typeof FleetFinishUpload400.Type;
+export const FleetFinishUpload400 = V1ErrorBody;
+export type FleetFinishUpload401 = typeof FleetFinishUpload401.Type;
+export const FleetFinishUpload401 = V1ErrorBody;
+export type FleetFinishUpload403 = typeof FleetFinishUpload403.Type;
+export const FleetFinishUpload403 = V1ErrorBody;
+export type FleetFinishUpload404 = typeof FleetFinishUpload404.Type;
+export const FleetFinishUpload404 = V1ErrorBody;
+export type FleetFinishUpload409 = typeof FleetFinishUpload409.Type;
+export const FleetFinishUpload409 = V1ErrorBody;
+export type FleetFinishUpload429 = typeof FleetFinishUpload429.Type;
+export const FleetFinishUpload429 = V1ErrorBody;
+export type FleetFinishUpload500 = typeof FleetFinishUpload500.Type;
+export const FleetFinishUpload500 = V1ErrorBody;
+export type FleetFinishUpload501 = typeof FleetFinishUpload501.Type;
+export const FleetFinishUpload501 = V1ErrorBody;
+export type FleetFinishUpload503 = typeof FleetFinishUpload503.Type;
+export const FleetFinishUpload503 = V1ErrorBody;
+export type FleetFinishUpload504 = typeof FleetFinishUpload504.Type;
+export const FleetFinishUpload504 = V1ErrorBody;
+export type FleetGetMyDriver200 = typeof FleetGetMyDriver200.Type;
+export const FleetGetMyDriver200 = V1GetMyDriverResponse;
+export type FleetGetMyDriver400 = typeof FleetGetMyDriver400.Type;
+export const FleetGetMyDriver400 = V1ErrorBody;
+export type FleetGetMyDriver401 = typeof FleetGetMyDriver401.Type;
+export const FleetGetMyDriver401 = V1ErrorBody;
+export type FleetGetMyDriver403 = typeof FleetGetMyDriver403.Type;
+export const FleetGetMyDriver403 = V1ErrorBody;
+export type FleetGetMyDriver404 = typeof FleetGetMyDriver404.Type;
+export const FleetGetMyDriver404 = V1ErrorBody;
+export type FleetGetMyDriver409 = typeof FleetGetMyDriver409.Type;
+export const FleetGetMyDriver409 = V1ErrorBody;
+export type FleetGetMyDriver429 = typeof FleetGetMyDriver429.Type;
+export const FleetGetMyDriver429 = V1ErrorBody;
+export type FleetGetMyDriver500 = typeof FleetGetMyDriver500.Type;
+export const FleetGetMyDriver500 = V1ErrorBody;
+export type FleetGetMyDriver501 = typeof FleetGetMyDriver501.Type;
+export const FleetGetMyDriver501 = V1ErrorBody;
+export type FleetGetMyDriver503 = typeof FleetGetMyDriver503.Type;
+export const FleetGetMyDriver503 = V1ErrorBody;
+export type FleetGetMyDriver504 = typeof FleetGetMyDriver504.Type;
+export const FleetGetMyDriver504 = V1ErrorBody;
+export type FleetStartIdentityCheckRequestJson = typeof FleetStartIdentityCheckRequestJson.Type;
+export const FleetStartIdentityCheckRequestJson = V1StartIdentityCheckRequest;
+export type FleetStartIdentityCheck200 = typeof FleetStartIdentityCheck200.Type;
+export const FleetStartIdentityCheck200 = V1StartIdentityCheckResponse;
+export type FleetStartIdentityCheck400 = typeof FleetStartIdentityCheck400.Type;
+export const FleetStartIdentityCheck400 = V1ErrorBody;
+export type FleetStartIdentityCheck401 = typeof FleetStartIdentityCheck401.Type;
+export const FleetStartIdentityCheck401 = V1ErrorBody;
+export type FleetStartIdentityCheck403 = typeof FleetStartIdentityCheck403.Type;
+export const FleetStartIdentityCheck403 = V1ErrorBody;
+export type FleetStartIdentityCheck404 = typeof FleetStartIdentityCheck404.Type;
+export const FleetStartIdentityCheck404 = V1ErrorBody;
+export type FleetStartIdentityCheck409 = typeof FleetStartIdentityCheck409.Type;
+export const FleetStartIdentityCheck409 = V1ErrorBody;
+export type FleetStartIdentityCheck429 = typeof FleetStartIdentityCheck429.Type;
+export const FleetStartIdentityCheck429 = V1ErrorBody;
+export type FleetStartIdentityCheck500 = typeof FleetStartIdentityCheck500.Type;
+export const FleetStartIdentityCheck500 = V1ErrorBody;
+export type FleetStartIdentityCheck501 = typeof FleetStartIdentityCheck501.Type;
+export const FleetStartIdentityCheck501 = V1ErrorBody;
+export type FleetStartIdentityCheck503 = typeof FleetStartIdentityCheck503.Type;
+export const FleetStartIdentityCheck503 = V1ErrorBody;
+export type FleetStartIdentityCheck504 = typeof FleetStartIdentityCheck504.Type;
+export const FleetStartIdentityCheck504 = V1ErrorBody;
+export type ReviewListParams = typeof ReviewListParams.Type;
+export const ReviewListParams = Schema.Struct({
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type ReviewListQuery = typeof ReviewListQuery.Type;
+export const ReviewListQuery = Schema.Struct({
+  "pageSize": Schema.optionalKey(
+    Schema.Number.annotate({ "format": "int32" }).check(
+      Schema.isInt().annotate({ "expected": "an integer" }),
+    ),
+  ),
+  "pageToken": Schema.optionalKey(Schema.String),
+});
+export type ReviewList200 = typeof ReviewList200.Type;
+export const ReviewList200 = V1ListReviewQueueResponse;
+export type ReviewList400 = typeof ReviewList400.Type;
+export const ReviewList400 = V1ErrorBody;
+export type ReviewList401 = typeof ReviewList401.Type;
+export const ReviewList401 = V1ErrorBody;
+export type ReviewList403 = typeof ReviewList403.Type;
+export const ReviewList403 = V1ErrorBody;
+export type ReviewList404 = typeof ReviewList404.Type;
+export const ReviewList404 = V1ErrorBody;
+export type ReviewList409 = typeof ReviewList409.Type;
+export const ReviewList409 = V1ErrorBody;
+export type ReviewList429 = typeof ReviewList429.Type;
+export const ReviewList429 = V1ErrorBody;
+export type ReviewList500 = typeof ReviewList500.Type;
+export const ReviewList500 = V1ErrorBody;
+export type ReviewList501 = typeof ReviewList501.Type;
+export const ReviewList501 = V1ErrorBody;
+export type ReviewList503 = typeof ReviewList503.Type;
+export const ReviewList503 = V1ErrorBody;
+export type ReviewList504 = typeof ReviewList504.Type;
+export const ReviewList504 = V1ErrorBody;
+export type ReviewDecideDocumentPathParams = typeof ReviewDecideDocumentPathParams.Type;
+export const ReviewDecideDocumentPathParams = Schema.Struct({ "documentId": DocumentId });
+export type ReviewDecideDocumentRequestJson = typeof ReviewDecideDocumentRequestJson.Type;
+export const ReviewDecideDocumentRequestJson = FleetServiceDecideDocumentBody;
+export type ReviewDecideDocument200 = typeof ReviewDecideDocument200.Type;
+export const ReviewDecideDocument200 = V1DecideDocumentResponse;
+export type ReviewDecideDocument400 = typeof ReviewDecideDocument400.Type;
+export const ReviewDecideDocument400 = V1ErrorBody;
+export type ReviewDecideDocument401 = typeof ReviewDecideDocument401.Type;
+export const ReviewDecideDocument401 = V1ErrorBody;
+export type ReviewDecideDocument403 = typeof ReviewDecideDocument403.Type;
+export const ReviewDecideDocument403 = V1ErrorBody;
+export type ReviewDecideDocument404 = typeof ReviewDecideDocument404.Type;
+export const ReviewDecideDocument404 = V1ErrorBody;
+export type ReviewDecideDocument409 = typeof ReviewDecideDocument409.Type;
+export const ReviewDecideDocument409 = V1ErrorBody;
+export type ReviewDecideDocument429 = typeof ReviewDecideDocument429.Type;
+export const ReviewDecideDocument429 = V1ErrorBody;
+export type ReviewDecideDocument500 = typeof ReviewDecideDocument500.Type;
+export const ReviewDecideDocument500 = V1ErrorBody;
+export type ReviewDecideDocument501 = typeof ReviewDecideDocument501.Type;
+export const ReviewDecideDocument501 = V1ErrorBody;
+export type ReviewDecideDocument503 = typeof ReviewDecideDocument503.Type;
+export const ReviewDecideDocument503 = V1ErrorBody;
+export type ReviewDecideDocument504 = typeof ReviewDecideDocument504.Type;
+export const ReviewDecideDocument504 = V1ErrorBody;
+export type ReviewDecideVehiclePathParams = typeof ReviewDecideVehiclePathParams.Type;
+export const ReviewDecideVehiclePathParams = Schema.Struct({ "vehicleId": VehicleId });
+export type ReviewDecideVehicleRequestJson = typeof ReviewDecideVehicleRequestJson.Type;
+export const ReviewDecideVehicleRequestJson = FleetServiceDecideVehicleBody;
+export type ReviewDecideVehicle200 = typeof ReviewDecideVehicle200.Type;
+export const ReviewDecideVehicle200 = V1DecideVehicleResponse;
+export type ReviewDecideVehicle400 = typeof ReviewDecideVehicle400.Type;
+export const ReviewDecideVehicle400 = V1ErrorBody;
+export type ReviewDecideVehicle401 = typeof ReviewDecideVehicle401.Type;
+export const ReviewDecideVehicle401 = V1ErrorBody;
+export type ReviewDecideVehicle403 = typeof ReviewDecideVehicle403.Type;
+export const ReviewDecideVehicle403 = V1ErrorBody;
+export type ReviewDecideVehicle404 = typeof ReviewDecideVehicle404.Type;
+export const ReviewDecideVehicle404 = V1ErrorBody;
+export type ReviewDecideVehicle409 = typeof ReviewDecideVehicle409.Type;
+export const ReviewDecideVehicle409 = V1ErrorBody;
+export type ReviewDecideVehicle429 = typeof ReviewDecideVehicle429.Type;
+export const ReviewDecideVehicle429 = V1ErrorBody;
+export type ReviewDecideVehicle500 = typeof ReviewDecideVehicle500.Type;
+export const ReviewDecideVehicle500 = V1ErrorBody;
+export type ReviewDecideVehicle501 = typeof ReviewDecideVehicle501.Type;
+export const ReviewDecideVehicle501 = V1ErrorBody;
+export type ReviewDecideVehicle503 = typeof ReviewDecideVehicle503.Type;
+export const ReviewDecideVehicle503 = V1ErrorBody;
+export type ReviewDecideVehicle504 = typeof ReviewDecideVehicle504.Type;
+export const ReviewDecideVehicle504 = V1ErrorBody;
+export type ReviewGetPathParams = typeof ReviewGetPathParams.Type;
+export const ReviewGetPathParams = Schema.Struct({ "driverId": UserId });
+export type ReviewGet200 = typeof ReviewGet200.Type;
+export const ReviewGet200 = V1GetReviewItemResponse;
+export type ReviewGet400 = typeof ReviewGet400.Type;
+export const ReviewGet400 = V1ErrorBody;
+export type ReviewGet401 = typeof ReviewGet401.Type;
+export const ReviewGet401 = V1ErrorBody;
+export type ReviewGet403 = typeof ReviewGet403.Type;
+export const ReviewGet403 = V1ErrorBody;
+export type ReviewGet404 = typeof ReviewGet404.Type;
+export const ReviewGet404 = V1ErrorBody;
+export type ReviewGet409 = typeof ReviewGet409.Type;
+export const ReviewGet409 = V1ErrorBody;
+export type ReviewGet429 = typeof ReviewGet429.Type;
+export const ReviewGet429 = V1ErrorBody;
+export type ReviewGet500 = typeof ReviewGet500.Type;
+export const ReviewGet500 = V1ErrorBody;
+export type ReviewGet501 = typeof ReviewGet501.Type;
+export const ReviewGet501 = V1ErrorBody;
+export type ReviewGet503 = typeof ReviewGet503.Type;
+export const ReviewGet503 = V1ErrorBody;
+export type ReviewGet504 = typeof ReviewGet504.Type;
+export const ReviewGet504 = V1ErrorBody;
+export type ReviewBlockPathParams = typeof ReviewBlockPathParams.Type;
+export const ReviewBlockPathParams = Schema.Struct({ "driverId": UserId });
+export type ReviewBlockRequestJson = typeof ReviewBlockRequestJson.Type;
+export const ReviewBlockRequestJson = FleetServiceBlockDriverBody;
+export type ReviewBlock200 = typeof ReviewBlock200.Type;
+export const ReviewBlock200 = V1BlockDriverResponse;
+export type ReviewBlock400 = typeof ReviewBlock400.Type;
+export const ReviewBlock400 = V1ErrorBody;
+export type ReviewBlock401 = typeof ReviewBlock401.Type;
+export const ReviewBlock401 = V1ErrorBody;
+export type ReviewBlock403 = typeof ReviewBlock403.Type;
+export const ReviewBlock403 = V1ErrorBody;
+export type ReviewBlock404 = typeof ReviewBlock404.Type;
+export const ReviewBlock404 = V1ErrorBody;
+export type ReviewBlock409 = typeof ReviewBlock409.Type;
+export const ReviewBlock409 = V1ErrorBody;
+export type ReviewBlock429 = typeof ReviewBlock429.Type;
+export const ReviewBlock429 = V1ErrorBody;
+export type ReviewBlock500 = typeof ReviewBlock500.Type;
+export const ReviewBlock500 = V1ErrorBody;
+export type ReviewBlock501 = typeof ReviewBlock501.Type;
+export const ReviewBlock501 = V1ErrorBody;
+export type ReviewBlock503 = typeof ReviewBlock503.Type;
+export const ReviewBlock503 = V1ErrorBody;
+export type ReviewBlock504 = typeof ReviewBlock504.Type;
+export const ReviewBlock504 = V1ErrorBody;
+export type FleetListVehicles200 = typeof FleetListVehicles200.Type;
+export const FleetListVehicles200 = V1ListVehiclesResponse;
+export type FleetListVehicles400 = typeof FleetListVehicles400.Type;
+export const FleetListVehicles400 = V1ErrorBody;
+export type FleetListVehicles401 = typeof FleetListVehicles401.Type;
+export const FleetListVehicles401 = V1ErrorBody;
+export type FleetListVehicles403 = typeof FleetListVehicles403.Type;
+export const FleetListVehicles403 = V1ErrorBody;
+export type FleetListVehicles404 = typeof FleetListVehicles404.Type;
+export const FleetListVehicles404 = V1ErrorBody;
+export type FleetListVehicles409 = typeof FleetListVehicles409.Type;
+export const FleetListVehicles409 = V1ErrorBody;
+export type FleetListVehicles429 = typeof FleetListVehicles429.Type;
+export const FleetListVehicles429 = V1ErrorBody;
+export type FleetListVehicles500 = typeof FleetListVehicles500.Type;
+export const FleetListVehicles500 = V1ErrorBody;
+export type FleetListVehicles501 = typeof FleetListVehicles501.Type;
+export const FleetListVehicles501 = V1ErrorBody;
+export type FleetListVehicles503 = typeof FleetListVehicles503.Type;
+export const FleetListVehicles503 = V1ErrorBody;
+export type FleetListVehicles504 = typeof FleetListVehicles504.Type;
+export const FleetListVehicles504 = V1ErrorBody;
+export type FleetAddVehicleRequestJson = typeof FleetAddVehicleRequestJson.Type;
+export const FleetAddVehicleRequestJson = V1AddVehicleRequest;
+export type FleetAddVehicle200 = typeof FleetAddVehicle200.Type;
+export const FleetAddVehicle200 = V1AddVehicleResponse;
+export type FleetAddVehicle400 = typeof FleetAddVehicle400.Type;
+export const FleetAddVehicle400 = V1ErrorBody;
+export type FleetAddVehicle401 = typeof FleetAddVehicle401.Type;
+export const FleetAddVehicle401 = V1ErrorBody;
+export type FleetAddVehicle403 = typeof FleetAddVehicle403.Type;
+export const FleetAddVehicle403 = V1ErrorBody;
+export type FleetAddVehicle404 = typeof FleetAddVehicle404.Type;
+export const FleetAddVehicle404 = V1ErrorBody;
+export type FleetAddVehicle409 = typeof FleetAddVehicle409.Type;
+export const FleetAddVehicle409 = V1ErrorBody;
+export type FleetAddVehicle429 = typeof FleetAddVehicle429.Type;
+export const FleetAddVehicle429 = V1ErrorBody;
+export type FleetAddVehicle500 = typeof FleetAddVehicle500.Type;
+export const FleetAddVehicle500 = V1ErrorBody;
+export type FleetAddVehicle501 = typeof FleetAddVehicle501.Type;
+export const FleetAddVehicle501 = V1ErrorBody;
+export type FleetAddVehicle503 = typeof FleetAddVehicle503.Type;
+export const FleetAddVehicle503 = V1ErrorBody;
+export type FleetAddVehicle504 = typeof FleetAddVehicle504.Type;
+export const FleetAddVehicle504 = V1ErrorBody;
+export type FleetRetireVehiclePathParams = typeof FleetRetireVehiclePathParams.Type;
+export const FleetRetireVehiclePathParams = Schema.Struct({ "vehicleId": VehicleId });
+export type FleetRetireVehicleRequestJson = typeof FleetRetireVehicleRequestJson.Type;
+export const FleetRetireVehicleRequestJson = FleetServiceRetireVehicleBody;
+export type FleetRetireVehicle200 = typeof FleetRetireVehicle200.Type;
+export const FleetRetireVehicle200 = V1RetireVehicleResponse;
+export type FleetRetireVehicle400 = typeof FleetRetireVehicle400.Type;
+export const FleetRetireVehicle400 = V1ErrorBody;
+export type FleetRetireVehicle401 = typeof FleetRetireVehicle401.Type;
+export const FleetRetireVehicle401 = V1ErrorBody;
+export type FleetRetireVehicle403 = typeof FleetRetireVehicle403.Type;
+export const FleetRetireVehicle403 = V1ErrorBody;
+export type FleetRetireVehicle404 = typeof FleetRetireVehicle404.Type;
+export const FleetRetireVehicle404 = V1ErrorBody;
+export type FleetRetireVehicle409 = typeof FleetRetireVehicle409.Type;
+export const FleetRetireVehicle409 = V1ErrorBody;
+export type FleetRetireVehicle429 = typeof FleetRetireVehicle429.Type;
+export const FleetRetireVehicle429 = V1ErrorBody;
+export type FleetRetireVehicle500 = typeof FleetRetireVehicle500.Type;
+export const FleetRetireVehicle500 = V1ErrorBody;
+export type FleetRetireVehicle501 = typeof FleetRetireVehicle501.Type;
+export const FleetRetireVehicle501 = V1ErrorBody;
+export type FleetRetireVehicle503 = typeof FleetRetireVehicle503.Type;
+export const FleetRetireVehicle503 = V1ErrorBody;
+export type FleetRetireVehicle504 = typeof FleetRetireVehicle504.Type;
+export const FleetRetireVehicle504 = V1ErrorBody;
 export type PaymentsCreateAccountSessionRequestJson =
   typeof PaymentsCreateAccountSessionRequestJson.Type;
 export const PaymentsCreateAccountSessionRequestJson = V1CreateAccountSessionRequest;
@@ -2550,6 +4132,306 @@ class DevicesGroup extends HttpApiGroup.make("devices")
   )
 {}
 
+class FleetGroup extends HttpApiGroup.make("fleet")
+  .add(
+    HttpApiEndpoint.get("listDocuments", "/v1/fleet/documents", {
+      success: FleetListDocuments200,
+      error: [
+        FleetListDocuments400.pipe(HttpApiSchema.status(400)),
+        FleetListDocuments401.pipe(HttpApiSchema.status(401)),
+        FleetListDocuments403.pipe(HttpApiSchema.status(403)),
+        FleetListDocuments404.pipe(HttpApiSchema.status(404)),
+        FleetListDocuments409.pipe(HttpApiSchema.status(409)),
+        FleetListDocuments429.pipe(HttpApiSchema.status(429)),
+        FleetListDocuments500,
+        FleetListDocuments501.pipe(HttpApiSchema.status(501)),
+        FleetListDocuments503.pipe(HttpApiSchema.status(503)),
+        FleetListDocuments504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "listDocuments")
+      .annotate(
+        OpenApi.Summary,
+        "ListDocuments is the caller's own documents. Reviewers read somebody\nelse's through the review queue.",
+      ),
+    HttpApiEndpoint.post("declareAuthorityDocument", "/v1/fleet/documents/authority", {
+      payload: FleetDeclareAuthorityDocumentRequestJson,
+      success: FleetDeclareAuthorityDocument200,
+      error: [
+        FleetDeclareAuthorityDocument400.pipe(HttpApiSchema.status(400)),
+        FleetDeclareAuthorityDocument401.pipe(HttpApiSchema.status(401)),
+        FleetDeclareAuthorityDocument403.pipe(HttpApiSchema.status(403)),
+        FleetDeclareAuthorityDocument404.pipe(HttpApiSchema.status(404)),
+        FleetDeclareAuthorityDocument409.pipe(HttpApiSchema.status(409)),
+        FleetDeclareAuthorityDocument429.pipe(HttpApiSchema.status(429)),
+        FleetDeclareAuthorityDocument500,
+        FleetDeclareAuthorityDocument501.pipe(HttpApiSchema.status(501)),
+        FleetDeclareAuthorityDocument503.pipe(HttpApiSchema.status(503)),
+        FleetDeclareAuthorityDocument504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "declareAuthorityDocument")
+      .annotate(
+        OpenApi.Summary,
+        "DeclareAuthorityDocument records that the driver has applied for a VOG or\na chauffeurskaart. Neither has an API: Justis answers in weeks and Kiwa\nposts a smartcard. Until evidence arrives the document waits, visibly,\nrather than blocking silently.",
+      ),
+    HttpApiEndpoint.post("startUpload", "/v1/fleet/documents/uploads", {
+      payload: FleetStartUploadRequestJson,
+      success: FleetStartUpload200,
+      error: [
+        FleetStartUpload400.pipe(HttpApiSchema.status(400)),
+        FleetStartUpload401.pipe(HttpApiSchema.status(401)),
+        FleetStartUpload403.pipe(HttpApiSchema.status(403)),
+        FleetStartUpload404.pipe(HttpApiSchema.status(404)),
+        FleetStartUpload409.pipe(HttpApiSchema.status(409)),
+        FleetStartUpload429.pipe(HttpApiSchema.status(429)),
+        FleetStartUpload500,
+        FleetStartUpload501.pipe(HttpApiSchema.status(501)),
+        FleetStartUpload503.pipe(HttpApiSchema.status(503)),
+        FleetStartUpload504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "startUpload")
+      .annotate(
+        OpenApi.Summary,
+        "StartUpload returns a link the app puts a file to, and the document it\nwill belong to. The file goes straight to storage: it never passes\nthrough this API, which is what keeps a scanned certificate from being\nbase64 in a JSON body.",
+      ),
+    HttpApiEndpoint.post("finishUpload", "/v1/fleet/documents/:documentId/finish", {
+      params: FleetFinishUploadPathParams,
+      payload: FleetFinishUploadRequestJson,
+      success: FleetFinishUpload200,
+      error: [
+        FleetFinishUpload400.pipe(HttpApiSchema.status(400)),
+        FleetFinishUpload401.pipe(HttpApiSchema.status(401)),
+        FleetFinishUpload403.pipe(HttpApiSchema.status(403)),
+        FleetFinishUpload404.pipe(HttpApiSchema.status(404)),
+        FleetFinishUpload409.pipe(HttpApiSchema.status(409)),
+        FleetFinishUpload429.pipe(HttpApiSchema.status(429)),
+        FleetFinishUpload500,
+        FleetFinishUpload501.pipe(HttpApiSchema.status(501)),
+        FleetFinishUpload503.pipe(HttpApiSchema.status(503)),
+        FleetFinishUpload504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "finishUpload")
+      .annotate(
+        OpenApi.Summary,
+        "FinishUpload says the file arrived. The document moves to submitted, and\nwhat can be read off it is read before a person sees it.",
+      ),
+    HttpApiEndpoint.get("getMyDriver", "/v1/fleet/driver", {
+      success: FleetGetMyDriver200,
+      error: [
+        FleetGetMyDriver400.pipe(HttpApiSchema.status(400)),
+        FleetGetMyDriver401.pipe(HttpApiSchema.status(401)),
+        FleetGetMyDriver403.pipe(HttpApiSchema.status(403)),
+        FleetGetMyDriver404.pipe(HttpApiSchema.status(404)),
+        FleetGetMyDriver409.pipe(HttpApiSchema.status(409)),
+        FleetGetMyDriver429.pipe(HttpApiSchema.status(429)),
+        FleetGetMyDriver500,
+        FleetGetMyDriver501.pipe(HttpApiSchema.status(501)),
+        FleetGetMyDriver503.pipe(HttpApiSchema.status(503)),
+        FleetGetMyDriver504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "getMyDriver")
+      .annotate(
+        OpenApi.Summary,
+        "GetMyDriver is the caller's own standing: what is done, what is waiting,\nand what they must do next.",
+      ),
+    HttpApiEndpoint.post("startIdentityCheck", "/v1/fleet/identity", {
+      payload: FleetStartIdentityCheckRequestJson,
+      success: FleetStartIdentityCheck200,
+      error: [
+        FleetStartIdentityCheck400.pipe(HttpApiSchema.status(400)),
+        FleetStartIdentityCheck401.pipe(HttpApiSchema.status(401)),
+        FleetStartIdentityCheck403.pipe(HttpApiSchema.status(403)),
+        FleetStartIdentityCheck404.pipe(HttpApiSchema.status(404)),
+        FleetStartIdentityCheck409.pipe(HttpApiSchema.status(409)),
+        FleetStartIdentityCheck429.pipe(HttpApiSchema.status(429)),
+        FleetStartIdentityCheck500,
+        FleetStartIdentityCheck501.pipe(HttpApiSchema.status(501)),
+        FleetStartIdentityCheck503.pipe(HttpApiSchema.status(503)),
+        FleetStartIdentityCheck504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "startIdentityCheck")
+      .annotate(
+        OpenApi.Summary,
+        "StartIdentityCheck opens a verification session and returns the link the\ndriver finishes it at. Starting one again while a session is open returns\nthat session rather than paying for a second.",
+      ),
+    HttpApiEndpoint.get("listVehicles", "/v1/fleet/vehicles", {
+      success: FleetListVehicles200,
+      error: [
+        FleetListVehicles400.pipe(HttpApiSchema.status(400)),
+        FleetListVehicles401.pipe(HttpApiSchema.status(401)),
+        FleetListVehicles403.pipe(HttpApiSchema.status(403)),
+        FleetListVehicles404.pipe(HttpApiSchema.status(404)),
+        FleetListVehicles409.pipe(HttpApiSchema.status(409)),
+        FleetListVehicles429.pipe(HttpApiSchema.status(429)),
+        FleetListVehicles500,
+        FleetListVehicles501.pipe(HttpApiSchema.status(501)),
+        FleetListVehicles503.pipe(HttpApiSchema.status(503)),
+        FleetListVehicles504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "listVehicles")
+      .annotate(OpenApi.Summary, "ListVehicles is the caller's vehicles, newest first."),
+    HttpApiEndpoint.post("addVehicle", "/v1/fleet/vehicles", {
+      payload: FleetAddVehicleRequestJson,
+      success: FleetAddVehicle200,
+      error: [
+        FleetAddVehicle400.pipe(HttpApiSchema.status(400)),
+        FleetAddVehicle401.pipe(HttpApiSchema.status(401)),
+        FleetAddVehicle403.pipe(HttpApiSchema.status(403)),
+        FleetAddVehicle404.pipe(HttpApiSchema.status(404)),
+        FleetAddVehicle409.pipe(HttpApiSchema.status(409)),
+        FleetAddVehicle429.pipe(HttpApiSchema.status(429)),
+        FleetAddVehicle500,
+        FleetAddVehicle501.pipe(HttpApiSchema.status(501)),
+        FleetAddVehicle503.pipe(HttpApiSchema.status(503)),
+        FleetAddVehicle504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "addVehicle")
+      .annotate(
+        OpenApi.Summary,
+        "AddVehicle registers a car by its plate. The register is asked what the\ncar is, so a driver types six characters rather than a form: make, model,\ncolour, seats, its APK expiry, whether it is registered for taxi use and\nwhether it is insured all come back from the RDW.",
+      ),
+    HttpApiEndpoint.post("retireVehicle", "/v1/fleet/vehicles/:vehicleId/retire", {
+      params: FleetRetireVehiclePathParams,
+      payload: FleetRetireVehicleRequestJson,
+      success: FleetRetireVehicle200,
+      error: [
+        FleetRetireVehicle400.pipe(HttpApiSchema.status(400)),
+        FleetRetireVehicle401.pipe(HttpApiSchema.status(401)),
+        FleetRetireVehicle403.pipe(HttpApiSchema.status(403)),
+        FleetRetireVehicle404.pipe(HttpApiSchema.status(404)),
+        FleetRetireVehicle409.pipe(HttpApiSchema.status(409)),
+        FleetRetireVehicle429.pipe(HttpApiSchema.status(429)),
+        FleetRetireVehicle500,
+        FleetRetireVehicle501.pipe(HttpApiSchema.status(501)),
+        FleetRetireVehicle503.pipe(HttpApiSchema.status(503)),
+        FleetRetireVehicle504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "retireVehicle")
+      .annotate(
+        OpenApi.Summary,
+        "RetireVehicle takes a car off the road for this driver, freeing its plate.",
+      ),
+  )
+{}
+
+class ReviewGroup extends HttpApiGroup.make("review")
+  .add(
+    HttpApiEndpoint.get("list", "/v1/fleet/review", {
+      query: ReviewListQuery,
+      success: ReviewList200,
+      error: [
+        ReviewList400.pipe(HttpApiSchema.status(400)),
+        ReviewList401.pipe(HttpApiSchema.status(401)),
+        ReviewList403.pipe(HttpApiSchema.status(403)),
+        ReviewList404.pipe(HttpApiSchema.status(404)),
+        ReviewList409.pipe(HttpApiSchema.status(409)),
+        ReviewList429.pipe(HttpApiSchema.status(429)),
+        ReviewList500,
+        ReviewList501.pipe(HttpApiSchema.status(501)),
+        ReviewList503.pipe(HttpApiSchema.status(503)),
+        ReviewList504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "list")
+      .annotate(
+        OpenApi.Summary,
+        "ListReviewQueue is what is waiting for a reviewer, oldest first. Ops only.",
+      ),
+    HttpApiEndpoint.post("decideDocument", "/v1/fleet/review/documents/:documentId", {
+      params: ReviewDecideDocumentPathParams,
+      payload: ReviewDecideDocumentRequestJson,
+      success: ReviewDecideDocument200,
+      error: [
+        ReviewDecideDocument400.pipe(HttpApiSchema.status(400)),
+        ReviewDecideDocument401.pipe(HttpApiSchema.status(401)),
+        ReviewDecideDocument403.pipe(HttpApiSchema.status(403)),
+        ReviewDecideDocument404.pipe(HttpApiSchema.status(404)),
+        ReviewDecideDocument409.pipe(HttpApiSchema.status(409)),
+        ReviewDecideDocument429.pipe(HttpApiSchema.status(429)),
+        ReviewDecideDocument500,
+        ReviewDecideDocument501.pipe(HttpApiSchema.status(501)),
+        ReviewDecideDocument503.pipe(HttpApiSchema.status(503)),
+        ReviewDecideDocument504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "decideDocument")
+      .annotate(
+        OpenApi.Summary,
+        "DecideDocument approves or rejects one document, with the expiry the\nreviewer read off it. Ops only.",
+      ),
+    HttpApiEndpoint.post("decideVehicle", "/v1/fleet/review/vehicles/:vehicleId", {
+      params: ReviewDecideVehiclePathParams,
+      payload: ReviewDecideVehicleRequestJson,
+      success: ReviewDecideVehicle200,
+      error: [
+        ReviewDecideVehicle400.pipe(HttpApiSchema.status(400)),
+        ReviewDecideVehicle401.pipe(HttpApiSchema.status(401)),
+        ReviewDecideVehicle403.pipe(HttpApiSchema.status(403)),
+        ReviewDecideVehicle404.pipe(HttpApiSchema.status(404)),
+        ReviewDecideVehicle409.pipe(HttpApiSchema.status(409)),
+        ReviewDecideVehicle429.pipe(HttpApiSchema.status(429)),
+        ReviewDecideVehicle500,
+        ReviewDecideVehicle501.pipe(HttpApiSchema.status(501)),
+        ReviewDecideVehicle503.pipe(HttpApiSchema.status(503)),
+        ReviewDecideVehicle504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "decideVehicle")
+      .annotate(OpenApi.Summary, "DecideVehicle approves or rejects a vehicle. Ops only."),
+    HttpApiEndpoint.get("get", "/v1/fleet/review/:driverId", {
+      params: ReviewGetPathParams,
+      success: ReviewGet200,
+      error: [
+        ReviewGet400.pipe(HttpApiSchema.status(400)),
+        ReviewGet401.pipe(HttpApiSchema.status(401)),
+        ReviewGet403.pipe(HttpApiSchema.status(403)),
+        ReviewGet404.pipe(HttpApiSchema.status(404)),
+        ReviewGet409.pipe(HttpApiSchema.status(409)),
+        ReviewGet429.pipe(HttpApiSchema.status(429)),
+        ReviewGet500,
+        ReviewGet501.pipe(HttpApiSchema.status(501)),
+        ReviewGet503.pipe(HttpApiSchema.status(503)),
+        ReviewGet504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "get")
+      .annotate(
+        OpenApi.Summary,
+        "GetReviewItem is one driver's whole case: their standing, their vehicles,\ntheir documents, and a link to each file that lasts as long as the review.\nOps only.",
+      ),
+    HttpApiEndpoint.post("block", "/v1/fleet/review/:driverId/block", {
+      params: ReviewBlockPathParams,
+      payload: ReviewBlockRequestJson,
+      success: ReviewBlock200,
+      error: [
+        ReviewBlock400.pipe(HttpApiSchema.status(400)),
+        ReviewBlock401.pipe(HttpApiSchema.status(401)),
+        ReviewBlock403.pipe(HttpApiSchema.status(403)),
+        ReviewBlock404.pipe(HttpApiSchema.status(404)),
+        ReviewBlock409.pipe(HttpApiSchema.status(409)),
+        ReviewBlock429.pipe(HttpApiSchema.status(429)),
+        ReviewBlock500,
+        ReviewBlock501.pipe(HttpApiSchema.status(501)),
+        ReviewBlock503.pipe(HttpApiSchema.status(503)),
+        ReviewBlock504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "block")
+      .annotate(
+        OpenApi.Summary,
+        "BlockDriver stops a driver being offered work, with a reason. Ops only.",
+      ),
+  )
+{}
+
 class PaymentsGroup extends HttpApiGroup.make("payments")
   .add(
     HttpApiEndpoint.post("createAccountSession", "/v1/payments/account-sessions", {
@@ -3102,5 +4984,14 @@ class TripsGroup extends HttpApiGroup.make("trips")
 export class SurgeApi extends HttpApi.make("SurgeApi")
   .annotate(OpenApi.Title, "trip.proto")
   .annotate(OpenApi.Version, "version not set")
-  .add(ChatGroup, DevicesGroup, PaymentsGroup, SimulatorGroup, SupportGroup, TripsGroup)
+  .add(
+    ChatGroup,
+    DevicesGroup,
+    FleetGroup,
+    ReviewGroup,
+    PaymentsGroup,
+    SimulatorGroup,
+    SupportGroup,
+    TripsGroup,
+  )
 {}
