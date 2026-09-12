@@ -19,8 +19,11 @@ const BANNED = [
   { pattern: /@effect\/platform-browser/, why: "browser-only; apps/web provides it at the edge" },
   { pattern: /@effect\/platform-node/, why: "Node-only; nothing shared may assume a Node runtime" },
   { pattern: /\bfrom\s+["']node:/, why: "Node built-ins are not available in React Native" },
-  { pattern: /\bwindow\./, why: "no DOM globals in shared code" },
-  { pattern: /\bdocument\./, why: "no DOM globals in shared code" },
+  // Bare globals only. `response.document.id` is a field on an API response
+  // and `started.window.close` would be somebody's property; neither is the
+  // DOM. The lookbehind is what tells those apart from a real `document.body`.
+  { pattern: /(?<![.\w$])window\./, why: "no DOM globals in shared code" },
+  { pattern: /(?<![.\w$])document\./, why: "no DOM globals in shared code" },
   { pattern: /\blocalStorage\b/, why: "storage differs per platform; inject it" },
 ];
 
@@ -35,6 +38,20 @@ const stripComments = (source: string): string =>
   source
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+/**
+ * String literals are stripped too, and for the same reason.
+ *
+ * `api/SurgeApi.ts` is generated, and it carries every description written in
+ * `proto/*.proto` as a string. A sentence that ends "...read off the
+ * document." is prose about a driver's paperwork, and reading it as a DOM
+ * global would make the proto's comments unwritable.
+ */
+const stripStrings = (source: string): string =>
+  source
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, "\"\"")
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/`(?:[^`\\]|\\.)*`/g, "``");
 
 const sourceFiles = (root: string): ReadonlyArray<string> => {
   const found: Array<string> = [];
@@ -67,7 +84,7 @@ describe("shared packages stay platform-free", () => {
       const offences: Array<string> = [];
 
       for (const file of sourceFiles(root)) {
-        const contents = stripComments(fs.readFileSync(file, "utf8"));
+        const contents = stripStrings(stripComments(fs.readFileSync(file, "utf8")));
 
         for (const { pattern, why } of BANNED) {
           if (pattern.test(contents)) {

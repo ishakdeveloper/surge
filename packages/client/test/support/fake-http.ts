@@ -10,6 +10,8 @@ export interface FakeHttpRequest {
   readonly method: string;
   readonly path: string;
   readonly query: URLSearchParams;
+  /** The bearer token, when the caller sent one. Absent on a presigned link. */
+  readonly authorization: string | undefined;
   /** The JSON body, when there was one. */
   readonly body: unknown;
 }
@@ -19,8 +21,21 @@ export interface FakeHttpResponse {
   readonly body: unknown;
 }
 
-const jsonBody = (body: HttpBody.HttpBody): unknown =>
-  body._tag === "Uint8Array" ? JSON.parse(new TextDecoder().decode(body.body)) : undefined;
+/**
+ * The JSON body, when there was one.
+ *
+ * A document upload puts bytes at a presigned link, so not every body is JSON
+ * — and a test client that threw on a PDF would be failing the thing it is
+ * meant to observe.
+ */
+const jsonBody = (body: HttpBody.HttpBody): unknown => {
+  if (body._tag !== "Uint8Array") return undefined;
+  try {
+    return JSON.parse(new TextDecoder().decode(body.body));
+  } catch {
+    return undefined;
+  }
+};
 
 /** The gateway's answer to a route nobody wrote, so a forgotten route fails the way the app would. */
 export const notFound = (request: FakeHttpRequest): FakeHttpResponse => ({
@@ -35,6 +50,7 @@ export const fakeHttp = (answer: (request: FakeHttpRequest) => FakeHttpResponse)
   const layer = Layer.succeed(HttpClient.HttpClient)(
     HttpClient.make((request, url) => {
       const received: FakeHttpRequest = {
+        authorization: request.headers["authorization"],
         method: request.method,
         path: url.pathname,
         query: url.searchParams,
