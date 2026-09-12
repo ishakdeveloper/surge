@@ -33,6 +33,7 @@ images:
   - { name: surge/matcher, newName: ghcr.io/ishakdeveloper/surge-matcher, newTag: latest }
   - { name: surge/trip, newName: ghcr.io/ishakdeveloper/surge-trip, newTag: latest }
   - { name: surge/chat, newName: ghcr.io/ishakdeveloper/surge-chat, newTag: latest }
+  - { name: surge/fleet, newName: ghcr.io/ishakdeveloper/surge-fleet, newTag: latest }
   - { name: surge/migrate, newName: ghcr.io/ishakdeveloper/surge-migrate, newTag: latest }
 
 configMapGenerator:
@@ -47,6 +48,10 @@ configMapGenerator:
       # Real phones. EXPO_ACCESS_TOKEN, if the project requires one, belongs in
       # the secret.
       - CHAT_PUSH_PROVIDER=expo
+      # Real drivers, real documents. The keys are in the secret.
+      - FLEET_IDENTITY_PROVIDER=stripe
+      - FLEET_DOCUMENT_STORE=r2
+      - FLEET_REGISTER=rdw
 
 patches:
   # Pull from a registry, unlike development where images are built locally and
@@ -81,6 +86,8 @@ patches:
   - target: { kind: Deployment, name: trip }
     path: patch-managed-services.yaml
   - target: { kind: Deployment, name: chat }
+    path: patch-managed-services.yaml
+  - target: { kind: Deployment, name: fleet }
     path: patch-managed-services.yaml
   - target: { kind: Deployment, name: ingest }
     path: patch-managed-services.yaml
