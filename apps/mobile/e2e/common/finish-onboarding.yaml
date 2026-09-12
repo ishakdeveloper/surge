@@ -53,13 +53,15 @@ appId: ${APP_ID || 'com.ishakdeveloper.surge'}
     timeout: 15000
 
 # Whatever the role's money step is — a card for a rider, payouts for a driver
-# — it goes through Stripe, which a flow cannot fill in.
+# — it goes through Stripe, which a flow cannot fill in. An account that
+# already has a card offers Continue instead of the skip, so the step is left
+# by whichever of the two it is showing.
 - extendedWaitUntil:
     visible:
       text: "Add your card|Get paid"
     timeout: 15000
 - tapOn:
-    text: "Skip for now"
+    text: "Skip for now|Continue"
     retryTapIfNoChange: true
 - extendedWaitUntil:
     notVisible:

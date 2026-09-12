@@ -221,6 +221,24 @@ dev-mobile-build: ## Build and run the development client on the iOS simulator, 
 #   PAYMENTS_PROCESSOR=fake make dev-payments
 #   EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY= make dev-mobile
 #   cd apps/mobile && ~/.maestro/bin/maestro test e2e/book-a-ride.yaml
+#
+# The same path against the real Stripe wants the card saved out of band,
+# since nothing here types a card number. Stripe's own test payment method is
+# an identifier rather than a card, so the app's SetupIntent can be confirmed
+# with it and the app then finds a saved Visa waiting:
+#
+#   make stripe-listen                       # the webhooks are half the flow
+#   curl -XPOST $SURGE/v1/payments/setup-intents -H "authorization: Bearer $T"
+#   stripe setup_intents confirm seti_... -d payment_method=pm_card_visa
+#
+# What follows is all real: a manual-capture hold on booking
+# (payment_intent.amount_capturable_updated), the capture when the driver
+# completes (payment_intent.succeeded), and the release on a cancelled or
+# unmatched trip (payment_intent.canceled). A completed trip needs a driver
+# who is really there — the simulator's drivers accept an offer but never
+# arrive, so scale them to zero (PUT /v1/simulator, ops only) and put a real
+# driver on shift. A driver is on shift by the `status` in their ping: `idle`
+# is online and free.
 e2e-mobile: ## Run the Maestro flows in apps/mobile/e2e
 	cd apps/mobile && ~/.maestro/bin/maestro test e2e/sign-up-rider-by-email.yaml e2e/sign-up-driver-by-phone.yaml
 
