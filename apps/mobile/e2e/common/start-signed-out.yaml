@@ -25,7 +25,7 @@ appId: ${APP_ID || 'host.exp.Exponent'}
 # the screen underneath — so it counts as loaded, and is closed first.
 - extendedWaitUntil:
     visible:
-      text: "Email me a code|Account.*|This is the developer menu.*"
+      text: "Email me a code|Account.*|Get started|This is the developer menu.*"
     timeout: 90000
 - runFlow:
     when:
@@ -37,16 +37,37 @@ appId: ${APP_ID || 'host.exp.Exponent'}
 # menu may still be sliding away.
 - extendedWaitUntil:
     visible:
-      text: "Email me a code|Account.*"
+      text: "Email me a code|Account.*|Get started"
     timeout: 30000
+# An account that signed in but never finished onboarding lands there instead
+# of on a tab, and onboarding has no tabs to reach the account from.
+- runFlow:
+    when:
+      visible: "Get started"
+    commands:
+      - tapOn: "Skip setup"
+      - extendedWaitUntil:
+          visible: "Account.*"
+          timeout: 30000
 - runFlow:
     when:
       visible: "Account.*"
     commands:
       - tapOn: "Account.*"
+      # Centred, not merely on screen: the tab bar floats over the bottom of
+      # every tab, and a tap on an element under it goes to the bar instead.
       - scrollUntilVisible:
-          element: "Sign out"
-      - tapOn: "Sign out"
+          element:
+            id: "sign-out"
+          centerElement: true
+      - tapOn:
+          id: "sign-out"
+      # Signing out is asked once first: it is a long way back in with a code.
+      - extendedWaitUntil:
+          visible: "Sign out of Surge?"
+          timeout: 10000
+      - tapOn:
+          id: "confirm-sign-out"
 - extendedWaitUntil:
     visible: "Email me a code"
     timeout: 30000

@@ -1,10 +1,11 @@
+import { PressableScale } from "@/components/motion/pressable-scale.js";
 import { Text } from "@/components/ui/text.js";
 import { colors } from "@/lib/theme.js";
 import { cn } from "@/lib/utils.js";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { cva } from "class-variance-authority";
 import * as React from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 /**
  * A card on the rider's sheet — the web's `components/sign/sign.tsx` for the
@@ -71,13 +72,14 @@ export const Sign = (
  */
 export const SignButton = (
   { tone = "choice", className, ...props }:
-    & React.ComponentProps<typeof Pressable>
+    & React.ComponentProps<typeof PressableScale>
     & { readonly tone?: Tone; },
 ) => (
   <ToneContext.Provider value={tone}>
-    <Pressable
-      accessibilityRole="button"
-      className={cn(signVariants({ tone }), "active:scale-[0.985] active:opacity-90", className)}
+    <PressableScale
+      feedback="select"
+      scaleTo={0.985}
+      className={cn(signVariants({ tone }), className)}
       {...props}
     />
   </ToneContext.Provider>
@@ -156,14 +158,14 @@ export const Action = (props: {
   readonly size: "sm" | "block";
   readonly disabled: boolean;
 }) => (
-  <Pressable
-    accessibilityRole="button"
+  <PressableScale
     accessibilityState={{ disabled: props.disabled }}
     disabled={props.disabled}
     onPress={props.onPress}
+    feedback={props.tone === "danger" ? "warning" : "tap"}
     hitSlop={props.size === "sm" ? 8 : 0}
     className={cn(
-      "items-center justify-center rounded-full active:scale-[0.97]",
+      "items-center justify-center rounded-full",
       props.size === "sm" ? "h-8 px-3.5" : "h-12 w-full px-6",
       props.disabled && props.tone === "primary" ? "bg-tile" : ACTION_BOX[props.tone],
     )}
@@ -177,5 +179,5 @@ export const Action = (props: {
     >
       {props.label}
     </Text>
-  </Pressable>
+  </PressableScale>
 );

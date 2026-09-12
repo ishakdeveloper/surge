@@ -36,8 +36,8 @@ describe("booking a ride", () => {
     await renderScreen(<BookRide />, { routes, requests });
 
     await fireEvent.press(await screen.findByText("Centraal → Rijksmuseum"));
-    await fireEvent.press(await screen.findByText("sedan"));
-    await fireEvent.press(screen.getByText("Book this ride"));
+    await fireEvent.press(await screen.findByText("Surge"));
+    await fireEvent.press(screen.getByText("Go · Surge"));
 
     await waitFor(() => {
       expect(requests.some((request) => request.method === "POST" && request.path === "/v1/trips"))
@@ -48,16 +48,23 @@ describe("booking a ride", () => {
       request.path === "/v1/trips" && request.method === "POST"
     );
     expect(booking?.body).toEqual({ fareId: FARE_ID, idempotencyKey: expect.any(String) });
-    // Every call went out with the platform's token, attached by the shared client.
-    expect(requests.every((request) => request.authorization === "Bearer fake-token")).toBe(true);
+    // Every call to Surge went out with the platform's token, attached by the
+    // shared client. The stops' names come from the geocoder, which takes none.
+    expect(
+      requests
+        .filter((request) => request.path.startsWith("/v1/"))
+        .every((request) => request.authorization === "Bearer fake-token"),
+    ).toBe(true);
   });
 
-  it("holds the Book button back until a fare is chosen", async () => {
+  it("holds Go back until the route is priced, then offers the first class", async () => {
     await renderScreen(<BookRide />, { routes });
 
-    await fireEvent.press(await screen.findByText("Centraal → Rijksmuseum"));
-    await screen.findByText("sedan");
+    expect(await screen.findByRole("button", { name: /^Choose where to/ })).toBeDisabled();
 
-    expect(screen.getByRole("button", { name: "Book this ride" })).toBeDisabled();
+    await fireEvent.press(await screen.findByText("Centraal → Rijksmuseum"));
+    await screen.findByText("Surge");
+
+    expect(screen.getByRole("button", { name: /^Go · Surge/ })).toBeEnabled();
   });
 });

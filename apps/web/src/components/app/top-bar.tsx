@@ -1,13 +1,25 @@
 import { sessionAtom, signOut } from "@/atom/session-atoms.js";
 import { SurgeMark } from "@/components/app/surge-mark.js";
 import { cn } from "@/lib/utils.js";
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomMount, useAtomValue } from "@effect/atom-react";
+import { chatPushesAtom, conversationsAtom } from "@surge/common/atom/chat-atoms";
+import { myProfileAtom } from "@surge/common/atom/profile-atoms";
 import type { Role } from "@surge/domain/iam/Identity";
 import type { LinkProps } from "@tanstack/react-router";
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { Car, CreditCard, Gauge, LogOut, Navigation, UserRound, Wallet } from "lucide-react";
+import {
+  Car,
+  CreditCard,
+  Gauge,
+  LifeBuoy,
+  LogOut,
+  MessageCircle,
+  Navigation,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
@@ -21,16 +33,19 @@ export const nav: ReadonlyArray<{
   readonly label: string;
   readonly icon: LucideIcon;
   /** Who the page is for. The others see it only in the palette. */
-  readonly role: Role;
+  readonly roles: ReadonlyArray<Role>;
   readonly exact?: boolean;
 }> = [
   // Exact, or Ride would stay lit beside Payment, and Drive beside Earnings,
   // while either child page is open.
-  { to: "/ride", label: "Ride", icon: Car, role: "rider", exact: true },
-  { to: "/ride/payment", label: "Payment", icon: CreditCard, role: "rider" },
-  { to: "/drive", label: "Drive", icon: Navigation, role: "driver", exact: true },
-  { to: "/drive/earnings", label: "Earnings", icon: Wallet, role: "driver" },
-  { to: "/console", label: "Console", icon: Gauge, role: "ops" },
+  { to: "/ride", label: "Ride", icon: Car, roles: ["rider"], exact: true },
+  { to: "/ride/payment", label: "Payment", icon: CreditCard, roles: ["rider"] },
+  { to: "/drive", label: "Drive", icon: Navigation, roles: ["driver"], exact: true },
+  { to: "/drive/earnings", label: "Earnings", icon: Wallet, roles: ["driver"] },
+  // Not exact: a conversation opened from the list keeps Messages lit.
+  { to: "/messages", label: "Messages", icon: MessageCircle, roles: ["rider", "driver"] },
+  { to: "/console", label: "Console", icon: Gauge, roles: ["ops"] },
+  { to: "/support", label: "Support", icon: LifeBuoy, roles: ["ops"] },
 ];
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
@@ -51,7 +66,7 @@ export const TopBar = (props: { readonly contact: string; readonly onSignOut: ()
   );
   const matchRoute = useMatchRoute();
   // Until the session is known every link shows, rather than none.
-  const links = nav.filter((item) => role === undefined || item.role === role);
+  const links = nav.filter((item) => role === undefined || item.roles.includes(role));
   const current = links.find((item) =>
     matchRoute({ to: item.to, fuzzy: item.exact !== true }) !== false
   )?.to;
@@ -97,6 +112,7 @@ export const TopBar = (props: { readonly contact: string; readonly onSignOut: ()
                   />
                 )}
                 <span className="relative">{label}</span>
+                {to === "/messages" && role !== undefined && role !== "ops" && <UnreadDot />}
               </Link>
             );
           })}
@@ -106,6 +122,45 @@ export const TopBar = (props: { readonly contact: string; readonly onSignOut: ()
       </motion.header>
     </div>
   );
+};
+
+/**
+ * A yellow dot on Messages while anything in them is unread: there is
+ * something to read, which is the next thing to do. Mounting it keeps the
+ * conversation list current with the socket's doorbells on every page, so the
+ * dot comes and goes without a reload.
+ */
+const UnreadDot = () => {
+  useAtomMount(chatPushesAtom);
+  const unread = useAtomValue(
+    conversationsAtom,
+    (conversations) =>
+      AsyncResult.isSuccess(conversations)
+        ? conversations.value.reduce((total, conversation) => total + conversation.unread, 0)
+        : 0,
+  );
+  if (unread === 0) return null;
+  return (
+    <>
+      <span className="sr-only">, {unread} unread</span>
+      <span
+        aria-hidden
+        className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary shadow-[0_0_0_2px_var(--secondary)] motion-safe:animate-pop-in"
+      />
+    </>
+  );
+};
+
+/** The account button's face: the photo once there is one, the initial until then. */
+const MyFace = (props: { readonly initial: string | undefined; }) => {
+  const photo = useAtomValue(
+    myProfileAtom,
+    (profile) => AsyncResult.isSuccess(profile) ? profile.value.avatarUrl : "",
+  );
+  if (photo !== "") {
+    return <img src={photo} alt="" draggable={false} className="size-full object-cover" />;
+  }
+  return props.initial ?? <UserRound className="size-4" aria-hidden />;
 };
 
 /**
@@ -153,9 +208,9 @@ const AccountMenu = (props: { readonly contact: string; readonly onSignOut: () =
         onClick={() => {
           setOpen((current) => !current);
         }}
-        className="grid size-10 cursor-pointer place-items-center rounded-full bg-white/12 text-[15px] font-bold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-white/20 active:scale-95"
+        className="grid size-10 cursor-pointer place-items-center overflow-hidden rounded-full bg-white/12 text-[15px] font-bold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-white/20 active:scale-95"
       >
-        {initial ?? <UserRound className="size-4" aria-hidden />}
+        <MyFace initial={initial} />
       </button>
 
       <AnimatePresence>
@@ -173,6 +228,17 @@ const AccountMenu = (props: { readonly contact: string; readonly onSignOut: () =
             <p className="truncate px-3 pt-2 pb-2.5 text-sm text-muted-foreground">
               Signed in as <span className="font-semibold text-foreground">{props.contact}</span>
             </p>
+            <Link
+              to="/account"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+              }}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition-colors duration-100 hover:bg-tile"
+            >
+              <UserRound className="size-4 text-muted-foreground" aria-hidden />
+              Your profile
+            </Link>
             <button
               type="button"
               role="menuitem"

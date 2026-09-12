@@ -1,0 +1,102 @@
+# A rider saves a card, books a trip, and watches it reach the matcher.
+#
+# This is the one flow that needs money to be fake, because a real card is
+# entered in Stripe's own sheet and no flow may type card details:
+#
+#   PAYMENTS_PROCESSOR=fake make dev-payments
+#   EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY= make dev-mobile
+#
+# Without a publishable key the app saves the fake processor's test card with a
+# plain button, which is what "Save test card" below is. With
+# TRIP_REQUIRE_PAYMENT=true the booking waits in `payment_pending` until the
+# fare is held, so both statuses below are the honest ones to wait for.
+appId: ${APP_ID || 'host.exp.Exponent'}
+---
+- runFlow: common/start-signed-out.yaml
+- evalScript: ${output.email = 'rider-' + Date.now() + '@example.com'}
+- tapOn:
+    id: "field-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "role-rider"
+- tapOn: "Email me a code"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 15000
+- runScript:
+    file: scripts/latest-code.js
+    env:
+      TO: ${output.email}
+      AUTH_URL: ${AUTH_URL || 'http://localhost:3200'}
+- tapOn:
+    id: "field-code"
+- inputText: ${output.code}
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+
+# Onboarding, as far as the card: the name, then the card itself.
+- extendedWaitUntil:
+    visible: "Get started"
+    timeout: 30000
+- tapOn: "Get started"
+- extendedWaitUntil:
+    visible: "Your name and photo"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "field-first-name"
+    centerElement: true
+- tapOn:
+    id: "field-first-name"
+- inputText: "Ada"
+# The keyboard's Done saves the name. Return reaches the footer too, so the
+# step may already have moved on; either state is fine.
+- pressKey: Enter
+- runFlow:
+    when:
+      visible: "Your name and photo"
+    commands:
+      - tapOn: "Continue|Skip for now"
+
+- extendedWaitUntil:
+    visible: "Add your card"
+    timeout: 15000
+- tapOn: "Save test card"
+- extendedWaitUntil:
+    visible: "Visa.*"
+    timeout: 30000
+- tapOn: "Continue"
+
+- extendedWaitUntil:
+    visible: "Start where you are"
+    timeout: 15000
+- tapOn: "Skip for now"
+- extendedWaitUntil:
+    visible: "You are set"
+    timeout: 15000
+- tapOn: "Book your first ride"
+
+# The booking itself: a preset's two stops, the quote, then Go.
+# The stops read as one label each — "To, Where to?" — so the match has to
+# allow what surrounds it.
+- extendedWaitUntil:
+    visible: ".*Where to.*"
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Centraal → Rijksmuseum.*"
+- tapOn: "Centraal → Rijksmuseum.*"
+- extendedWaitUntil:
+    visible: "Go · Surge.*"
+    timeout: 30000
+- tapOn: "Go · Surge.*"
+
+# The fare is held before a driver is asked, so the trip shows the hold first
+# and then the search. Either is the trip service answering.
+- extendedWaitUntil:
+    visible:
+      text: "Confirming your payment|Finding you a driver"
+    timeout: 60000
+- assertVisible: "Cancel trip"

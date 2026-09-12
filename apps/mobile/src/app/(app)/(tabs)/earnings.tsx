@@ -12,7 +12,7 @@ const Earnings = () => {
   useAtomMount(paymentPushesAtom);
 
   return (
-    <Screen>
+    <Screen title="Earnings">
       <Text className="text-muted-foreground">
         Each trip's fare, less the platform's commission, goes to your balance when the rider is
         charged. Withdraw it to your bank whenever you like.

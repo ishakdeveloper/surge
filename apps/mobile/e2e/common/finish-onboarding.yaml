@@ -1,0 +1,87 @@
+# The first minute of a new account, as far as it goes without a card.
+#
+# Every step is the real thing against the running services: the name is saved
+# through the core service and read back, which is what turns the Ready list's
+# first item from "Later" into "Done". The card and payouts steps open Stripe,
+# and the location step asks iOS for a position, so those are skipped here —
+# the card path is `book-a-ride.yaml`, which needs the fake processor.
+#
+# Each step is left by tapping its footer and then waiting for the step itself
+# to go: the steps slide in, and a tap that lands mid-slide does nothing.
+# `retryTapIfNoChange` is what offers that tap again.
+#
+# NAME is the first name the other side of a trip sees; the flow that runs
+# this passes one.
+appId: ${APP_ID || 'host.exp.Exponent'}
+---
+- extendedWaitUntil:
+    visible: "Get started"
+    timeout: 30000
+- tapOn:
+    text: "Get started"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible: "Get started"
+    timeout: 15000
+
+# The name and photo step. Tapping the footer takes focus off the field, which
+# is what saves the name, and moves the step on. The photo sits above the name,
+# so on a small screen the field has to be scrolled to before it can be tapped
+# — a tap at its place would land on the sheet behind it.
+- extendedWaitUntil:
+    visible: "Your name and photo"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "field-first-name"
+    centerElement: true
+- tapOn:
+    id: "field-first-name"
+- inputText: ${NAME}
+# The field has focus, so Done saves the name and drops the keyboard — which
+# is otherwise over the footer, and a tap meant for it lands on the keys.
+- pressKey: Enter
+- runFlow:
+    when:
+      visible: "Your name and photo"
+    commands:
+      - tapOn:
+          text: "Continue|Skip for now"
+          retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible: "Your name and photo"
+    timeout: 15000
+
+# Whatever the role's money step is — a card for a rider, payouts for a driver
+# — it goes through Stripe, which a flow cannot fill in.
+- extendedWaitUntil:
+    visible:
+      text: "Add your card|Get paid"
+    timeout: 15000
+- tapOn:
+    text: "Skip for now"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible:
+      text: "Add your card|Get paid"
+    timeout: 15000
+
+# Location would raise the system's permission dialog, which belongs to iOS
+# rather than to the app.
+- extendedWaitUntil:
+    visible:
+      text: "Start where you are|Share your position on shift"
+    timeout: 15000
+- tapOn:
+    text: "Skip for now"
+    retryTapIfNoChange: true
+
+- extendedWaitUntil:
+    visible: "You are set"
+    timeout: 15000
+- assertVisible: "Your name and photo"
+# The name is saved as the step is left, and the list reads it back from the
+# core service — so this waits for that round trip.
+- extendedWaitUntil:
+    visible: "Done"
+    timeout: 20000

@@ -1,11 +1,17 @@
 # A new driver signs up with a phone code, stands at Centraal and goes online.
 #
 # The status the matcher is told is shown on the Drive tab as it is sent, so
-# `idle` appearing is the ping loop running with the driver available. Takes
-# the same -e overrides as the rider flow.
+# `idle` appearing is the ping loop running against the gateway with the
+# driver available. Takes the same -e overrides as the rider flow.
 appId: ${APP_ID || 'host.exp.Exponent'}
 ---
 - runFlow: common/start-signed-out.yaml
+# The phone link is a quiet line under the form, off the bottom of a small
+# screen until it is scrolled to.
+- scrollUntilVisible:
+    element:
+      id: "method-phone"
+    centerElement: true
 - tapOn:
     id: "method-phone"
 - evalScript: ${output.phone = '+3161' + String(Date.now()).slice(-7)}
@@ -26,19 +32,39 @@ appId: ${APP_ID || 'host.exp.Exponent'}
 - tapOn:
     id: "field-code"
 - inputText: ${output.code}
-- tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+
+- runFlow:
+    file: common/finish-onboarding.yaml
+    env:
+      NAME: "Sam"
+- tapOn: "Start your first shift"
+
+# The driver's own screen: stand somewhere the matcher covers, then go on
+# shift. The spot chips sit on the sheet under the map.
 - extendedWaitUntil:
-    visible: "Shift"
+    visible: "You're offline"
     timeout: 30000
-# The spots and the button sit below the map on a small phone, and a tap does
-# not scroll; the status is back up at the top of the card.
+# Centred rather than merely on screen: the floating tab bar would take a tap
+# meant for anything under it.
 - scrollUntilVisible:
     element: "Centraal"
+    centerElement: true
 - tapOn: "Centraal"
 - scrollUntilVisible:
     element: "Go online"
+    centerElement: true
 - tapOn: "Go online"
-- scrollUntilVisible:
-    element: "idle"
-    direction: UP
-    timeout: 10000
+- extendedWaitUntil:
+    visible: "You're online"
+    timeout: 15000
+# What the matcher is told, shown on the sheet as it is sent. Waited for
+# rather than scrolled to: the only scrollable in reach is the row of spots,
+# and the status sits below it on the same sheet.
+- extendedWaitUntil:
+    visible: "idle"
+    timeout: 20000

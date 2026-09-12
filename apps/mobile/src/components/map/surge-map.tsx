@@ -3,11 +3,20 @@ import { cn } from "@/lib/utils.js";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as React from "react";
 import { Platform, View } from "react-native";
-import MapView, { Marker, Polyline, type Region } from "react-native-maps";
+import NativeMap, { Marker, Polyline, type Region } from "react-native-maps";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 /**
  * The map, as the web's `SurgeMap` draws it: the trip's stops as sign panels,
- * the route in sign yellow, and a camera that follows what matters.
+ * the route in sign yellow, a camera that follows what matters — and, when a
+ * screen asks for the live city, the free cars nearby and a yellow ring
+ * wherever someone has just booked.
  *
  * Apple Maps on iOS and Google Maps on Android, through react-native-maps —
  * both in Expo Go without a key. The web draws with MapLibre; the props are the
@@ -15,7 +24,8 @@ import MapView, { Marker, Polyline, type Region } from "react-native-maps";
  *
  * The map is never the only way to do something. Every place a tap on it
  * chooses — a pickup, where a driver stands — has a list or a search beside
- * it, because a map is not something a screen reader can use.
+ * it, because a map is not something a screen reader can use. The cars and
+ * the flashes are ambience, and hidden from it.
  */
 export interface MapPoint {
   readonly lat: number;
@@ -28,6 +38,30 @@ export interface MapMarker {
   readonly kind: "pickup" | "dropoff" | "driver" | "self";
 }
 
+/** A car free to take a trip, pointing the way it is going. */
+export interface MapCar {
+  readonly key: string;
+  readonly position: MapPoint;
+  /** Degrees clockwise from north. */
+  readonly heading: number;
+}
+
+/** Somewhere a trip was just booked, and when this map first heard of it. */
+export interface MapFlash {
+  readonly key: string;
+  readonly position: MapPoint;
+  readonly seenAtMs: number;
+}
+
+/** What the map shows, as the gateway's city feed takes it. */
+export interface MapView {
+  readonly west: number;
+  readonly south: number;
+  readonly east: number;
+  readonly north: number;
+  readonly zoom: number;
+}
+
 const MARKER_TITLES: Record<MapMarker["kind"], string> = {
   pickup: "Pickup",
   dropoff: "Dropoff",
@@ -35,17 +69,37 @@ const MARKER_TITLES: Record<MapMarker["kind"], string> = {
   self: "You",
 };
 
-/** Amsterdam, the one market. Where the camera starts before there is anything to follow. */
+/**
+ * Amsterdam, the one market: the centre, close enough that the city's free
+ * cars are drawn from the first frame. Where the camera starts before there
+ * is anything to follow.
+ */
 const AMSTERDAM: Region = {
-  latitude: 52.3676,
-  longitude: 4.9041,
-  latitudeDelta: 0.12,
-  longitudeDelta: 0.12,
+  latitude: 52.3702,
+  longitude: 4.8952,
+  latitudeDelta: 0.05,
+  longitudeDelta: 0.05,
 };
 
 const EDGE = { top: 48, right: 48, bottom: 48, left: 48 };
 
+/** How long a booking's ring runs. */
+const FLASH_MS = 1800;
+
 const toLatLng = (point: MapPoint) => ({ latitude: point.lat, longitude: point.lng });
+
+/**
+ * A region as the web's map reports its view. The zoom is MapLibre's, from
+ * the longitude span across the map's width in 512-point tiles, so the
+ * gateway's "cars from zoom 12" means the same distance on both.
+ */
+const viewOf = (region: Region, width: number): MapView => ({
+  west: region.longitude - region.longitudeDelta / 2,
+  east: region.longitude + region.longitudeDelta / 2,
+  south: region.latitude - region.latitudeDelta / 2,
+  north: region.latitude + region.latitudeDelta / 2,
+  zoom: Math.log2((360 * width) / (512 * Math.max(region.longitudeDelta, 1e-6))),
+});
 
 /**
  * A marker as the sheet's rail draws it: the pickup a yellow disc ringed in
@@ -84,6 +138,114 @@ const SignMarker = (props: { readonly kind: MapMarker["kind"]; }) => {
     );
 };
 
+/**
+ * A free car: an ink arrowhead on a white halo, turned the way it drives and
+ * lying flat on the map, so it turns with the map too.
+ */
+const CarMarker = React.memo((props: { readonly car: MapCar; }) => (
+  <Marker
+    coordinate={toLatLng(props.car.position)}
+    anchor={{ x: 0.5, y: 0.5 }}
+    rotation={props.car.heading}
+    flat
+    tappable={false}
+    tracksViewChanges={false}
+  >
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      className="size-[22px] items-center justify-center rounded-full bg-white"
+      style={{
+        shadowColor: "#000000",
+        shadowOpacity: 0.18,
+        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 1 },
+      }}
+    >
+      {/* Ionicons' arrow points north-east; turned back a quarter, it points north. */}
+      <Ionicons
+        name="navigate"
+        size={13}
+        color={colors.foreground}
+        style={{ transform: [{ rotate: "-45deg" }] }}
+      />
+    </View>
+  </Marker>
+));
+
+/**
+ * A booking: a yellow ring swelling out of a small ink-ringed dot and fading,
+ * once. Under reduced motion the dot shows for the same moment, still.
+ */
+const FlashMarker = (props: { readonly flash: MapFlash; }) => {
+  const reduced = useReducedMotion();
+  const progress = useSharedValue(0);
+  React.useEffect(() => {
+    if (reduced) return;
+    progress.value = withTiming(1, { duration: FLASH_MS, easing: Easing.out(Easing.cubic) });
+  }, [progress, reduced]);
+  const ring = useAnimatedStyle(() => ({
+    opacity: 0.9 * (1 - progress.value),
+    transform: [{ scale: 0.3 + progress.value * 1.7 }],
+  }));
+  const core = useAnimatedStyle(() => ({ opacity: 1 - progress.value * progress.value }));
+
+  return (
+    <Marker
+      coordinate={toLatLng(props.flash.position)}
+      anchor={{ x: 0.5, y: 0.5 }}
+      tappable={false}
+      // Google's markers are pictures of their views, retaken only while this
+      // is on; Apple's are live views and animate on their own.
+      tracksViewChanges={Platform.OS === "android"}
+    >
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        pointerEvents="none"
+        className="size-16 items-center justify-center"
+      >
+        <Animated.View
+          className="absolute size-16 rounded-full border-[3px] border-primary bg-primary/20"
+          style={ring}
+        />
+        <Animated.View
+          className="size-3 rounded-full border-2 border-foreground bg-primary"
+          style={core}
+        />
+      </View>
+    </Marker>
+  );
+};
+
+/**
+ * The flashes still running. Each lives for its ring's length from when it was
+ * first heard of; a clock ticks only while any is on the map.
+ */
+const Flashes = (props: { readonly flashes: ReadonlyArray<MapFlash>; }) => {
+  // oxlint-disable-next-line effecttsgo/global-date
+  const [now, setNow] = React.useState(() => Date.now());
+  const running = props.flashes.length > 0;
+  React.useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => {
+      // oxlint-disable-next-line effecttsgo/global-date
+      setNow(Date.now());
+    }, 400);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [running]);
+
+  return (
+    <>
+      {props.flashes
+        .filter((flash) => now - flash.seenAtMs < FLASH_MS)
+        .map((flash) => <FlashMarker key={flash.key} flash={flash} />)}
+    </>
+  );
+};
+
 export const SurgeMap = (props: {
   readonly markers: ReadonlyArray<MapMarker>;
   readonly route: ReadonlyArray<MapPoint>;
@@ -91,9 +253,16 @@ export const SurgeMap = (props: {
   readonly follow: ReadonlyArray<MapPoint>;
   /** A tap on the map, when the screen wants one. */
   readonly onPick?: (point: MapPoint) => void;
+  /** The city's free cars, from `useCity`. */
+  readonly cars?: ReadonlyArray<MapCar>;
+  /** Bookings just made, from `useCity`. */
+  readonly flashes?: ReadonlyArray<MapFlash>;
+  /** Told what the map shows whenever it settles, for the city feed. */
+  readonly onView?: (view: MapView) => void;
   readonly className?: string;
 }) => {
-  const map = React.useRef<MapView>(null);
+  const map = React.useRef<NativeMap>(null);
+  const width = React.useRef(390);
 
   // Keyed by the points rather than the array, which is new on every render: the
   // camera moves when what it follows moves, not whenever the screen re-renders.
@@ -116,11 +285,22 @@ export const SurgeMap = (props: {
     }
   }, [followKey]);
 
+  // The first view is the starting one; after that, wherever the map settles.
+  const onView = props.onView;
+  React.useEffect(() => {
+    onView?.(viewOf(AMSTERDAM, width.current));
+  }, [onView]);
+
   const path = props.route.map(toLatLng);
 
   return (
-    <View className={cn("flex-1 overflow-hidden bg-muted", props.className)}>
-      <MapView
+    <View
+      className={cn("flex-1 overflow-hidden bg-muted", props.className)}
+      onLayout={(event) => {
+        width.current = event.nativeEvent.layout.width;
+      }}
+    >
+      <NativeMap
         ref={map}
         style={{ flex: 1 }}
         initialRegion={AMSTERDAM}
@@ -131,6 +311,9 @@ export const SurgeMap = (props: {
         toolbarEnabled={false}
         showsPointsOfInterests={false}
         accessibilityLabel="Map"
+        onRegionChangeComplete={(region) => {
+          props.onView?.(viewOf(region, width.current));
+        }}
         onPress={(event) => {
           // Android reports a tap on a marker as a tap on the map as well.
           if (event.nativeEvent.action === "marker-press") {
@@ -142,6 +325,8 @@ export const SurgeMap = (props: {
           });
         }}
       >
+        {props.cars?.map((car) => <CarMarker key={car.key} car={car} />)}
+        {props.flashes !== undefined && <Flashes flashes={props.flashes} />}
         {path.length > 1 && (
           <>
             {/* Yellow alone vanishes against a pale map; the black casing is what carries it. */}
@@ -172,7 +357,7 @@ export const SurgeMap = (props: {
             <SignMarker kind={marker.kind} />
           </Marker>
         ))}
-      </MapView>
+      </NativeMap>
     </View>
   );
 };

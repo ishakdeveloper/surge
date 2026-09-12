@@ -26,6 +26,10 @@
       "description": "ChatService is the conversations riders and drivers have: with each other\nabout a trip, and with support.\n\nSending is here and delivery is not. A stored message is announced on the\nWebSocket as a doorbell, ChatChanged, carrying only the conversation and its\nnewest seq; the client then reads what it has not seen with ListMessages.\nThis API is the source of truth, and the socket only says when to look —\nwhich is also why a push that arrives late, twice or never loses nothing.\n\nThe caller is never a field, as in trip.proto: it arrives as metadata from\nthe gateway's verified token."
     },
     {
+      "name": "ProfileService",
+      "description": "ProfileService is who someone is to the people they ride with: a first name\nand a photo. The rider looks for the driver's face at the kerb; the driver\nlooks for the rider's.\n\nA photo is sent here, not to the object store: the core service crops it to\na square and re-encodes it, which drops whatever a phone wrote into it — the\nplace it was taken included — before anything is stored. What comes back is\na link signed for a couple of hours, the same link for everyone asking within\nthe hour, so a browser caches it.\n\nAny signed-in caller may read anyone's profile by id: a user id only reaches\nsomeone through a trip or a conversation they share, and a first name and a\nphoto are what that person sees anyway."
+    },
+    {
       "name": "FleetService",
       "description": "FleetService is who may drive, and what they may drive.\n\nA driver is approved when three things hold at once: an identity check has\nverified them against their licence, one of their vehicles is approved, and\nevery document they owe is present and unexpired. All three are checked\nagain whenever any of them changes, so approval is derived rather than\nremembered — nobody can be left approved with a licence that lapsed in\nMarch.\n\nTwo of the papers a real Amsterdam driver needs have no API anywhere: the\nVOG that Justis issues and the chauffeurskaart that Kiwa posts. Both take\nweeks and both are decided by a person. They are modelled here as states a\ndriver moves through with evidence attached, rather than pretended to be a\ncall.\n\nThe caller is never a field, as in trip.proto: it arrives as metadata from\nthe gateway's verified token."
     }
@@ -1349,6 +1353,126 @@
         ]
       }
     },
+    "/v1/profile": {
+      "get": {
+        "summary": "GetMyProfile is the caller's own profile, empty until they fill it in.",
+        "operationId": "getMine",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetMyProfileResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "profiles"
+        ]
+      },
+      "post": {
+        "summary": "UpdateMyProfile sets the caller's first name.",
+        "operationId": "updateMine",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdateMyProfileResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1UpdateMyProfileRequest"
+            }
+          }
+        ],
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/v1/profile/avatar": {
+      "post": {
+        "summary": "UploadAvatar replaces the caller's photo. The previous one is deleted.",
+        "operationId": "uploadAvatar",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UploadAvatarResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1UploadAvatarRequest"
+            }
+          }
+        ],
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/v1/profile/avatar/delete": {
+      "post": {
+        "summary": "RemoveAvatar deletes the caller's photo.",
+        "operationId": "removeAvatar",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RemoveAvatarResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1RemoveAvatarRequest"
+            }
+          }
+        ],
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
     "/v1/simulator": {
       "get": {
         "summary": "GetSimulator is the fleet's size and rate, as configured and as running.",
@@ -2048,6 +2172,38 @@
         ],
         "tags": [
           "trips"
+        ]
+      }
+    },
+    "/v1/users/{userId}/profile": {
+      "get": {
+        "summary": "GetProfile is someone's profile: a first name and a photo, empty where\nthey have not given one.",
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetProfileResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "user-id"
+          }
+        ],
+        "tags": [
+          "profiles"
         ]
       }
     }
@@ -2907,6 +3063,14 @@
         }
       }
     },
+    "v1GetMyProfileResponse": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/v1Profile"
+        }
+      }
+    },
     "v1GetPaymentMethodResponse": {
       "type": "object",
       "properties": {
@@ -2924,6 +3088,14 @@
       "properties": {
         "account": {
           "$ref": "#/definitions/v1PayoutAccount"
+        }
+      }
+    },
+    "v1GetProfileResponse": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/v1Profile"
         }
       }
     },
@@ -3315,6 +3487,23 @@
         }
       }
     },
+    "v1Profile": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "user-id"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "A first name, as the person gave it. Empty until they do."
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "A signed link to the photo, good for at least an hour and the same for\nevery caller within the hour. Empty without a photo."
+        }
+      }
+    },
     "v1PushPlatform": {
       "type": "string",
       "enum": [
@@ -3426,6 +3615,17 @@
     },
     "v1RegisterPushTokenResponse": {
       "type": "object"
+    },
+    "v1RemoveAvatarRequest": {
+      "type": "object"
+    },
+    "v1RemoveAvatarResponse": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/v1Profile"
+        }
+      }
     },
     "v1Requirement": {
       "type": "object",
@@ -3702,6 +3902,41 @@
     },
     "v1UnregisterPushTokenResponse": {
       "type": "object"
+    },
+    "v1UpdateMyProfileRequest": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "Trimmed, 1 to 40 characters."
+        }
+      }
+    },
+    "v1UpdateMyProfileResponse": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/v1Profile"
+        }
+      }
+    },
+    "v1UploadAvatarRequest": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "string",
+          "format": "byte",
+          "description": "A JPEG, PNG or WebP photo of at most 5 MB and 8000 pixels a side. Cropped\nto its middle square and scaled to 512 pixels here."
+        }
+      }
+    },
+    "v1UploadAvatarResponse": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/v1Profile"
+        }
+      }
     },
     "v1VehicleStatus": {
       "type": "string",

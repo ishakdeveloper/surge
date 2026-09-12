@@ -1,10 +1,12 @@
+import { AfterTripChat } from "@/chat/counterpart-card.js";
 import { ActionError } from "@/components/app/errors.js";
 import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
-import { IconBubble, Sign, SignButton, SignText } from "@/components/sign/sign.js";
+import { useCity } from "@/components/map/use-city.js";
+import { Sign, SignButton, SignText } from "@/components/sign/sign.js";
 import { Text } from "@/components/ui/text.js";
 import { colors } from "@/lib/theme.js";
 import { cn } from "@/lib/utils.js";
-import { CardAction, CardActionError, CardSummary, useCardAction } from "@/ride/card-summary.js";
+import { CardActionError, PaymentRow, useCardAction } from "@/ride/card-summary.js";
 import { PlaceField, type Stop, StopsCard, SwapStops } from "@/ride/place-field.js";
 import { RideLayout } from "@/ride/ride-layout.js";
 import { TripReceipt } from "@/ride/trip-payment.js";
@@ -17,7 +19,7 @@ import { errorCode } from "@surge/common/lib/cause";
 import { formatCents, formatDistance, formatDuration, riderStatus } from "@surge/common/lib/format";
 import { rideClass } from "@surge/common/ride/classes";
 import { RIDE_PRESETS } from "@surge/common/ride/presets";
-import type { FareId } from "@surge/domain/api/Primitives";
+import { type FareId, UserId } from "@surge/domain/api/Primitives";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { isFinished } from "@surge/domain/trip/Trip";
 import { Array as Arr, Option, Result } from "effect";
@@ -60,6 +62,7 @@ export const BookRide = () => {
   const book = useAtomSet(bookTrip);
   const nearby = useAtomValue(nearbyPickupAtom);
   const cardAction = useCardAction();
+  const city = useCity();
   const latest = useAtomValue(
     tripsAtom,
     (trips) => AsyncResult.isSuccess(trips) ? trips.value[0] : undefined,
@@ -191,8 +194,8 @@ export const BookRide = () => {
           )}
           <Text
             className={cn(
-              "text-[17px] font-bold",
-              ready ? "text-primary-foreground" : "text-muted-foreground",
+              "text-[17px] font-semibold",
+              ready ? "text-primary-foreground" : "text-foreground/70",
             )}
           >
             {goLabel}
@@ -202,8 +205,8 @@ export const BookRide = () => {
           <View className="flex-row items-center gap-3">
             <Text
               className={cn(
-                "text-[17px] font-bold tabular-nums",
-                ready ? "text-primary-foreground" : "text-muted-foreground",
+                "text-[17px] font-semibold tabular-nums",
+                ready ? "text-primary-foreground" : "text-foreground/70",
               )}
             >
               {formatCents(chosen.value.totalCents)}
@@ -245,6 +248,9 @@ export const BookRide = () => {
           // outside the box its pickup and dropoff make.
           follow={line.length > 1 ? line : markers.map((marker) => marker.position)}
           onPick={pick}
+          cars={city.cars}
+          flashes={city.flashes}
+          onView={city.onView}
         />
       }
     >
@@ -382,7 +388,7 @@ export const BookRide = () => {
                               && ` · busy, ×${fare.surgeMultiplier.toFixed(2)}`}
                           </SignText>
                         </View>
-                        <SignText className="text-[22px] font-bold tabular-nums">
+                        <SignText className="text-[22px] font-semibold tabular-nums">
                           {formatCents(fare.totalCents)}
                         </SignText>
                       </SignButton>
@@ -393,14 +399,12 @@ export const BookRide = () => {
             </>
           )}
 
-          <Sign tone="service">
-            <IconBubble name="card-outline" />
-            <View className="min-w-0 flex-1">
-              <CardSummary />
-            </View>
-            {/* Without a card, Go is the way to add one; this only changes it. */}
-            {!noCard && <CardAction />}
-          </Sign>
+          {
+            /* The payment line, where a ride app puts it: under the price and
+            above the action that commits to it. Without a card, Go is the way
+            to add one; this row is the way to look at it. */
+          }
+          <PaymentRow />
           <CardActionError />
 
           {AsyncResult.isFailure(booking) && <ActionError cause={booking.cause} />}
@@ -413,6 +417,15 @@ export const BookRide = () => {
             >
               <SignText className="font-semibold">That price has expired. Get a new quote</SignText>
             </SignButton>
+          )}
+
+          {latest !== undefined && latest.status === "TRIP_STATUS_COMPLETED"
+            && latest.driverId !== "" && (
+            <AfterTripChat
+              tripId={latest.id}
+              userId={UserId.make(latest.driverId)}
+              relation="Your driver"
+            />
           )}
 
           {latest !== undefined

@@ -1,3 +1,4 @@
+import { CounterpartCard } from "@/chat/counterpart-card.js";
 import { Announced } from "@/components/app/announced.js";
 import { ActionError } from "@/components/app/errors.js";
 import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
@@ -11,6 +12,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { driverPositionAtom } from "@surge/common/atom/realtime-atoms";
 import { activeTripAtom, cancelTrip } from "@surge/common/atom/trip-atoms";
 import { formatCents, formatDistance, formatDuration, riderStatus } from "@surge/common/lib/format";
+import { UserId } from "@surge/domain/api/Primitives";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
 import { Option, Result } from "effect";
@@ -85,6 +87,20 @@ export const RiderTrip = () => {
         <HoldStep tripId={trip.id} totalCents={trip.totalCents} />
       )}
 
+      {/* Once a driver has it, they are a person: a face, a name, a way to reach them. */}
+      {isUnderway(trip.status) && trip.driverId !== "" && (
+        <CounterpartCard
+          tripId={trip.id}
+          userId={UserId.make(trip.driverId)}
+          relation="Your driver"
+          detail={trip.status === "TRIP_STATUS_ARRIVED"
+            ? "Waiting at the pickup"
+            : trip.status === "TRIP_STATUS_IN_PROGRESS"
+            ? "On the way"
+            : "Heading to you"}
+        />
+      )}
+
       <StopsCard
         rail
         footer={
@@ -100,7 +116,7 @@ export const RiderTrip = () => {
       <Sign>
         <IconBubble name="card-outline" />
         <SignText className="flex-1 text-base font-semibold">Fare</SignText>
-        <SignText className="text-[22px] font-bold tabular-nums">
+        <SignText className="text-[22px] font-semibold tabular-nums">
           {formatCents(trip.totalCents)}
         </SignText>
       </Sign>
@@ -179,7 +195,7 @@ const StatusCard = (props: {
           />
         )}
       <View className="min-w-0 flex-1 gap-0.5">
-        <SignText className="text-xl leading-tight font-bold">{riderStatus[status]}</SignText>
+        <SignText className="text-xl leading-tight font-semibold">{riderStatus[status]}</SignText>
         <SignText className="text-sm opacity-80">
           {status === "TRIP_STATUS_PAYMENT_PENDING"
             ? "The fare is held before a driver is asked."

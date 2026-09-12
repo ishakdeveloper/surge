@@ -1,0 +1,161 @@
+syntax = "proto3";
+
+package surge.profile.v1;
+
+option go_package = "github.com/ishakdeveloper/surge/shared/proto/profile;profile";
+
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// ProfileService is who someone is to the people they ride with: a first name
+// and a photo. The rider looks for the driver's face at the kerb; the driver
+// looks for the rider's.
+//
+// A photo is sent here, not to the object store: the core service crops it to
+// a square and re-encodes it, which drops whatever a phone wrote into it — the
+// place it was taken included — before anything is stored. What comes back is
+// a link signed for a couple of hours, the same link for everyone asking within
+// the hour, so a browser caches it.
+//
+// Any signed-in caller may read anyone's profile by id: a user id only reaches
+// someone through a trip or a conversation they share, and a first name and a
+// photo are what that person sees anyway.
+service ProfileService {
+  // GetMyProfile is the caller's own profile, empty until they fill it in.
+  rpc GetMyProfile(GetMyProfileRequest) returns (GetMyProfileResponse) {
+    option (google.api.http) = {get: "/v1/profile"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "profiles"
+      operation_id: "getMine"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // UpdateMyProfile sets the caller's first name.
+  rpc UpdateMyProfile(UpdateMyProfileRequest) returns (UpdateMyProfileResponse) {
+    option (google.api.http) = {
+      post: "/v1/profile"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "profiles"
+      operation_id: "updateMine"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // UploadAvatar replaces the caller's photo. The previous one is deleted.
+  rpc UploadAvatar(UploadAvatarRequest) returns (UploadAvatarResponse) {
+    option (google.api.http) = {
+      post: "/v1/profile/avatar"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "profiles"
+      operation_id: "uploadAvatar"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // RemoveAvatar deletes the caller's photo.
+  rpc RemoveAvatar(RemoveAvatarRequest) returns (RemoveAvatarResponse) {
+    option (google.api.http) = {
+      post: "/v1/profile/avatar/delete"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "profiles"
+      operation_id: "removeAvatar"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+
+  // GetProfile is someone's profile: a first name and a photo, empty where
+  // they have not given one.
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse) {
+    option (google.api.http) = {get: "/v1/users/{user_id}/profile"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: "profiles"
+      operation_id: "get"
+      responses: {
+        key: "default"
+        value: {
+          description: "The gateway's error shape, from its custom error handler."
+          schema: {json_schema: {ref: ".surge.common.v1.ErrorBody"}}
+        }
+      }
+    };
+  }
+}
+
+message Profile {
+  string user_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+  // A first name, as the person gave it. Empty until they do.
+  string display_name = 2;
+  // A signed link to the photo, good for at least an hour and the same for
+  // every caller within the hour. Empty without a photo.
+  string avatar_url = 3;
+}
+
+message GetMyProfileRequest {}
+
+message GetMyProfileResponse {
+  Profile profile = 1;
+}
+
+message UpdateMyProfileRequest {
+  // Trimmed, 1 to 40 characters.
+  string display_name = 1;
+}
+
+message UpdateMyProfileResponse {
+  Profile profile = 1;
+}
+
+message UploadAvatarRequest {
+  // A JPEG, PNG or WebP photo of at most 5 MB and 8000 pixels a side. Cropped
+  // to its middle square and scaled to 512 pixels here.
+  bytes image = 1;
+}
+
+message UploadAvatarResponse {
+  Profile profile = 1;
+}
+
+message RemoveAvatarRequest {}
+
+message RemoveAvatarResponse {
+  Profile profile = 1;
+}
+
+message GetProfileRequest {
+  string user_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {format: "user-id"}];
+}
+
+message GetProfileResponse {
+  Profile profile = 1;
+}

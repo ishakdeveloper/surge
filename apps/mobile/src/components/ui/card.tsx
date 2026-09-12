@@ -3,9 +3,25 @@ import { cn } from "@/lib/utils.js";
 import * as React from "react";
 import { View } from "react-native";
 
-/** The web's bordered panel — `rounded-md border border-border p-4` — as one component. */
-export const Card = ({ className, ...props }: React.ComponentProps<typeof View>) => (
-  <View className={cn("gap-3 rounded-xl border border-border bg-card p-4", className)} {...props} />
+/**
+ * A white card on the near-white ground, lifted by a soft shadow rather than
+ * outlined — tone and depth, never a border.
+ */
+export const Card = ({ className, style, ...props }: React.ComponentProps<typeof View>) => (
+  <View
+    className={cn("gap-3 rounded-3xl bg-card p-5", className)}
+    style={[
+      {
+        shadowColor: "#000000",
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 2,
+      },
+      style,
+    ]}
+    {...props}
+  />
 );
 
 export const CardTitle = ({ className, ...props }: React.ComponentProps<typeof Heading>) => (

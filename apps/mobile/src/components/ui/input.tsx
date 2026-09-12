@@ -3,19 +3,37 @@ import { cn } from "@/lib/utils.js";
 import * as React from "react";
 import { TextInput } from "react-native";
 
+/**
+ * A field, as the web's inputs are drawn: a grey tile with no border at rest,
+ * that lifts to white with an ink ring while it has focus — tone, not lines.
+ * `invalid` rings it in the refused red instead.
+ */
 export const Input = (
-  { className, invalid, ...props }: React.ComponentProps<typeof TextInput> & {
-    /** The web's `aria-invalid` styling: a destructive border. */
+  { className, invalid, onFocus, onBlur, ...props }: React.ComponentProps<typeof TextInput> & {
     readonly invalid?: boolean;
   },
-) => (
-  <TextInput
-    placeholderTextColor={colors.mutedForeground}
-    className={cn(
-      "h-11 rounded-lg border border-input bg-input/30 px-3 text-base text-foreground",
-      invalid === true && "border-destructive",
-      className,
-    )}
-    {...props}
-  />
-);
+) => {
+  const [focused, setFocused] = React.useState(false);
+
+  return (
+    <TextInput
+      placeholderTextColor={colors.mutedForeground}
+      selectionColor={colors.foreground}
+      className={cn(
+        "h-12 rounded-md border-2 px-4 text-[15px] text-foreground",
+        focused ? "border-foreground bg-card" : "border-transparent bg-tile",
+        invalid === true && "border-destructive",
+        className,
+      )}
+      onFocus={(event) => {
+        setFocused(true);
+        onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        onBlur?.(event);
+      }}
+      {...props}
+    />
+  );
+};

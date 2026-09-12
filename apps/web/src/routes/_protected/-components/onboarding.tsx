@@ -4,6 +4,7 @@ import { QueryError } from "@/components/app/query-error.js";
 import { type MapMarker, SurgeMap } from "@/components/map/surge-map.js";
 import { useCity } from "@/components/map/use-city.js";
 import { CardSetup } from "@/components/payments/card-setup.js";
+import { ProfileEditor } from "@/components/profile/profile-editor.js";
 import { actionVariants, IconBubble, Sign } from "@/components/sign/sign.js";
 import { cn } from "@/lib/utils.js";
 import { CardSummary } from "@/routes/_protected/ride/-components/card-summary.js";
@@ -13,6 +14,7 @@ import { useAtomMount, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { insideAmsterdam } from "@surge/client/Places";
 import { locateMe } from "@surge/common/atom/driver-atoms";
 import { cardAtom, paymentPushesAtom, payoutAccountAtom } from "@surge/common/atom/payment-atoms";
+import { myProfileAtom } from "@surge/common/atom/profile-atoms";
 import { payoutStatus } from "@surge/common/lib/format";
 import type { LatLng } from "@surge/domain/geo/Polyline";
 import { Link } from "@tanstack/react-router";
@@ -42,11 +44,14 @@ import * as React from "react";
  */
 
 type Setup = "rider" | "driver";
-type Step = "welcome" | "card" | "payouts" | "location" | "ready";
+type Step = "welcome" | "profile" | "card" | "payouts" | "location" | "ready";
 
+// The name and the photo come first after the welcome: they are what the
+// other side of every trip sees, and the one step with nothing to set up
+// elsewhere.
 const STEPS: Record<Setup, ReadonlyArray<Step>> = {
-  rider: ["welcome", "card", "location", "ready"],
-  driver: ["welcome", "payouts", "location", "ready"],
+  rider: ["welcome", "profile", "card", "location", "ready"],
+  driver: ["welcome", "profile", "payouts", "location", "ready"],
 };
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
@@ -103,6 +108,10 @@ export const Onboarding = (props: {
       && account.value.status !== "PAYOUT_ACCOUNT_STATUS_NOT_STARTED"
       && !account.value.requirementsDue,
   );
+  const named = useAtomValue(
+    myProfileAtom,
+    (profile) => AsyncResult.isSuccess(profile) && profile.value.displayName.trim() !== "",
+  );
 
   const move = (to: number) => {
     setDirection(to > index ? 1 : -1);
@@ -121,7 +130,9 @@ export const Onboarding = (props: {
   // The step's own action, where it has one, lives in its content; the footer
   // always offers the way on — "Continue" once the step is done, a quieter
   // "Skip for now" while it is not.
-  const stepDone = step === "card"
+  const stepDone = step === "profile"
+    ? named
+    : step === "card"
     ? cardSaved
     : step === "payouts"
     ? payoutsReady
@@ -251,6 +262,7 @@ export const Onboarding = (props: {
             className="flex flex-col gap-5"
           >
             {step === "welcome" && <Welcome setup={props.setup} />}
+            {step === "profile" && <ProfileStep setup={props.setup} />}
             {step === "card" && <CardStep saved={cardSaved} />}
             {step === "payouts" && <PayoutsStep />}
             {step === "location" && <LocationStep setup={props.setup} located={located} />}
@@ -258,6 +270,7 @@ export const Onboarding = (props: {
               <Ready
                 setup={props.setup}
                 done={[
+                  { label: "Your name and photo", done: named },
                   props.setup === "rider"
                     ? { label: "Card for your fares", done: cardSaved }
                     : { label: "Payouts with Stripe", done: payoutsReady },
@@ -386,6 +399,19 @@ const Welcome = (props: { readonly setup: Setup; }) =>
         />
       </>
     );
+
+/** The first name and the photo the other side of every trip sees. */
+const ProfileStep = (props: { readonly setup: Setup; }) => (
+  <>
+    <StepHeader
+      title="Your name and photo"
+      text={props.setup === "rider"
+        ? "Your driver sees them, so they know who they are picking up."
+        : "Riders look for your face and your first name at the kerb. A clear photo of you, not the car."}
+    />
+    <ProfileEditor role={props.setup} explain={false} />
+  </>
+);
 
 const CardStep = (props: { readonly saved: boolean; }) => (
   <>

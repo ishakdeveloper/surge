@@ -79,7 +79,10 @@ anywhere, so they are modelled as states rather than pretended to be calls.
 The details are in `backend/services/fleet/README.md`.
 
 `core` holds everything boring — users, vehicles, pricing — as one service until
-it hurts. `simd` is the load generator, not a product service.
+it hurts. It starts with profiles: the first name and photo a rider and a
+driver see of each other, the photo re-encoded before it is stored in R2. The
+details are in `backend/services/core/README.md`. `simd` is the load generator,
+not a product service.
 
 **One topic carries everything a matcher shard needs.** `geo.events` is a tagged
 union keyed by H3 resolution-7 cell. One topic rather than four because no Kafka
@@ -274,8 +277,9 @@ server had it, and auth and the gateway each trust a single web origin.
 Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101
 (and 8111 for its gRPC control, which the gateway serves as `/v1/simulator`),
 `ingest` 8102/9102, `trip` gRPC on 8110 and metrics on 9105, `payments` gRPC on
-8112 and metrics on 9107, `chat` gRPC on 8113 and metrics on 9108, `fleet`
-gRPC on 8115 and metrics on 9110.
+8112 and metrics on 9107, `chat` gRPC on 8113 and metrics on 9108, `core`
+gRPC on 8114 and metrics on 9109, and `fleet` gRPC on 8115 and metrics on
+9110.
 
 `CHAT_PUSH_PROVIDER` has no default and takes `expo` or `fake`, for the same
 reason: a deploy that forgets to choose fails at boot rather than running

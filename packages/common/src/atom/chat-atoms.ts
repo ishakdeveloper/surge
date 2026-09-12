@@ -120,7 +120,10 @@ export const sendMessage = runtime.fn(
     const chat = yield* Chat;
     return yield* chat.send(send.conversationId, send.draft);
   }),
-  { reactivityKeys: [Keys.chat] },
+  // Concurrent: a second message sent before the first is answered must not
+  // interrupt it. An interrupted send never reports failing, so it would sit
+  // in the thread as "Sending…" for good.
+  { reactivityKeys: [Keys.chat], concurrent: true },
 );
 
 /** Mark a conversation read up to a seq — the newest one on screen. */

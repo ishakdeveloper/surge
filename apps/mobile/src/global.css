@@ -18,7 +18,9 @@
   --secondary: 26 26 26;
   --secondary-foreground: 255 255 255;
   --muted: 240 240 237;
-  --muted-foreground: 95 99 106;
+  /* The quiet voice is the ink turned down, not a cool grey: a blue-cast grey
+     on a white sheet reads as dirty rather than secondary. */
+  --muted-foreground: 90 90 90;
   --accent: 235 235 231;
   --accent-foreground: 26 26 26;
   --destructive: 200 49 42;

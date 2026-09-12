@@ -1,4 +1,6 @@
 import { ActionError } from "@/components/app/action-error.js";
+import { CounterpartCard } from "@/components/chat/counterpart-card.js";
+import { TripChatComposer, TripChatPanel } from "@/components/chat/trip-chat.js";
 import {
   type MapInset,
   type MapMarker,
@@ -18,12 +20,13 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { driverPositionAtom } from "@surge/common/atom/realtime-atoms";
 import { activeTripAtom, cancelTrip } from "@surge/common/atom/trip-atoms";
 import { formatCents, formatDistance, formatDuration, riderStatus } from "@surge/common/lib/format";
+import { UserId } from "@surge/domain/api/Primitives";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { isPending, isUnderway, type Trip } from "@surge/domain/trip/Trip";
 import { Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { Car, Check, CreditCard, LoaderCircle } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 
 /**
  * A trip in flight, from the rider's side.
@@ -38,11 +41,20 @@ export const RiderTrip = () => {
   const cancelling = useAtomValue(cancelTrip);
   const cancel = useAtomSet(cancelTrip);
   const inset = useRideMapInset();
+  const [chatOpen, setChatOpen] = React.useState(false);
 
   // The parent swaps this out when the trip finishes; this covers the render in
   // between rather than throwing.
   if (Option.isNone(active)) return null;
   const trip = active.value;
+
+  // A conversation opens when a driver accepts, and stays while they are on
+  // their way, waiting, and driving. It takes the sheet's place while it is
+  // open; the map above keeps the driver in view.
+  const withDriver = trip.driverId !== ""
+    && (trip.status === "TRIP_STATUS_ACCEPTED" || trip.status === "TRIP_STATUS_ARRIVED"
+      || trip.status === "TRIP_STATUS_IN_PROGRESS");
+  const chatting = chatOpen && withDriver;
 
   const route = Result.getOrElse(decodePolyline6(trip.route.polyline6), () => []);
   // The state machine allows cancelling until the rider is in the car.
@@ -53,10 +65,13 @@ export const RiderTrip = () => {
 
   return (
     <RideLayout
-      title="Your trip"
+      title={chatting ? "Messages with your driver" : "Your trip"}
       // Cancelling is the one action a waiting rider has, so it sits where
-      // Go sat: under the thumb, until the rider is in the car.
-      footer={cancellable
+      // Go sat: under the thumb, until the rider is in the car. While the
+      // conversation is open, writing is what is under the thumb instead.
+      footer={chatting
+        ? <TripChatComposer tripId={trip.id} />
+        : cancellable
         ? (
           <button
             type="button"
@@ -81,45 +96,81 @@ export const RiderTrip = () => {
           />
         )}
     >
-      {
-        /* Announced as it changes: this is the update a rider is waiting for.
-          The card inside is keyed by status, so each change wipes a new one in. */
-      }
-      <output aria-live="polite" className="block">
-        <StatusCard key={trip.status} trip={trip} pickup={pickup} dropoff={dropoff} />
-      </output>
-
-      {trip.status === "TRIP_STATUS_PAYMENT_PENDING" && (
-        <HoldStep tripId={trip.id} totalCents={trip.totalCents} />
+      {chatting && (
+        <TripChatPanel
+          tripId={trip.id}
+          counterpartId={UserId.make(trip.driverId)}
+          role="Your driver"
+          subtitle={riderStatus[trip.status]}
+          onClose={() => {
+            setChatOpen(false);
+          }}
+        />
       )}
 
-      <StopsCard
-        rail
-        footer={
-          <p className="px-3 pt-0.5 pb-1.5 text-right text-sm font-semibold tabular-nums">
-            {formatDuration(trip.route.seconds)} · {formatDistance(trip.route.meters)}
+      {!chatting && (
+        <>
+          {
+            /* Announced as it changes: this is the update a rider is waiting for.
+              The card inside is keyed by status, so each change wipes a new one in. */
+          }
+          <output aria-live="polite" className="block">
+            <StatusCard key={trip.status} trip={trip} pickup={pickup} dropoff={dropoff} />
+          </output>
+
+          {
+            /* Who is coming, by face and first name, and the one tap that
+              reaches them — before the pickup, and all the way there. */
+          }
+          {withDriver && (
+            <CounterpartCard
+              tripId={trip.id}
+              userId={UserId.make(trip.driverId)}
+              role="Your driver"
+              detail={trip.status === "TRIP_STATUS_ARRIVED"
+                ? "Waiting at your pickup"
+                : trip.status === "TRIP_STATUS_IN_PROGRESS"
+                ? "Driving you there"
+                : "On the way to you"}
+              onMessage={() => {
+                setChatOpen(true);
+              }}
+            />
+          )}
+
+          {trip.status === "TRIP_STATUS_PAYMENT_PENDING" && (
+            <HoldStep tripId={trip.id} totalCents={trip.totalCents} />
+          )}
+
+          <StopsCard
+            rail
+            footer={
+              <p className="px-3 pt-0.5 pb-1.5 text-right text-sm font-semibold tabular-nums">
+                {formatDuration(trip.route.seconds)} · {formatDistance(trip.route.meters)}
+              </p>
+            }
+          >
+            <StopRow kind="pickup" label="From" stop={pickup} />
+            <StopRow kind="dropoff" label="To" stop={dropoff} />
+          </StopsCard>
+
+          <Sign tone="choice" className="items-center">
+            <IconBubble>
+              <CreditCard />
+            </IconBubble>
+            <span className="flex-1 text-base font-semibold">Fare</span>
+            <span className="text-[22px] leading-none font-bold tabular-nums">
+              {formatCents(trip.totalCents)}
+            </span>
+          </Sign>
+
+          {AsyncResult.isFailure(cancelling) && <ActionError cause={cancelling.cause} />}
+
+          <p className="px-1 pt-1 text-center text-xs text-muted-foreground">
+            Trip <span className="font-mono">{trip.id}</span>
           </p>
-        }
-      >
-        <StopRow kind="pickup" label="From" stop={pickup} />
-        <StopRow kind="dropoff" label="To" stop={dropoff} />
-      </StopsCard>
-
-      <Sign tone="choice" className="items-center">
-        <IconBubble>
-          <CreditCard />
-        </IconBubble>
-        <span className="flex-1 text-base font-semibold">Fare</span>
-        <span className="text-[22px] leading-none font-bold tabular-nums">
-          {formatCents(trip.totalCents)}
-        </span>
-      </Sign>
-
-      {AsyncResult.isFailure(cancelling) && <ActionError cause={cancelling.cause} />}
-
-      <p className="px-1 pt-1 text-center text-xs text-muted-foreground">
-        Trip <span className="font-mono">{trip.id}</span>
-      </p>
+        </>
+      )}
     </RideLayout>
   );
 };

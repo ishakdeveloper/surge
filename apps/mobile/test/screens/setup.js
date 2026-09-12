@@ -37,6 +37,44 @@ jest.mock("react-native-maps", () => {
 
 jest.mock("react-native-webview", () => ({ WebView: () => null }));
 
+// Reanimated runs its worklets on a native UI runtime there is none of under
+// Jest. Its own mocks settle every animation at once, which is also what a
+// test should read: the end state.
+jest.mock("react-native-worklets", () => require("react-native-worklets/lib/module/mock"));
+jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
+
+// The notch and the home indicator, which a test has neither of: the library's
+// own mock answers zero insets without a provider.
+jest.mock(
+  "react-native-safe-area-context",
+  () => require("react-native-safe-area-context/jest/mock").default,
+);
+
+// The Taptic Engine: nothing to feel under Jest.
+jest.mock("expo-haptics", () => ({
+  impactAsync: async () => {},
+  selectionAsync: async () => {},
+  notificationAsync: async () => {},
+  ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
+  NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
+}));
+
+// A face is a native image view; the letter beside it is what a test reads.
+jest.mock("expo-image", () => ({ Image: () => null }));
+
+// The photo library and camera, which a screen test never opens.
+jest.mock("expo-image-picker", () => ({
+  requestCameraPermissionsAsync: async () => ({ granted: false }),
+  launchCameraAsync: async () => ({ canceled: true, assets: null }),
+  launchImageLibraryAsync: async () => ({ canceled: true, assets: null }),
+  CameraType: { front: "front", back: "back" },
+}));
+
+jest.mock("expo-image-manipulator", () => ({
+  manipulateAsync: async (uri) => ({ uri, width: 512, height: 512, base64: "" }),
+  SaveFormat: { JPEG: "jpeg", PNG: "png", WEBP: "webp" },
+}));
+
 // The OS's random source. jest-expo's automock answers `undefined`, which is no
 // idempotency key at all — a booking would fail to encode rather than be made.
 jest.mock("expo-crypto", () => ({ randomUUID: () => require("node:crypto").randomUUID() }));

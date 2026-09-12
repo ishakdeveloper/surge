@@ -1,4 +1,10 @@
-# A new rider signs up with an email code, and lands on the Ride tab.
+# A new rider signs up with an email code, finishes what onboarding it can,
+# prices a real trip, and asks support for help.
+#
+# Everything here goes through the running services: the code comes from the
+# auth service's dev outbox, the name through core, the price from the trip
+# service's quote, and the conversation from chat. Booking needs a card, which
+# is `book-a-ride.yaml`.
 #
 # Pass -e APP_URL=… and -e AUTH_URL=… to point it elsewhere; the defaults are
 # Expo Go on Metro's default port and the auth service's. For a development
@@ -24,11 +30,77 @@ appId: ${APP_ID || 'host.exp.Exponent'}
 - tapOn:
     id: "field-code"
 - inputText: ${output.code}
-- tapOn: "Continue"
+# The last digit sends the code by itself; the button is for a code corrected
+# after that, so it is only tapped if it is still there.
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+
+- runFlow:
+    file: common/finish-onboarding.yaml
+    env:
+      NAME: "Ada"
+- tapOn: "Book your first ride"
+
+# The rider's own screen: two stops chosen from a preset, priced by the trip
+# service for every class it offers.
+# The stops read as one label each — "To, Where to?" — so the match has to
+# allow what surrounds it.
 - extendedWaitUntil:
-    visible: "Where"
+    visible: ".*Where to.*"
     timeout: 30000
-# Below the map and the card on a small phone. A prefix: iOS reads the whole
-# choice as one label, its coordinates included.
+# Centred rather than merely on screen: the floating tab bar would take a tap
+# meant for anything under it.
 - scrollUntilVisible:
     element: "Centraal → Rijksmuseum.*"
+    centerElement: true
+- tapOn: "Centraal → Rijksmuseum.*"
+# A rider who skipped the card step is offered one instead of Go; either way
+# the pill says the route was priced.
+- extendedWaitUntil:
+    visible:
+      text: ".*Go · Surge.*|.*Add a card to book.*"
+    timeout: 30000
+# The quote itself: every class the trip service priced for this route. A
+# class tile reads as one label — name, seats and fare — so the match allows
+# what surrounds the name, and the tile is scrolled to from under the pill.
+- scrollUntilVisible:
+    element:
+      text: ".*Surge XL.*"
+    centerElement: true
+
+# Support, end to end: the conversation is opened by the chat service and the
+# first message is in it.
+- tapOn: "Messages.*"
+- extendedWaitUntil:
+    visible: "Contact support"
+    timeout: 20000
+- tapOn: "Contact support"
+- extendedWaitUntil:
+    visible: "What is it about?"
+    timeout: 15000
+- tapOn:
+    id: "field-subject"
+- inputText: "A test from the simulator"
+- tapOn:
+    id: "field-body"
+- inputText: "Checking that the app reaches the chat service."
+# The send rides above the keyboard, so it is tapped where it stands; Enter
+# would put a newline in the message instead.
+- tapOn: "Send to support"
+- extendedWaitUntil:
+    visible: ".*Checking that the app reaches the chat service.*"
+    timeout: 30000
+- assertVisible: ".*A test from the simulator.*"
+
+# The name reached the core service and comes back on the account screen,
+# which is where a rider reads it.
+- tapOn: "Close"
+- tapOn: "Account.*"
+# The header is one element — the name and the way to edit it — so the name
+# is matched inside its label.
+- extendedWaitUntil:
+    visible: ".*Ada.*"
+    timeout: 20000

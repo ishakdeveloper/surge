@@ -65,6 +65,11 @@ describe("page modules", () => {
     ["drive/earnings", () => import("@/routes/_protected/drive/earnings.js")],
     ["drive/payouts/refresh", () => import("@/routes/_protected/drive/payouts/refresh.js")],
     ["console", () => import("@/routes/_protected/console/index.js")],
+    ["messages", () => import("@/routes/_protected/messages/index.js")],
+    ["messages/new", () => import("@/routes/_protected/messages/new.js")],
+    ["messages/$conversationId", () => import("@/routes/_protected/messages/$conversationId.js")],
+    ["support", () => import("@/routes/_protected/support/index.js")],
+    ["account", () => import("@/routes/_protected/account.js")],
   ] as const;
 
   for (const [name, load] of pages) {

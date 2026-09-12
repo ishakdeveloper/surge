@@ -38,7 +38,8 @@ export const HoldStep = (props: { readonly tripId: TripId; readonly totalCents: 
       </SignGlyph>
       <SignText className="flex-1">
         Placing a hold of{" "}
-        <SignText className="font-bold tabular-nums">{formatCents(props.totalCents)}</SignText>{" "}
+        <SignText className="font-semibold tabular-nums">{formatCents(props.totalCents)}</SignText>
+        {" "}
         on your card. You are charged when the trip ends.
       </SignText>
     </Sign>
@@ -63,7 +64,7 @@ export const HoldStep = (props: { readonly tripId: TripId; readonly totalCents: 
             <SignIcon name="card-outline" />
           </SignGlyph>
           <View className="flex-1 gap-1">
-            <SignText accessibilityRole="header" className="text-[17px] font-bold">
+            <SignText accessibilityRole="header" className="text-[17px] font-semibold">
               Your bank wants to confirm
             </SignText>
             <SignText className="opacity-80">
@@ -85,8 +86,8 @@ export const HoldStep = (props: { readonly tripId: TripId; readonly totalCents: 
         >
           <Text
             className={confirming.waiting
-              ? "text-[17px] font-bold text-white/70"
-              : "text-[17px] font-bold text-primary-foreground"}
+              ? "text-[17px] font-semibold text-white/70"
+              : "text-[17px] font-semibold text-primary-foreground"}
           >
             {confirming.waiting ? "Waiting for your bank…" : "Confirm with your bank"}
           </Text>

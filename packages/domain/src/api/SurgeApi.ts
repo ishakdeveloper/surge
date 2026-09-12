@@ -1785,6 +1785,74 @@ export const V1CreateWithdrawalResponse = Schema.Struct({
     "updatedAt": Schema.String.annotate({ "format": "date-time" }),
   }),
 }).annotate({ "identifier": "v1CreateWithdrawalResponse" });
+export type V1GetMyProfileResponse = typeof V1GetMyProfileResponse.Type;
+export const V1GetMyProfileResponse = Schema.Struct({
+  "profile": Schema.Struct({
+    "userId": UserId,
+    "displayName": Schema.String.annotate({
+      "description": "A first name, as the person gave it. Empty until they do.",
+    }),
+    "avatarUrl": Schema.String.annotate({
+      "description":
+        "A signed link to the photo, good for at least an hour and the same for\nevery caller within the hour. Empty without a photo.",
+    }),
+  }),
+}).annotate({ "identifier": "v1GetMyProfileResponse" });
+export type V1UpdateMyProfileRequest = typeof V1UpdateMyProfileRequest.Type;
+export const V1UpdateMyProfileRequest = Schema.Struct({
+  "displayName": Schema.String.annotate({ "description": "Trimmed, 1 to 40 characters." }),
+}).annotate({ "identifier": "v1UpdateMyProfileRequest" });
+export type V1UpdateMyProfileResponse = typeof V1UpdateMyProfileResponse.Type;
+export const V1UpdateMyProfileResponse = Schema.Struct({
+  "profile": Schema.Struct({
+    "userId": UserId,
+    "displayName": Schema.String.annotate({
+      "description": "A first name, as the person gave it. Empty until they do.",
+    }),
+    "avatarUrl": Schema.String.annotate({
+      "description":
+        "A signed link to the photo, good for at least an hour and the same for\nevery caller within the hour. Empty without a photo.",
+    }),
+  }),
+}).annotate({ "identifier": "v1UpdateMyProfileResponse" });
+export type V1UploadAvatarRequest = typeof V1UploadAvatarRequest.Type;
+export const V1UploadAvatarRequest = Schema.Struct({
+  "image": Schema.String.annotate({
+    "description":
+      "A JPEG, PNG or WebP photo of at most 5 MB and 8000 pixels a side. Cropped\nto its middle square and scaled to 512 pixels here.",
+    "format": "byte",
+  }),
+}).annotate({ "identifier": "v1UploadAvatarRequest" });
+export type V1UploadAvatarResponse = typeof V1UploadAvatarResponse.Type;
+export const V1UploadAvatarResponse = Schema.Struct({
+  "profile": Schema.Struct({
+    "userId": UserId,
+    "displayName": Schema.String.annotate({
+      "description": "A first name, as the person gave it. Empty until they do.",
+    }),
+    "avatarUrl": Schema.String.annotate({
+      "description":
+        "A signed link to the photo, good for at least an hour and the same for\nevery caller within the hour. Empty without a photo.",
+    }),
+  }),
+}).annotate({ "identifier": "v1UploadAvatarResponse" });
+export type V1RemoveAvatarRequest = typeof V1RemoveAvatarRequest.Type;
+export const V1RemoveAvatarRequest = Schema.Struct({}).annotate({
+  "identifier": "v1RemoveAvatarRequest",
+});
+export type V1RemoveAvatarResponse = typeof V1RemoveAvatarResponse.Type;
+export const V1RemoveAvatarResponse = Schema.Struct({
+  "profile": Schema.Struct({
+    "userId": UserId,
+    "displayName": Schema.String.annotate({
+      "description": "A first name, as the person gave it. Empty until they do.",
+    }),
+    "avatarUrl": Schema.String.annotate({
+      "description":
+        "A signed link to the photo, good for at least an hour and the same for\nevery caller within the hour. Empty without a photo.",
+    }),
+  }),
+}).annotate({ "identifier": "v1RemoveAvatarResponse" });
 export type V1GetSimulatorResponse = typeof V1GetSimulatorResponse.Type;
 export const V1GetSimulatorResponse = Schema.Struct({
   "simulator": Schema.Struct({
@@ -2609,6 +2677,19 @@ export const V1PreviewTripResponse = Schema.Struct({
     "seconds": Int64FromString,
   }).annotate({ "description": "Route is a driveable path with its cost." }),
 }).annotate({ "identifier": "v1PreviewTripResponse" });
+export type V1GetProfileResponse = typeof V1GetProfileResponse.Type;
+export const V1GetProfileResponse = Schema.Struct({
+  "profile": Schema.Struct({
+    "userId": UserId,
+    "displayName": Schema.String.annotate({
+      "description": "A first name, as the person gave it. Empty until they do.",
+    }),
+    "avatarUrl": Schema.String.annotate({
+      "description":
+        "A signed link to the photo, good for at least an hour and the same for\nevery caller within the hour. Empty without a photo.",
+    }),
+  }),
+}).annotate({ "identifier": "v1GetProfileResponse" });
 // schemas
 export type ChatListParams = typeof ChatListParams.Type;
 export const ChatListParams = Schema.Struct({
@@ -3566,6 +3647,100 @@ export type PaymentsWithdraw503 = typeof PaymentsWithdraw503.Type;
 export const PaymentsWithdraw503 = V1ErrorBody;
 export type PaymentsWithdraw504 = typeof PaymentsWithdraw504.Type;
 export const PaymentsWithdraw504 = V1ErrorBody;
+export type ProfilesGetMine200 = typeof ProfilesGetMine200.Type;
+export const ProfilesGetMine200 = V1GetMyProfileResponse;
+export type ProfilesGetMine400 = typeof ProfilesGetMine400.Type;
+export const ProfilesGetMine400 = V1ErrorBody;
+export type ProfilesGetMine401 = typeof ProfilesGetMine401.Type;
+export const ProfilesGetMine401 = V1ErrorBody;
+export type ProfilesGetMine403 = typeof ProfilesGetMine403.Type;
+export const ProfilesGetMine403 = V1ErrorBody;
+export type ProfilesGetMine404 = typeof ProfilesGetMine404.Type;
+export const ProfilesGetMine404 = V1ErrorBody;
+export type ProfilesGetMine409 = typeof ProfilesGetMine409.Type;
+export const ProfilesGetMine409 = V1ErrorBody;
+export type ProfilesGetMine429 = typeof ProfilesGetMine429.Type;
+export const ProfilesGetMine429 = V1ErrorBody;
+export type ProfilesGetMine500 = typeof ProfilesGetMine500.Type;
+export const ProfilesGetMine500 = V1ErrorBody;
+export type ProfilesGetMine501 = typeof ProfilesGetMine501.Type;
+export const ProfilesGetMine501 = V1ErrorBody;
+export type ProfilesGetMine503 = typeof ProfilesGetMine503.Type;
+export const ProfilesGetMine503 = V1ErrorBody;
+export type ProfilesGetMine504 = typeof ProfilesGetMine504.Type;
+export const ProfilesGetMine504 = V1ErrorBody;
+export type ProfilesUpdateMineRequestJson = typeof ProfilesUpdateMineRequestJson.Type;
+export const ProfilesUpdateMineRequestJson = V1UpdateMyProfileRequest;
+export type ProfilesUpdateMine200 = typeof ProfilesUpdateMine200.Type;
+export const ProfilesUpdateMine200 = V1UpdateMyProfileResponse;
+export type ProfilesUpdateMine400 = typeof ProfilesUpdateMine400.Type;
+export const ProfilesUpdateMine400 = V1ErrorBody;
+export type ProfilesUpdateMine401 = typeof ProfilesUpdateMine401.Type;
+export const ProfilesUpdateMine401 = V1ErrorBody;
+export type ProfilesUpdateMine403 = typeof ProfilesUpdateMine403.Type;
+export const ProfilesUpdateMine403 = V1ErrorBody;
+export type ProfilesUpdateMine404 = typeof ProfilesUpdateMine404.Type;
+export const ProfilesUpdateMine404 = V1ErrorBody;
+export type ProfilesUpdateMine409 = typeof ProfilesUpdateMine409.Type;
+export const ProfilesUpdateMine409 = V1ErrorBody;
+export type ProfilesUpdateMine429 = typeof ProfilesUpdateMine429.Type;
+export const ProfilesUpdateMine429 = V1ErrorBody;
+export type ProfilesUpdateMine500 = typeof ProfilesUpdateMine500.Type;
+export const ProfilesUpdateMine500 = V1ErrorBody;
+export type ProfilesUpdateMine501 = typeof ProfilesUpdateMine501.Type;
+export const ProfilesUpdateMine501 = V1ErrorBody;
+export type ProfilesUpdateMine503 = typeof ProfilesUpdateMine503.Type;
+export const ProfilesUpdateMine503 = V1ErrorBody;
+export type ProfilesUpdateMine504 = typeof ProfilesUpdateMine504.Type;
+export const ProfilesUpdateMine504 = V1ErrorBody;
+export type ProfilesUploadAvatarRequestJson = typeof ProfilesUploadAvatarRequestJson.Type;
+export const ProfilesUploadAvatarRequestJson = V1UploadAvatarRequest;
+export type ProfilesUploadAvatar200 = typeof ProfilesUploadAvatar200.Type;
+export const ProfilesUploadAvatar200 = V1UploadAvatarResponse;
+export type ProfilesUploadAvatar400 = typeof ProfilesUploadAvatar400.Type;
+export const ProfilesUploadAvatar400 = V1ErrorBody;
+export type ProfilesUploadAvatar401 = typeof ProfilesUploadAvatar401.Type;
+export const ProfilesUploadAvatar401 = V1ErrorBody;
+export type ProfilesUploadAvatar403 = typeof ProfilesUploadAvatar403.Type;
+export const ProfilesUploadAvatar403 = V1ErrorBody;
+export type ProfilesUploadAvatar404 = typeof ProfilesUploadAvatar404.Type;
+export const ProfilesUploadAvatar404 = V1ErrorBody;
+export type ProfilesUploadAvatar409 = typeof ProfilesUploadAvatar409.Type;
+export const ProfilesUploadAvatar409 = V1ErrorBody;
+export type ProfilesUploadAvatar429 = typeof ProfilesUploadAvatar429.Type;
+export const ProfilesUploadAvatar429 = V1ErrorBody;
+export type ProfilesUploadAvatar500 = typeof ProfilesUploadAvatar500.Type;
+export const ProfilesUploadAvatar500 = V1ErrorBody;
+export type ProfilesUploadAvatar501 = typeof ProfilesUploadAvatar501.Type;
+export const ProfilesUploadAvatar501 = V1ErrorBody;
+export type ProfilesUploadAvatar503 = typeof ProfilesUploadAvatar503.Type;
+export const ProfilesUploadAvatar503 = V1ErrorBody;
+export type ProfilesUploadAvatar504 = typeof ProfilesUploadAvatar504.Type;
+export const ProfilesUploadAvatar504 = V1ErrorBody;
+export type ProfilesRemoveAvatarRequestJson = typeof ProfilesRemoveAvatarRequestJson.Type;
+export const ProfilesRemoveAvatarRequestJson = V1RemoveAvatarRequest;
+export type ProfilesRemoveAvatar200 = typeof ProfilesRemoveAvatar200.Type;
+export const ProfilesRemoveAvatar200 = V1RemoveAvatarResponse;
+export type ProfilesRemoveAvatar400 = typeof ProfilesRemoveAvatar400.Type;
+export const ProfilesRemoveAvatar400 = V1ErrorBody;
+export type ProfilesRemoveAvatar401 = typeof ProfilesRemoveAvatar401.Type;
+export const ProfilesRemoveAvatar401 = V1ErrorBody;
+export type ProfilesRemoveAvatar403 = typeof ProfilesRemoveAvatar403.Type;
+export const ProfilesRemoveAvatar403 = V1ErrorBody;
+export type ProfilesRemoveAvatar404 = typeof ProfilesRemoveAvatar404.Type;
+export const ProfilesRemoveAvatar404 = V1ErrorBody;
+export type ProfilesRemoveAvatar409 = typeof ProfilesRemoveAvatar409.Type;
+export const ProfilesRemoveAvatar409 = V1ErrorBody;
+export type ProfilesRemoveAvatar429 = typeof ProfilesRemoveAvatar429.Type;
+export const ProfilesRemoveAvatar429 = V1ErrorBody;
+export type ProfilesRemoveAvatar500 = typeof ProfilesRemoveAvatar500.Type;
+export const ProfilesRemoveAvatar500 = V1ErrorBody;
+export type ProfilesRemoveAvatar501 = typeof ProfilesRemoveAvatar501.Type;
+export const ProfilesRemoveAvatar501 = V1ErrorBody;
+export type ProfilesRemoveAvatar503 = typeof ProfilesRemoveAvatar503.Type;
+export const ProfilesRemoveAvatar503 = V1ErrorBody;
+export type ProfilesRemoveAvatar504 = typeof ProfilesRemoveAvatar504.Type;
+export const ProfilesRemoveAvatar504 = V1ErrorBody;
 export type SimulatorGet200 = typeof SimulatorGet200.Type;
 export const SimulatorGet200 = V1GetSimulatorResponse;
 export type SimulatorGet400 = typeof SimulatorGet400.Type;
@@ -3924,6 +4099,30 @@ export type TripsPreview503 = typeof TripsPreview503.Type;
 export const TripsPreview503 = V1ErrorBody;
 export type TripsPreview504 = typeof TripsPreview504.Type;
 export const TripsPreview504 = V1ErrorBody;
+export type ProfilesGetPathParams = typeof ProfilesGetPathParams.Type;
+export const ProfilesGetPathParams = Schema.Struct({ "userId": UserId });
+export type ProfilesGet200 = typeof ProfilesGet200.Type;
+export const ProfilesGet200 = V1GetProfileResponse;
+export type ProfilesGet400 = typeof ProfilesGet400.Type;
+export const ProfilesGet400 = V1ErrorBody;
+export type ProfilesGet401 = typeof ProfilesGet401.Type;
+export const ProfilesGet401 = V1ErrorBody;
+export type ProfilesGet403 = typeof ProfilesGet403.Type;
+export const ProfilesGet403 = V1ErrorBody;
+export type ProfilesGet404 = typeof ProfilesGet404.Type;
+export const ProfilesGet404 = V1ErrorBody;
+export type ProfilesGet409 = typeof ProfilesGet409.Type;
+export const ProfilesGet409 = V1ErrorBody;
+export type ProfilesGet429 = typeof ProfilesGet429.Type;
+export const ProfilesGet429 = V1ErrorBody;
+export type ProfilesGet500 = typeof ProfilesGet500.Type;
+export const ProfilesGet500 = V1ErrorBody;
+export type ProfilesGet501 = typeof ProfilesGet501.Type;
+export const ProfilesGet501 = V1ErrorBody;
+export type ProfilesGet503 = typeof ProfilesGet503.Type;
+export const ProfilesGet503 = V1ErrorBody;
+export type ProfilesGet504 = typeof ProfilesGet504.Type;
+export const ProfilesGet504 = V1ErrorBody;
 
 class ChatGroup extends HttpApiGroup.make("chat")
   .add(
@@ -4686,6 +4885,109 @@ class PaymentsGroup extends HttpApiGroup.make("payments")
   )
 {}
 
+class ProfilesGroup extends HttpApiGroup.make("profiles")
+  .add(
+    HttpApiEndpoint.get("getMine", "/v1/profile", {
+      success: ProfilesGetMine200,
+      error: [
+        ProfilesGetMine400.pipe(HttpApiSchema.status(400)),
+        ProfilesGetMine401.pipe(HttpApiSchema.status(401)),
+        ProfilesGetMine403.pipe(HttpApiSchema.status(403)),
+        ProfilesGetMine404.pipe(HttpApiSchema.status(404)),
+        ProfilesGetMine409.pipe(HttpApiSchema.status(409)),
+        ProfilesGetMine429.pipe(HttpApiSchema.status(429)),
+        ProfilesGetMine500,
+        ProfilesGetMine501.pipe(HttpApiSchema.status(501)),
+        ProfilesGetMine503.pipe(HttpApiSchema.status(503)),
+        ProfilesGetMine504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "getMine")
+      .annotate(
+        OpenApi.Summary,
+        "GetMyProfile is the caller's own profile, empty until they fill it in.",
+      ),
+    HttpApiEndpoint.post("updateMine", "/v1/profile", {
+      payload: ProfilesUpdateMineRequestJson,
+      success: ProfilesUpdateMine200,
+      error: [
+        ProfilesUpdateMine400.pipe(HttpApiSchema.status(400)),
+        ProfilesUpdateMine401.pipe(HttpApiSchema.status(401)),
+        ProfilesUpdateMine403.pipe(HttpApiSchema.status(403)),
+        ProfilesUpdateMine404.pipe(HttpApiSchema.status(404)),
+        ProfilesUpdateMine409.pipe(HttpApiSchema.status(409)),
+        ProfilesUpdateMine429.pipe(HttpApiSchema.status(429)),
+        ProfilesUpdateMine500,
+        ProfilesUpdateMine501.pipe(HttpApiSchema.status(501)),
+        ProfilesUpdateMine503.pipe(HttpApiSchema.status(503)),
+        ProfilesUpdateMine504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "updateMine")
+      .annotate(OpenApi.Summary, "UpdateMyProfile sets the caller's first name."),
+    HttpApiEndpoint.post("uploadAvatar", "/v1/profile/avatar", {
+      payload: ProfilesUploadAvatarRequestJson,
+      success: ProfilesUploadAvatar200,
+      error: [
+        ProfilesUploadAvatar400.pipe(HttpApiSchema.status(400)),
+        ProfilesUploadAvatar401.pipe(HttpApiSchema.status(401)),
+        ProfilesUploadAvatar403.pipe(HttpApiSchema.status(403)),
+        ProfilesUploadAvatar404.pipe(HttpApiSchema.status(404)),
+        ProfilesUploadAvatar409.pipe(HttpApiSchema.status(409)),
+        ProfilesUploadAvatar429.pipe(HttpApiSchema.status(429)),
+        ProfilesUploadAvatar500,
+        ProfilesUploadAvatar501.pipe(HttpApiSchema.status(501)),
+        ProfilesUploadAvatar503.pipe(HttpApiSchema.status(503)),
+        ProfilesUploadAvatar504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "uploadAvatar")
+      .annotate(
+        OpenApi.Summary,
+        "UploadAvatar replaces the caller's photo. The previous one is deleted.",
+      ),
+    HttpApiEndpoint.post("removeAvatar", "/v1/profile/avatar/delete", {
+      payload: ProfilesRemoveAvatarRequestJson,
+      success: ProfilesRemoveAvatar200,
+      error: [
+        ProfilesRemoveAvatar400.pipe(HttpApiSchema.status(400)),
+        ProfilesRemoveAvatar401.pipe(HttpApiSchema.status(401)),
+        ProfilesRemoveAvatar403.pipe(HttpApiSchema.status(403)),
+        ProfilesRemoveAvatar404.pipe(HttpApiSchema.status(404)),
+        ProfilesRemoveAvatar409.pipe(HttpApiSchema.status(409)),
+        ProfilesRemoveAvatar429.pipe(HttpApiSchema.status(429)),
+        ProfilesRemoveAvatar500,
+        ProfilesRemoveAvatar501.pipe(HttpApiSchema.status(501)),
+        ProfilesRemoveAvatar503.pipe(HttpApiSchema.status(503)),
+        ProfilesRemoveAvatar504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "removeAvatar")
+      .annotate(OpenApi.Summary, "RemoveAvatar deletes the caller's photo."),
+    HttpApiEndpoint.get("get", "/v1/users/:userId/profile", {
+      params: ProfilesGetPathParams,
+      success: ProfilesGet200,
+      error: [
+        ProfilesGet400.pipe(HttpApiSchema.status(400)),
+        ProfilesGet401.pipe(HttpApiSchema.status(401)),
+        ProfilesGet403.pipe(HttpApiSchema.status(403)),
+        ProfilesGet404.pipe(HttpApiSchema.status(404)),
+        ProfilesGet409.pipe(HttpApiSchema.status(409)),
+        ProfilesGet429.pipe(HttpApiSchema.status(429)),
+        ProfilesGet500,
+        ProfilesGet501.pipe(HttpApiSchema.status(501)),
+        ProfilesGet503.pipe(HttpApiSchema.status(503)),
+        ProfilesGet504.pipe(HttpApiSchema.status(504)),
+      ],
+    })
+      .annotate(OpenApi.Identifier, "get")
+      .annotate(
+        OpenApi.Summary,
+        "GetProfile is someone's profile: a first name and a photo, empty where\nthey have not given one.",
+      ),
+  )
+{}
+
 class SimulatorGroup extends HttpApiGroup.make("simulator")
   .add(
     HttpApiEndpoint.get("get", "/v1/simulator", {
@@ -4990,6 +5292,7 @@ export class SurgeApi extends HttpApi.make("SurgeApi")
     FleetGroup,
     ReviewGroup,
     PaymentsGroup,
+    ProfilesGroup,
     SimulatorGroup,
     SupportGroup,
     TripsGroup,
