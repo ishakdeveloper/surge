@@ -12,7 +12,7 @@
 #
 # NAME is the first name the other side of a trip sees; the flow that runs
 # this passes one.
-appId: ${APP_ID || 'host.exp.Exponent'}
+appId: ${APP_ID || 'com.ishakdeveloper.surge'}
 ---
 - extendedWaitUntil:
     visible: "Get started"

@@ -2,17 +2,24 @@ import type { ExpoConfig } from "expo/config";
 
 /**
  * The app's configuration, as code rather than `app.json` for one reason: the
- * Google Maps key an Android build needs comes from the environment and never
- * from the repository. Expo Go carries its own, so development needs none.
+ * Mapbox token a build needs to fetch the native SDK comes from the
+ * environment and never from the repository.
+ *
+ * Mapbox's native SDK is fetched at build time with a secret token.
  */
 // oxlint-disable-next-line effecttsgo/process-env
-const googleMapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+const mapboxDownloadToken = process.env.MAPBOX_DOWNLOADS_TOKEN;
 
 const config: ExpoConfig = {
   name: "Surge",
   slug: "surge",
   scheme: "surge",
   version: "0.0.0",
+  // The EAS project this builds as, and the account that owns it. `eas init`
+  // writes these into a static app.json itself; a config that is code has to
+  // be told.
+  owner: "isakdev",
+  extra: { eas: { projectId: "d561e151-a6bd-485b-9d26-ee7208e710fa" } },
   orientation: "portrait",
   userInterfaceStyle: "light",
   backgroundColor: "#e9eae6",
@@ -70,9 +77,17 @@ const config: ExpoConfig = {
         isAndroidForegroundServiceEnabled: true,
       },
     ],
-    ...(googleMapsKey === undefined
-      ? []
-      : [["react-native-maps", { androidGoogleMapsApiKey: googleMapsKey }] as [string, object]]),
+    [
+      "@rnmapbox/maps",
+      {
+        // Fetching Mapbox's native SDK needs a secret token with
+        // DOWNLOADS:READ. It is read at build time — from `.env` locally, from
+        // the EAS secret of the same name in the cloud — and never ends up in
+        // the bundle. The public token the app ships with is
+        // EXPO_PUBLIC_MAPBOX_TOKEN.
+        RNMapboxMapsDownloadToken: mapboxDownloadToken,
+      },
+    ],
   ],
 };
 

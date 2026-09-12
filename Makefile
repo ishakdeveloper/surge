@@ -179,20 +179,25 @@ dev-auth: ## Run the auth service (the only Node in any request path)
 
 # The phone reaches the services at the address it loaded the bundle from, so
 # a device on the same network needs no configuration — see
-# apps/mobile/src/lib/service-urls.ts. Set AUTH_MOBILE_ORIGINS=surge://,exp://
-# for Expo Go to be allowed to sign in. Stripe's publishable key is the web
+# apps/mobile/src/lib/service-urls.ts. Stripe's publishable key is the web
 # app's, passed through, so a key lives in one place.
-dev-mobile: ## Run the Expo app: i for the iOS simulator, a for Android, or scan with Expo Go
+#
+# This serves the bundle to a development build, not to Expo Go: Mapbox's map
+# and background location are both native modules Expo Go does not carry, so
+# `make mobile-build-sim` comes first, once.
+dev-mobile: ## Serve the bundle to the development build: i for the iOS simulator, a for Android
 	@set -a; . ./.env; set +a; \
 	EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=$${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY:-$$VITE_STRIPE_PUBLISHABLE_KEY} \
 	pnpm --filter @surge/mobile dev
 
 # Development builds: the app itself, with every native module, rather than
-# Expo Go — what background location needs. Built in Expo's cloud by EAS, so
+# Expo Go — which is now the only way to run it at all, because Mapbox's map
+# and background location are both native. Built in Expo's cloud by EAS, so
 # there is no CocoaPods to install and no signing to set up by hand. Once:
-# `eas login`, then `cd apps/mobile && eas init`. Install a finished simulator
-# build with `eas build:run -p ios --latest`; a device build installs from the
-# link EAS prints, on an iPhone registered with `eas device:create`.
+# `eas login`, then `cd apps/mobile && eas init`, and the two Mapbox tokens as
+# EAS environment variables (see apps/mobile/.env.example). Install a finished
+# simulator build with `eas build:run -p ios --latest`; a device build installs
+# from the link EAS prints, on an iPhone registered with `eas device:create`.
 mobile-build-sim: ## Build the development client for the iOS simulator, on EAS
 	cd apps/mobile && eas build --profile development --platform ios
 
@@ -208,10 +213,6 @@ dev-mobile-build: ## Build and run the development client on the iOS simulator, 
 # app running (`make dev-mobile`) and the auth service started with
 # AUTH_DEV_OUTBOX=true, so the flows can read the codes they type. The rider
 # flow also needs trip and chat; the driver flow the gateway.
-#
-# Under Expo Go the app's origin is `exp://<dev server>` rather than its own
-# `surge://`, so AUTH_MOBILE_ORIGINS must include `exp://` or every sign-in is
-# refused with INVALID_ORIGIN before a code is ever sent. `.env.example` has it.
 #
 # `e2e/book-a-ride.yaml` is left out of the default run because it saves a
 # card: with a real Stripe key that happens in Stripe's own sheet, which no

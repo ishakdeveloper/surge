@@ -1,4 +1,4 @@
-import type { DocumentId, VehicleId } from "@surge/domain/api/Primitives";
+import type { VehicleId } from "@surge/domain/api/Primitives";
 import type { Document, DocumentKind } from "@surge/domain/fleet/Fleet";
 import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
@@ -88,7 +88,7 @@ export class Fleet extends Context.Service<Fleet, FleetService>()("Fleet") {
         }
 
         const finished = yield* api.fleet.finishUpload({
-          params: { documentId: started.document.id as DocumentId },
+          params: { documentId: started.document.id },
           payload: {},
         });
         return finished.document;
