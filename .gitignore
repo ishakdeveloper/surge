@@ -11,8 +11,12 @@ coverage/
 result
 result-*
 
+# Every .env but the committed examples. `.env` and `.env.local` were listed
+# one by one, which left `.env.production` — the one that would hold a live
+# Stripe key — perfectly committable.
 .env
-.env.local
+.env.*
+!.env.example
 
 .claude/
 .context/
@@ -30,19 +34,30 @@ apps/mobile/android/
 backend/bin/
 
 # Cluster secrets are created imperatively, never committed. This is a filled-in
-# copy of deploy/k8s/development/secrets.template.yaml, should one be made.
-deploy/k8s/**/secrets.yaml
+# copy of deploy/k8s/development/secrets.template.yaml, should one be made —
+# under any directory, because a Secret in the wrong one is still a Secret.
+secrets.yaml
+secrets.yml
+
+# Anything holding a cloud credential. There is no service-account key in this
+# project by design (CI federates an identity instead), and the way to keep it
+# that way is for one to be uncommittable if it ever appears.
+service-account*.json
+*-service-account.json
+gha-creds-*.json
 
 # Playwright's traces, videos and report.
 e2e/test-results/
 e2e/playwright-report/
 e2e/blob-report/
 
-# OpenTofu's provider cache and any local state. State lives in GCS; the
-# provider lock file is committed.
+# OpenTofu's provider cache, any local state, and the variable files that name
+# a real project. State lives in GCS; the provider lock file is committed.
 .terraform/
 *.tfstate
 *.tfstate.*
+*.tfvars
+*.tfvars.json
 
 # Python bytecode from running the benchmark scripts.
 __pycache__/
