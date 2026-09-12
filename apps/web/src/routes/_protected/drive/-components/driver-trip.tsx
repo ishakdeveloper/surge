@@ -1,4 +1,5 @@
 import { ActionError } from "@/components/app/action-error.js";
+import { TripChat } from "@/components/chat/trip-chat.js";
 import { Button } from "@/components/ui/button.js";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { activeTripAtom, arriveTrip, completeTrip, startTrip } from "@surge/common/atom/trip-atoms";
@@ -8,6 +9,7 @@ import {
   formatDistance,
   formatDuration,
 } from "@surge/common/lib/format";
+import { UserId } from "@surge/domain/api/Primitives";
 import { Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -87,6 +89,19 @@ export const DriverTrip = () => {
             {step.busy.waiting ? "Saving…" : step.label}
           </Button>
         </>
+      )}
+
+      {
+        /* Every step above has a rider on the other end of it, and the
+          conversation is open for all of them. */
+      }
+      {step !== undefined && (
+        <TripChat
+          tripId={trip.id}
+          counterpartId={UserId.make(trip.riderId)}
+          role="Your rider"
+          subtitle={driverStatus[trip.status]}
+        />
       )}
     </section>
   );

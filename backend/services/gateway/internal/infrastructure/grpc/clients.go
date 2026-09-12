@@ -27,7 +27,12 @@ type Clients struct {
 	simulator *grpc.ClientConn
 	payments  *grpc.ClientConn
 	chat      *grpc.ClientConn
+	core      *grpc.ClientConn
 }
+
+// coreMessage is the largest call to core: a 5 MB photo and its envelope.
+// gRPC's default of 4 MB would refuse the largest photos the API accepts.
+const coreMessage = 8 << 20
 
 // Dial connects to everything the gateway needs.
 //
@@ -35,7 +40,7 @@ type Clients struct {
 // because the trip service is briefly down is a gateway that turns one
 // service's restart into a total outage. Requests made while it is down fail
 // individually, which is the right blast radius.
-func Dial(tripAddr, simulatorAddr, paymentsAddr, chatAddr string) (*Clients, error) {
+func Dial(tripAddr, simulatorAddr, paymentsAddr, chatAddr, coreAddr string) (*Clients, error) {
 	trip, err := dial("trip service", tripAddr)
 	if err != nil {
 		return nil, err
@@ -58,15 +63,24 @@ func Dial(tripAddr, simulatorAddr, paymentsAddr, chatAddr string) (*Clients, err
 		_ = payments.Close()
 		return nil, err
 	}
+	core, err := dial("core service", coreAddr,
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(coreMessage)))
+	if err != nil {
+		_ = trip.Close()
+		_ = simulator.Close()
+		_ = payments.Close()
+		_ = chat.Close()
+		return nil, err
+	}
 	return &Clients{
 		Trip:     trippb.NewTripServiceClient(trip),
 		Payments: paymentspb.NewPaymentsServiceClient(payments),
-		trip:     trip, simulator: simulator, payments: payments, chat: chat,
+		trip:     trip, simulator: simulator, payments: payments, chat: chat, core: core,
 	}, nil
 }
 
-func dial(name, addr string) (*grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(addr,
+func dial(name, addr string, extra ...grpc.DialOption) (*grpc.ClientConn, error) {
+	options := append([]grpc.DialOption{
 		// Plaintext inside the cluster. TLS belongs at the mesh or ingress; two
 		// layers of certificate management for a hop that never leaves the
 		// network is cost without benefit.
@@ -83,7 +97,8 @@ func dial(name, addr string) (*grpc.ClientConn, error) {
 		// Client-side tracing, so a browser request and the gRPC hop it causes
 		// appear in one trace alongside the Kafka records that follow.
 		opentelemetry.DialOption(opentelemetry.Options{}),
-	)
+	}, extra...)
+	conn, err := grpc.NewClient(addr, options...)
 	if err != nil {
 		return nil, fmt.Errorf("gateway: dial %s at %s: %w", name, addr, err)
 	}
@@ -100,12 +115,14 @@ func (c *Clients) TripConn() *grpc.ClientConn      { return c.trip }
 func (c *Clients) SimulatorConn() *grpc.ClientConn { return c.simulator }
 func (c *Clients) PaymentsConn() *grpc.ClientConn  { return c.payments }
 func (c *Clients) ChatConn() *grpc.ClientConn      { return c.chat }
+func (c *Clients) CoreConn() *grpc.ClientConn      { return c.core }
 
 func (c *Clients) Close() {
 	_ = c.trip.Close()
 	_ = c.simulator.Close()
 	_ = c.payments.Close()
 	_ = c.chat.Close()
+	_ = c.core.Close()
 }
 
 // Timeout bounds a downstream call.

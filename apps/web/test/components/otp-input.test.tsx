@@ -16,7 +16,7 @@ const Harness = (props: { readonly onComplete?: (code: string) => void; }) => {
   );
 };
 
-const boxes = () => screen.getAllByRole("textbox") as Array<HTMLInputElement>;
+const boxes = () => screen.getAllByRole<HTMLInputElement>("textbox");
 const values = () => boxes().map((box) => box.value).join("");
 
 describe("OtpInput", () => {

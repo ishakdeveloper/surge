@@ -19,6 +19,8 @@ const TRANSFORM = [
   "expo-.*",
   "react-navigation",
   "@react-navigation/.*",
+  // expo-router's, which ships ES modules only.
+  "standard-navigation",
   "nativewind",
   "react-native-css-interop",
   "@stripe/stripe-react-native",

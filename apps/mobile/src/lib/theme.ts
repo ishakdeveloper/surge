@@ -15,5 +15,5 @@ export const colors = {
   primary: "#ffd200",
   secondary: "#1a1a1a",
   success: "#067a3e",
-  mutedForeground: "#5f636a",
+  mutedForeground: "#5a5a5a",
 } as const;

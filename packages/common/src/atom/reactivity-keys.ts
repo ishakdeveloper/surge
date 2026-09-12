@@ -28,4 +28,6 @@ export const Keys = {
    * conversation is not keyed here — `Chat.live` keeps itself current.
    */
   chat: "chat",
+  /** Names and photos: the caller's own, and everyone's the caller has seen. */
+  profiles: "profiles",
 } as const;

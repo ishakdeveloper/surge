@@ -2,9 +2,10 @@ import { QueryError } from "@/components/app/errors.js";
 import { Screen } from "@/components/app/screen.js";
 import { type MapMarker, SurgeMap } from "@/components/map/surge-map.js";
 import { Text } from "@/components/ui/text.js";
-import { DriverTrip } from "@/drive/driver-trip.js";
-import { OfferList } from "@/drive/offer-list.js";
+import { DriverTrip, DriverTripStep } from "@/drive/driver-trip.js";
+import { OfferPopup } from "@/drive/offer-list.js";
 import { ShiftPanel } from "@/drive/shift-panel.js";
+import { RideLayout } from "@/ride/ride-layout.js";
 import { useAtomMount, useAtomSet, useAtomValue } from "@effect/atom-react";
 import {
   followAtom,
@@ -18,6 +19,7 @@ import { openOffers } from "@surge/common/drive/driver-status";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
+import { View } from "react-native";
 
 /**
  * The driver's surface: be somewhere, go online, take a ride, finish it.
@@ -35,14 +37,14 @@ const Drive = () => {
 
   if (AsyncResult.isInitial(active)) {
     return (
-      <Screen>
+      <Screen title="Drive">
         <Text className="text-muted-foreground">Loading your trips…</Text>
       </Screen>
     );
   }
   if (AsyncResult.isFailure(active)) {
     return (
-      <Screen>
+      <Screen title="Drive">
         <QueryError result={active} subject="your trips" />
       </Screen>
     );
@@ -52,10 +54,13 @@ const Drive = () => {
 };
 
 /**
- * Everything a driver sees at once — the web's `DriverView`: the map, the
- * shift, then either the trip they are on or the offers waiting.
+ * Everything a driver sees at once, laid out as the rider's screen is: the map
+ * across the top, and a sheet rising over it with the shift — or, on a trip,
+ * the trip and its next step pinned under the thumb. An offer rises over the
+ * sheet as its own card, the way a ride app puts a request in front of a
+ * driver, and goes when it is answered or runs out.
  *
- * The open offers are worked out once, here, for both the list and the map's
+ * The open offers are worked out once, here, for both the card and the map's
  * pickup markers — two derivations of one list would be two answers to "what
  * is on offer". Tapping the map places the driver there and stops following
  * GPS, which is how a demo stands a driver on a rider's pickup.
@@ -107,21 +112,27 @@ const DriverView = () => {
   });
 
   return (
-    <Screen>
-      <SurgeMap
-        markers={map.markers}
-        route={map.route}
-        follow={map.follow}
-        onPick={(position) => {
-          setFollowing(false);
-          setShift({ ...shift, position: Option.some(position) });
-        }}
-      />
-      <ShiftPanel />
-      {Option.isSome(trip)
-        ? <DriverTrip />
-        : <OfferList offers={waiting} now={now} online={shift.online} />}
-    </Screen>
+    <View className="flex-1">
+      <RideLayout
+        map={
+          <SurgeMap
+            markers={map.markers}
+            route={map.route}
+            follow={map.follow}
+            onPick={(position) => {
+              setFollowing(false);
+              setShift({ ...shift, position: Option.some(position) });
+            }}
+          />
+        }
+        footer={Option.isSome(trip) ? <DriverTripStep /> : null}
+      >
+        {Option.isSome(trip) ? <DriverTrip /> : <ShiftPanel />}
+      </RideLayout>
+      {Option.isNone(trip) && (
+        <OfferPopup offers={waiting} now={now} position={shift.position} online={shift.online} />
+      )}
+    </View>
   );
 };
 

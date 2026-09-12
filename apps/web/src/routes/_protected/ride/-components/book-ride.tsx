@@ -1,4 +1,5 @@
 import { ActionError } from "@/components/app/action-error.js";
+import { AfterTripChat } from "@/components/chat/counterpart-card.js";
 import { type MapMarker, type MapPoint, SurgeMap } from "@/components/map/surge-map.js";
 import { useCity } from "@/components/map/use-city.js";
 import {
@@ -26,7 +27,7 @@ import { errorCode } from "@surge/common/lib/cause";
 import { formatCents, formatDistance, formatDuration, riderStatus } from "@surge/common/lib/format";
 import { rideClass } from "@surge/common/ride/classes";
 import { RIDE_PRESETS } from "@surge/common/ride/presets";
-import type { FareId } from "@surge/domain/api/Primitives";
+import { type FareId, UserId } from "@surge/domain/api/Primitives";
 import { decodePolyline6 } from "@surge/domain/geo/Polyline";
 import { isFinished } from "@surge/domain/trip/Trip";
 import { Link } from "@tanstack/react-router";
@@ -429,6 +430,19 @@ export const BookRide = () => {
             >
               That price has expired. Get a new quote
             </button>
+          )}
+
+          {
+            /* The driver of the trip just finished, still in reach for the hour
+              its conversation stays open. */
+          }
+          {latest !== undefined && latest.status === "TRIP_STATUS_COMPLETED"
+            && latest.driverId !== "" && (
+            <AfterTripChat
+              tripId={latest.id}
+              userId={UserId.make(latest.driverId)}
+              role="Your driver"
+            />
           )}
 
           {latest !== undefined

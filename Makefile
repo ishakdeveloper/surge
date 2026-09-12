@@ -138,7 +138,8 @@ proto: ## Regenerate gRPC, REST gateway and OpenAPI from proto/
 		--grpc-gateway_opt=generate_unbound_methods=false \
 		--openapiv2_out=docs/api \
 		--openapiv2_opt=allow_merge=true,merge_file_name=surge,disable_default_errors=true \
-		proto/trip.proto proto/driver.proto proto/common.proto proto/sim.proto proto/payments.proto proto/chat.proto
+		proto/trip.proto proto/driver.proto proto/common.proto proto/sim.proto proto/payments.proto proto/chat.proto \
+		proto/profile.proto
 	cd backend && gofmt -w shared/proto
 	# The gateway embeds the document it serves, so a rebuild cannot leave the
 	# published spec describing an older API.
@@ -155,6 +156,7 @@ build: ## Build every Go binary
 	$(GO) build -o bin/gateway ./services/gateway/cmd
 	$(GO) build -o bin/payments ./services/payments/cmd
 	$(GO) build -o bin/chat ./services/chat/cmd
+	$(GO) build -o bin/core ./services/core/cmd
 	$(GO) build -o bin/migrate ./tools/migrate
 
 test: ## Run both test suites
@@ -201,11 +203,24 @@ mobile-build-device: ## Build the development client for a registered iPhone, on
 dev-mobile-build: ## Build and run the development client on the iOS simulator, locally
 	pnpm --filter @surge/mobile ios:dev
 
-# End-to-end flows on the simulator. Needs the app running (`make dev-mobile`)
-# and the auth service started with AUTH_DEV_OUTBOX=true, so the flows can read
-# the codes they type. The driver flow also needs the gateway.
+# End-to-end flows on the simulator, against the running services. Needs the
+# app running (`make dev-mobile`) and the auth service started with
+# AUTH_DEV_OUTBOX=true, so the flows can read the codes they type. The rider
+# flow also needs trip and chat; the driver flow the gateway.
+#
+# Under Expo Go the app's origin is `exp://<dev server>` rather than its own
+# `surge://`, so AUTH_MOBILE_ORIGINS must include `exp://` or every sign-in is
+# refused with INVALID_ORIGIN before a code is ever sent. `.env.example` has it.
+#
+# `e2e/book-a-ride.yaml` is left out of the default run because it saves a
+# card: with a real Stripe key that happens in Stripe's own sheet, which no
+# flow may fill in. Run it against the fake processor instead:
+#
+#   PAYMENTS_PROCESSOR=fake make dev-payments
+#   EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY= make dev-mobile
+#   cd apps/mobile && ~/.maestro/bin/maestro test e2e/book-a-ride.yaml
 e2e-mobile: ## Run the Maestro flows in apps/mobile/e2e
-	cd apps/mobile && ~/.maestro/bin/maestro test e2e
+	cd apps/mobile && ~/.maestro/bin/maestro test e2e/sign-up-rider-by-email.yaml e2e/sign-up-driver-by-phone.yaml
 
 dev-ingest: build ## Run location ingest
 	@set -a; . ./.env; set +a; \
@@ -229,6 +244,12 @@ dev-payments: build ## Run the payments service (metrics on :9107)
 dev-chat: build ## Run the chat service (gRPC on :8113)
 	@set -a; . ./.env; set +a; \
 	CHAT_PUSH_PROVIDER=$${CHAT_PUSH_PROVIDER:-fake} $(BIN)/chat
+
+# Photos stay in the process unless .env chooses R2 and holds its keys, so a
+# fresh clone runs without a Cloudflare account.
+dev-core: build ## Run the core service: names and photos (gRPC on :8114)
+	@set -a; . ./.env; set +a; \
+	AVATAR_STORE=$${AVATAR_STORE:-memory} $(BIN)/core
 
 # Stripe's events, forwarded to the gateway's webhook routes. The key comes from
 # .env rather than `stripe login`, so there is one place a key lives; the

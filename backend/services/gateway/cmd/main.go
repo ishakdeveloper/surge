@@ -59,6 +59,7 @@ func run() error {
 		simAddr     = config.StringOr("SIM_GRPC_ADDR", "localhost:8111")
 		payAddr     = config.StringOr("PAYMENTS_GRPC_ADDR", "localhost:8112")
 		chatAddr    = config.StringOr("CHAT_GRPC_ADDR", "localhost:8113")
+		coreAddr    = config.StringOr("CORE_GRPC_ADDR", "localhost:8114")
 		webOrigins  = config.Strings("GATEWAY_ORIGINS", []string{"http://localhost:5273"})
 	)
 
@@ -91,7 +92,7 @@ func run() error {
 	}
 	defer producer.Close()
 
-	clients, err := gatewaygrpc.Dial(tripAddr, simAddr, payAddr, chatAddr)
+	clients, err := gatewaygrpc.Dial(tripAddr, simAddr, payAddr, chatAddr, coreAddr)
 	if err != nil {
 		return err
 	}
@@ -168,7 +169,8 @@ func run() error {
 	})
 
 	// The REST surface, generated from the proto annotations.
-	rest, err := gatewayhttp.NewMux(ctx, clients.TripConn(), clients.SimulatorConn(), clients.PaymentsConn(), clients.ChatConn())
+	rest, err := gatewayhttp.NewMux(ctx, clients.TripConn(), clients.SimulatorConn(), clients.PaymentsConn(), clients.ChatConn(),
+		clients.CoreConn())
 	if err != nil {
 		return err
 	}

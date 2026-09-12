@@ -1,34 +1,33 @@
+import { PressableScale } from "@/components/motion/pressable-scale.js";
 import { Text } from "@/components/ui/text.js";
 import { cn } from "@/lib/utils.js";
 import { cva, type VariantProps } from "class-variance-authority";
-import * as React from "react";
-import { Pressable } from "react-native";
+import type * as React from "react";
 
 /**
- * The web app's button variants, sized for a thumb: 44pt tall by default,
- * which is Apple's minimum touch target and Android's 48dp near enough.
+ * The web app's buttons, as the rider's world draws them: pills, no borders,
+ * 48pt tall so a thumb never misses. Yellow is the next step, ink a service,
+ * the grey tile a second choice, and a destructive one says so in red. They
+ * settle under the thumb and tap back.
  */
-const buttonVariants = cva(
-  "flex-row items-center justify-center rounded-lg border border-transparent px-4 active:opacity-80",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary",
-        outline: "border-border bg-input/30",
-        secondary: "bg-secondary",
-        ghost: "",
-        destructive: "bg-destructive/20",
-      },
-      size: {
-        default: "h-11",
-        sm: "h-9 px-3",
-      },
+const buttonVariants = cva("flex-row items-center justify-center rounded-full px-5", {
+  variants: {
+    variant: {
+      default: "bg-primary active:bg-[#f0c400]",
+      outline: "bg-tile active:bg-tile-hover",
+      secondary: "bg-secondary active:opacity-90",
+      ghost: "active:bg-tile",
+      destructive: "bg-destructive/10 active:bg-destructive/15",
     },
-    defaultVariants: { variant: "default", size: "default" },
+    size: {
+      default: "h-12",
+      sm: "h-9 px-4",
+    },
   },
-);
+  defaultVariants: { variant: "default", size: "default" },
+});
 
-const labelVariants = cva("font-medium", {
+const labelVariants = cva("font-semibold", {
   variants: {
     variant: {
       default: "text-primary-foreground",
@@ -38,8 +37,8 @@ const labelVariants = cva("font-medium", {
       destructive: "text-destructive",
     },
     size: {
-      default: "text-sm",
-      sm: "text-xs",
+      default: "text-[15px]",
+      sm: "text-[13px]",
     },
   },
   defaultVariants: { variant: "default", size: "default" },
@@ -53,16 +52,15 @@ export const Button = ({
   children,
   ...props
 }:
-  & Omit<React.ComponentProps<typeof Pressable>, "children">
+  & Omit<React.ComponentProps<typeof PressableScale>, "children">
   & VariantProps<typeof buttonVariants>
   & { readonly children: string; }) => (
-  <Pressable
-    accessibilityRole="button"
+  <PressableScale
     accessibilityState={{ disabled: disabled === true }}
     disabled={disabled}
     className={cn(buttonVariants({ variant, size }), disabled === true && "opacity-50", className)}
     {...props}
   >
     <Text className={labelVariants({ variant, size })}>{children}</Text>
-  </Pressable>
+  </PressableScale>
 );

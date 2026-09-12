@@ -12,12 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as ProtectedAccountRouteImport } from './routes/_protected/account'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as ProtectedConsoleIndexRouteImport } from './routes/_protected/console/index'
 import { Route as ProtectedDriveIndexRouteImport } from './routes/_protected/drive/index'
 import { Route as ProtectedDriveEarningsRouteImport } from './routes/_protected/drive/earnings'
+import { Route as ProtectedMessagesIndexRouteImport } from './routes/_protected/messages/index'
+import { Route as ProtectedMessagesConversationIdRouteImport } from './routes/_protected/messages/$conversationId'
+import { Route as ProtectedMessagesNewRouteImport } from './routes/_protected/messages/new'
 import { Route as ProtectedRideIndexRouteImport } from './routes/_protected/ride/index'
 import { Route as ProtectedRidePaymentRouteImport } from './routes/_protected/ride/payment'
+import { Route as ProtectedSupportIndexRouteImport } from './routes/_protected/support/index'
 import { Route as ProtectedDrivePayoutsRefreshRouteImport } from './routes/_protected/drive/payouts/refresh'
 import { Route as ProtectedDrivePayoutsReturnRouteImport } from './routes/_protected/drive/payouts/return'
 
@@ -33,6 +38,11 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedAccountRoute = ProtectedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
@@ -55,6 +65,22 @@ const ProtectedDriveEarningsRoute = ProtectedDriveEarningsRouteImport.update({
   path: '/drive/earnings',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedMessagesIndexRoute = ProtectedMessagesIndexRouteImport.update({
+  id: '/messages/',
+  path: '/messages/',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedMessagesConversationIdRoute =
+  ProtectedMessagesConversationIdRouteImport.update({
+    id: '/messages/$conversationId',
+    path: '/messages/$conversationId',
+    getParentRoute: () => ProtectedRoute,
+  } as any)
+const ProtectedMessagesNewRoute = ProtectedMessagesNewRouteImport.update({
+  id: '/messages/new',
+  path: '/messages/new',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedRideIndexRoute = ProtectedRideIndexRouteImport.update({
   id: '/ride/',
   path: '/ride/',
@@ -63,6 +89,11 @@ const ProtectedRideIndexRoute = ProtectedRideIndexRouteImport.update({
 const ProtectedRidePaymentRoute = ProtectedRidePaymentRouteImport.update({
   id: '/ride/payment',
   path: '/ride/payment',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedSupportIndexRoute = ProtectedSupportIndexRouteImport.update({
+  id: '/support/',
+  path: '/support/',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedDrivePayoutsRefreshRoute =
@@ -81,24 +112,34 @@ const ProtectedDrivePayoutsReturnRoute =
 export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteRouteWithChildren
   '/': typeof ProtectedIndexRoute
+  '/account': typeof ProtectedAccountRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/drive/earnings': typeof ProtectedDriveEarningsRoute
+  '/messages/$conversationId': typeof ProtectedMessagesConversationIdRoute
+  '/messages/new': typeof ProtectedMessagesNewRoute
   '/ride/payment': typeof ProtectedRidePaymentRoute
   '/console/': typeof ProtectedConsoleIndexRoute
   '/drive/': typeof ProtectedDriveIndexRoute
+  '/messages/': typeof ProtectedMessagesIndexRoute
   '/ride/': typeof ProtectedRideIndexRoute
+  '/support/': typeof ProtectedSupportIndexRoute
   '/drive/payouts/refresh': typeof ProtectedDrivePayoutsRefreshRoute
   '/drive/payouts/return': typeof ProtectedDrivePayoutsReturnRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteRouteWithChildren
+  '/account': typeof ProtectedAccountRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/': typeof ProtectedIndexRoute
   '/drive/earnings': typeof ProtectedDriveEarningsRoute
+  '/messages/$conversationId': typeof ProtectedMessagesConversationIdRoute
+  '/messages/new': typeof ProtectedMessagesNewRoute
   '/ride/payment': typeof ProtectedRidePaymentRoute
   '/console': typeof ProtectedConsoleIndexRoute
   '/drive': typeof ProtectedDriveIndexRoute
+  '/messages': typeof ProtectedMessagesIndexRoute
   '/ride': typeof ProtectedRideIndexRoute
+  '/support': typeof ProtectedSupportIndexRoute
   '/drive/payouts/refresh': typeof ProtectedDrivePayoutsRefreshRoute
   '/drive/payouts/return': typeof ProtectedDrivePayoutsReturnRoute
 }
@@ -106,13 +147,18 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/auth': typeof AuthRouteRouteWithChildren
   '/_protected': typeof ProtectedRouteWithChildren
+  '/_protected/account': typeof ProtectedAccountRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/_protected/drive/earnings': typeof ProtectedDriveEarningsRoute
+  '/_protected/messages/$conversationId': typeof ProtectedMessagesConversationIdRoute
+  '/_protected/messages/new': typeof ProtectedMessagesNewRoute
   '/_protected/ride/payment': typeof ProtectedRidePaymentRoute
   '/_protected/console/': typeof ProtectedConsoleIndexRoute
   '/_protected/drive/': typeof ProtectedDriveIndexRoute
+  '/_protected/messages/': typeof ProtectedMessagesIndexRoute
   '/_protected/ride/': typeof ProtectedRideIndexRoute
+  '/_protected/support/': typeof ProtectedSupportIndexRoute
   '/_protected/drive/payouts/refresh': typeof ProtectedDrivePayoutsRefreshRoute
   '/_protected/drive/payouts/return': typeof ProtectedDrivePayoutsReturnRoute
 }
@@ -121,37 +167,52 @@ export interface FileRouteTypes {
   fullPaths:
     | '/auth'
     | '/'
+    | '/account'
     | '/auth/sign-in'
     | '/drive/earnings'
+    | '/messages/$conversationId'
+    | '/messages/new'
     | '/ride/payment'
     | '/console/'
     | '/drive/'
+    | '/messages/'
     | '/ride/'
+    | '/support/'
     | '/drive/payouts/refresh'
     | '/drive/payouts/return'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/account'
     | '/auth/sign-in'
     | '/'
     | '/drive/earnings'
+    | '/messages/$conversationId'
+    | '/messages/new'
     | '/ride/payment'
     | '/console'
     | '/drive'
+    | '/messages'
     | '/ride'
+    | '/support'
     | '/drive/payouts/refresh'
     | '/drive/payouts/return'
   id:
     | '__root__'
     | '/auth'
     | '/_protected'
+    | '/_protected/account'
     | '/auth/sign-in'
     | '/_protected/'
     | '/_protected/drive/earnings'
+    | '/_protected/messages/$conversationId'
+    | '/_protected/messages/new'
     | '/_protected/ride/payment'
     | '/_protected/console/'
     | '/_protected/drive/'
+    | '/_protected/messages/'
     | '/_protected/ride/'
+    | '/_protected/support/'
     | '/_protected/drive/payouts/refresh'
     | '/_protected/drive/payouts/return'
   fileRoutesById: FileRoutesById
@@ -184,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/account': {
+      id: '/_protected/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof ProtectedAccountRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/auth/sign-in': {
       id: '/auth/sign-in'
       path: '/sign-in'
@@ -212,6 +280,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedDriveEarningsRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/messages/': {
+      id: '/_protected/messages/'
+      path: '/messages'
+      fullPath: '/messages/'
+      preLoaderRoute: typeof ProtectedMessagesIndexRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/messages/$conversationId': {
+      id: '/_protected/messages/$conversationId'
+      path: '/messages/$conversationId'
+      fullPath: '/messages/$conversationId'
+      preLoaderRoute: typeof ProtectedMessagesConversationIdRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/messages/new': {
+      id: '/_protected/messages/new'
+      path: '/messages/new'
+      fullPath: '/messages/new'
+      preLoaderRoute: typeof ProtectedMessagesNewRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/ride/': {
       id: '/_protected/ride/'
       path: '/ride'
@@ -224,6 +313,13 @@ declare module '@tanstack/react-router' {
       path: '/ride/payment'
       fullPath: '/ride/payment'
       preLoaderRoute: typeof ProtectedRidePaymentRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/support/': {
+      id: '/_protected/support/'
+      path: '/support'
+      fullPath: '/support/'
+      preLoaderRoute: typeof ProtectedSupportIndexRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/_protected/drive/payouts/refresh': {
@@ -256,23 +352,33 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 )
 
 interface ProtectedRouteChildren {
+  ProtectedAccountRoute: typeof ProtectedAccountRoute
   ProtectedIndexRoute: typeof ProtectedIndexRoute
   ProtectedDriveEarningsRoute: typeof ProtectedDriveEarningsRoute
+  ProtectedMessagesConversationIdRoute: typeof ProtectedMessagesConversationIdRoute
+  ProtectedMessagesNewRoute: typeof ProtectedMessagesNewRoute
   ProtectedRidePaymentRoute: typeof ProtectedRidePaymentRoute
   ProtectedConsoleIndexRoute: typeof ProtectedConsoleIndexRoute
   ProtectedDriveIndexRoute: typeof ProtectedDriveIndexRoute
+  ProtectedMessagesIndexRoute: typeof ProtectedMessagesIndexRoute
   ProtectedRideIndexRoute: typeof ProtectedRideIndexRoute
+  ProtectedSupportIndexRoute: typeof ProtectedSupportIndexRoute
   ProtectedDrivePayoutsRefreshRoute: typeof ProtectedDrivePayoutsRefreshRoute
   ProtectedDrivePayoutsReturnRoute: typeof ProtectedDrivePayoutsReturnRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedAccountRoute: ProtectedAccountRoute,
   ProtectedIndexRoute: ProtectedIndexRoute,
   ProtectedDriveEarningsRoute: ProtectedDriveEarningsRoute,
+  ProtectedMessagesConversationIdRoute: ProtectedMessagesConversationIdRoute,
+  ProtectedMessagesNewRoute: ProtectedMessagesNewRoute,
   ProtectedRidePaymentRoute: ProtectedRidePaymentRoute,
   ProtectedConsoleIndexRoute: ProtectedConsoleIndexRoute,
   ProtectedDriveIndexRoute: ProtectedDriveIndexRoute,
+  ProtectedMessagesIndexRoute: ProtectedMessagesIndexRoute,
   ProtectedRideIndexRoute: ProtectedRideIndexRoute,
+  ProtectedSupportIndexRoute: ProtectedSupportIndexRoute,
   ProtectedDrivePayoutsRefreshRoute: ProtectedDrivePayoutsRefreshRoute,
   ProtectedDrivePayoutsReturnRoute: ProtectedDrivePayoutsReturnRoute,
 }
