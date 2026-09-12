@@ -40,6 +40,10 @@ import (
 // produceSample rate-limits produce-failure logging.
 var produceSample atomic.Uint64
 
+// ready is what /ready reports: true once every subsystem has started, false
+// again the moment shutdown begins.
+var ready atomic.Bool
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("gateway exited", "error", err)
@@ -51,8 +55,12 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
+
 	var (
-		brokers     = config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
 		httpAddr    = config.StringOr("GATEWAY_HTTP_ADDR", ":8100")
 		metricsAddr = config.StringOr("GATEWAY_METRICS_ADDR", ":9104")
 		tripAddr    = config.StringOr("TRIP_GRPC_ADDR", "localhost:8110")
@@ -80,14 +88,14 @@ func run() error {
 		return err
 	}
 
-	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		return err
 	}
 
 	registry := obs.NewRegistry("gateway")
 	metrics := newMetrics(registry)
 
-	producer, err := kafkax.NewProducer(brokers)
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return err
 	}
@@ -137,7 +145,7 @@ func run() error {
 	// Its own consumer group per instance: every gateway needs every offer,
 	// because only the instance holding that driver's socket can deliver it.
 	instance := config.StringOr("HOSTNAME", fmt.Sprintf("gateway-%d", os.Getpid()))
-	pushes, err := events.NewConsumer(brokers, "gateway-push-"+instance, hub, events.Hooks{
+	pushes, err := events.NewConsumer(cluster, "gateway-push-"+instance, hub, events.Hooks{
 		OnDelivered: func() { metrics.pushRouted.WithLabelValues("delivered").Inc() },
 		OnNotHere:   func() { metrics.pushRouted.WithLabelValues("not_here").Inc() },
 		OnMalformed: func() { metrics.pushRouted.WithLabelValues("malformed").Inc() },
@@ -149,14 +157,14 @@ func run() error {
 
 	// The matchers' frames, which every instance needs for the same reason:
 	// a console, or a rider's map of the city, may be connected to any of them.
-	frames, err := events.NewFleetConsumer(brokers, "gateway-fleet-"+instance, fleet, city)
+	frames, err := events.NewFleetConsumer(cluster, "gateway-fleet-"+instance, fleet, city)
 	if err != nil {
 		return err
 	}
 	defer frames.Close()
 
 	// Pickups the fleet made, which the ETA riders are shown is learned from.
-	pickups, err := events.NewPickupConsumer(brokers, eta, func(learned, naive float64) {
+	pickups, err := events.NewPickupConsumer(cluster, eta, func(learned, naive float64) {
 		etaError.WithLabelValues("learned").Observe(learned)
 		etaError.WithLabelValues("naive").Observe(naive)
 	})
@@ -204,7 +212,16 @@ func run() error {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	})
+	// Readiness is a different question from liveness: not "is this process
+	// wedged" but "should the load balancer send it traffic". It covers only
+	// this pod — the JWKS is loaded, the consumers are running, and it is not
+	// on its way out — never a shared dependency, whose failure would take every
+	// replica out of rotation at once.
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, _ *http.Request) {
+		if !ready.Load() {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
 		_, _ = w.Write([]byte("ready"))
 	})
 
@@ -260,6 +277,10 @@ func run() error {
 		}
 	}()
 
+	// Everything above either started or returned an error, and the verifier
+	// was built before any of it.
+	ready.Store(true)
+
 	var fatal error
 
 	select {
@@ -275,6 +296,10 @@ func run() error {
 			fatal = f.err
 		}
 	}
+
+	// Out of rotation before anything closes, so the load balancer stops
+	// sending new connections to a pod that is about to drop them.
+	ready.Store(false)
 
 	// Connections first, listener second.
 	//

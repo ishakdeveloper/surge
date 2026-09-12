@@ -1,0 +1,15 @@
+{
+  "_tag": "MatchRequested",
+  "cell": "871f1d492ffffff",
+  "atMs": 1757512330000,
+  "requested": {
+    "tripId": "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+    "riderId": "rider-000456",
+    "pickupLat": 52.3702,
+    "pickupLng": 4.8952,
+    "dropLat": 52.3584,
+    "dropLng": 4.8811,
+    "requestedAtMs": 1757512329412,
+    "idempotencyKey": "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80:1"
+  }
+}

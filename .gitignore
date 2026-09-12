@@ -29,8 +29,20 @@ apps/mobile/android/
 # Go
 backend/bin/
 
-# Cluster secrets are created imperatively, never committed.
-deploy/k8s/11-secrets.yaml
+# Cluster secrets are created imperatively, never committed. This is a filled-in
+# copy of deploy/k8s/development/secrets.template.yaml, should one be made.
+deploy/k8s/**/secrets.yaml
+
+# Playwright's traces, videos and report.
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+
+# OpenTofu's provider cache and any local state. State lives in GCS; the
+# provider lock file is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
 
 # Python bytecode from running the benchmark scripts.
 __pycache__/

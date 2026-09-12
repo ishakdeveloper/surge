@@ -74,7 +74,7 @@ published JWKS. No product request reaches Node or its database.
 
 ## Stack
 
-Go 1.25 · Redpanda · Postgres · Redis · Valhalla · H3 · Prometheus + Grafana ·
+Go 1.25 · Redpanda · Postgres · Valhalla · H3 · Prometheus + Grafana ·
 Effect v4 · TanStack Start · better-auth
 
 Built on the [forge-effect](https://github.com/ishakdeveloper/forge-effect)

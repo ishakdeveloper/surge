@@ -27,9 +27,8 @@ type PickupConsumer struct {
 	started  time.Time
 }
 
-func NewPickupConsumer(brokers []string, model *domain.EtaModel, onScored func(learnedError, naiveError float64)) (*PickupConsumer, error) {
-	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
+func NewPickupConsumer(cluster kafkax.Cluster, model *domain.EtaModel, onScored func(learnedError, naiveError float64)) (*PickupConsumer, error) {
+	client, err := cluster.Client(
 		kgo.ConsumeTopics(kafkax.TopicPickupsObserved),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
 	)

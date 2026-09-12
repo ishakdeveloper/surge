@@ -1,0 +1,11 @@
+{
+  "_tag": "ReserveResult",
+  "cell": "871f1d492ffffff",
+  "atMs": 1757512330000,
+  "reserved": {
+    "driverId": "drv-000123",
+    "tripId": "0f2a6c1e-9d4b-4a77-8c31-6b1e5a2d9f80",
+    "ok": false,
+    "reason": "busy"
+  }
+}

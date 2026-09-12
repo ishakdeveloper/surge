@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", ":semanticCommitsDisabled"],
+  "timezone": "Europe/Amsterdam",
+  "schedule": ["before 6am on monday"],
+  "commitMessageAction": "update",
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    {
+      "description": "Effect moves together with the vendored copy in repos/effect: a bump is a `git subtree pull` beside it, and an rc bump without one is exactly the drift AGENTS.md warns about. By hand.",
+      "matchPackageNames": ["effect", "@effect/**"],
+      "enabled": false
+    },
+    {
+      "description": "The effect-form beta is pinned to the v4 line vendored in repos/effect-form, and its `latest` tag still targets Effect v3.",
+      "matchPackageNames": ["@lucas-barake/**"],
+      "enabled": false
+    },
+    {
+      "description": "Generated code is tied to these: bump them together and run `make proto` in the same change, or CI's drift check fails.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": [
+        "google.golang.org/protobuf",
+        "google.golang.org/grpc",
+        "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
+        "github.com/grpc-ecosystem/grpc-gateway/v2"
+      ],
+      "groupName": "protobuf and gRPC"
+    },
+    {
+      "description": "Moves with better-auth exactly: each Expo plugin release peers on the better-auth of the same version.",
+      "matchPackageNames": ["better-auth", "@better-auth/**"],
+      "groupName": "better-auth"
+    }
+  ]
+}

@@ -37,8 +37,8 @@ type Lifecycle struct {
 	hooks  Hooks
 }
 
-func NewLifecycle(brokers []string, group string, chat TripApplier, hooks Hooks) (*Lifecycle, error) {
-	client, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicTripLifecycle})
+func NewLifecycle(cluster kafkax.Cluster, group string, chat TripApplier, hooks Hooks) (*Lifecycle, error) {
+	client, err := kafkax.NewConsumerGroup(cluster, group, []string{kafkax.TopicTripLifecycle})
 	if err != nil {
 		return nil, err
 	}

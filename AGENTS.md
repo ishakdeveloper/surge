@@ -256,7 +256,7 @@ need it.
 
 `pnpm check`'s second half is `tsconfig.tools.json`, which type-checks what
 project references cannot — the Vite and Vitest configs, `vitest.shared.ts`,
-`setupTests.ts`, `.railway/railway.ts`.
+`setupTests.ts`.
 
 ## Ports
 
@@ -269,10 +269,10 @@ server had it, and auth and the gateway each trust a single web origin.
 |                  |       |          |       |
 | ---------------- | ----- | -------- | ----- |
 | auth             | 3200  | Postgres | 55433 |
-| Redpanda         | 19092 | Redis    | 56380 |
-| Redpanda Console | 8080  | Valhalla | 8002  |
-| Prometheus       | 9090  | Grafana  | 3005  |
-| Jaeger           | 16686 | web      | 5273  |
+| Redpanda         | 19092 | Valhalla | 8002  |
+| Redpanda Console | 8080  | Grafana  | 3005  |
+| Prometheus       | 9090  | web      | 5273  |
+| Jaeger           | 16686 |          |       |
 
 Go services take 8100+ for their APIs and 9101+ for metrics: `simd` 8101/9101
 (and 8111 for its gRPC control, which the gateway serves as `/v1/simulator`),

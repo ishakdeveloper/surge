@@ -68,12 +68,20 @@ func Dial(tripAddr, simulatorAddr, paymentsAddr, chatAddr, coreAddr, fleetAddr s
 	}
 	core, err := dial("core service", coreAddr,
 		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(coreMessage)))
+	if err != nil {
+		_ = trip.Close()
+		_ = simulator.Close()
+		_ = payments.Close()
+		_ = chat.Close()
+		return nil, err
+	}
 	fleet, err := dial("fleet service", fleetAddr)
 	if err != nil {
 		_ = trip.Close()
 		_ = simulator.Close()
 		_ = payments.Close()
 		_ = chat.Close()
+		_ = core.Close()
 		return nil, err
 	}
 	return &Clients{
@@ -84,8 +92,18 @@ func Dial(tripAddr, simulatorAddr, paymentsAddr, chatAddr, coreAddr, fleetAddr s
 	}, nil
 }
 
+// roundRobin spreads calls across every address the name resolves to.
+//
+// gRPC's default is pick_first: one HTTP/2 connection to whichever address
+// answered first, held for the life of the process. Behind a ClusterIP Service
+// that is one trip pod taking every call from this gateway while the others
+// idle. The Services are headless, so the name resolves to every pod, and this
+// balances across them.
+const roundRobin = `{"loadBalancingConfig":[{"round_robin":{}}]}`
+
 func dial(name, addr string, extra ...grpc.DialOption) (*grpc.ClientConn, error) {
 	options := append([]grpc.DialOption{
+		grpc.WithDefaultServiceConfig(roundRobin),
 		// Plaintext inside the cluster. TLS belongs at the mesh or ingress; two
 		// layers of certificate management for a hop that never leaves the
 		// network is cost without benefit.

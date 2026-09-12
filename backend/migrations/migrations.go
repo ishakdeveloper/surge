@@ -1,8 +1,8 @@
 // Package migrations embeds the Go services' SQL.
 //
-// A package rather than a directory the migrator reads at runtime, because
-// go:embed cannot cross a directory boundary upward and because a binary that
-// carries its own schema cannot be deployed without it.
+// A package rather than a directory the migrator reads at runtime, because an
+// embed directive cannot reach up out of its own directory, and because a
+// binary that carries its own schema cannot be deployed without it.
 package migrations
 
 import (

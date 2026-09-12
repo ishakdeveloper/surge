@@ -1,0 +1,17 @@
+{
+  "_tag": "DriverEnteredCell",
+  "cell": "871f1d492ffffff",
+  "atMs": 1757512330000,
+  "entered": {
+    "driverId": "drv-000123",
+    "epoch": 3,
+    "seq": 42,
+    "lat": 52.3711,
+    "lng": 4.8963,
+    "heading": 90,
+    "status": "idle",
+    "indexCell": "891f1d4926bffff",
+    "sentAtMs": 1757512329980,
+    "from": "871f1d493ffffff"
+  }
+}

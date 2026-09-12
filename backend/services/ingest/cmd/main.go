@@ -40,12 +40,15 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
 	group := config.StringOr("INGEST_GROUP", "ingest")
 	debugAddr := config.StringOr("INGEST_DEBUG_ADDR", ":8102")
 	metricsAddr := config.StringOr("INGEST_METRICS_ADDR", ":9102")
 
-	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -78,13 +81,13 @@ func run() error {
 	// compacted checkpoint in Phase 2.
 	// The re-keying hop: pings arrive keyed by driver, geo events leave keyed by
 	// shard cell.
-	producer, err := kafkax.NewProducer(brokers)
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return err
 	}
 	defer producer.Close()
 
-	client, err := kafkax.NewConsumerGroup(brokers, group, []string{kafkax.TopicLocPing},
+	client, err := kafkax.NewConsumerGroup(cluster, group, []string{kafkax.TopicLocPing},
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))
 	if err != nil {
 		return err

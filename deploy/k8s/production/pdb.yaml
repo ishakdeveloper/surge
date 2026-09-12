@@ -27,3 +27,17 @@ metadata: { name: trip, namespace: surge }
 spec:
   minAvailable: 1
   selector: { matchLabels: { app: trip } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: payments, namespace: surge }
+spec:
+  minAvailable: 1
+  selector: { matchLabels: { app: payments } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: web, namespace: surge }
+spec:
+  minAvailable: 1
+  selector: { matchLabels: { app: web } }

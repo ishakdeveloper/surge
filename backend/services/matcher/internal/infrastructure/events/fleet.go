@@ -37,8 +37,8 @@ type Roster struct {
 // point: a matcher that started gating before it had read the topic would
 // withdraw every approved driver in the city for as long as the first fetch
 // took.
-func NewRoster(ctx context.Context, brokers []string) (*Roster, error) {
-	count, err := kafkax.TopicPartitions(ctx, brokers, kafkax.TopicFleetDrivers)
+func NewRoster(ctx context.Context, cluster kafkax.Cluster) (*Roster, error) {
+	count, err := kafkax.TopicPartitions(ctx, cluster, kafkax.TopicFleetDrivers)
 	if err != nil {
 		return nil, fmt.Errorf("matcher: fleet roster: %w", err)
 	}
@@ -48,7 +48,7 @@ func NewRoster(ctx context.Context, brokers []string) (*Roster, error) {
 		partitions = append(partitions, partition)
 	}
 
-	records, err := kafkax.ReadCompacted(ctx, brokers, kafkax.TopicFleetDrivers, partitions)
+	records, err := kafkax.ReadCompacted(ctx, cluster, kafkax.TopicFleetDrivers, partitions)
 	if err != nil {
 		return nil, fmt.Errorf("matcher: fleet roster snapshot: %w", err)
 	}
@@ -60,8 +60,7 @@ func NewRoster(ctx context.Context, brokers []string) (*Roster, error) {
 		}
 	}
 
-	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
+	client, err := cluster.Client(
 		kgo.ConsumeTopics(kafkax.TopicFleetDrivers),
 		// From the start again, rather than from where the snapshot ended: a
 		// compacted topic read twice is the same standings twice, and Record

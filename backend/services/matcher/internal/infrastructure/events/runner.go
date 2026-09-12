@@ -58,7 +58,7 @@ type Router interface {
 // layout rather than something enforced by discipline.
 type Runner struct {
 	router   Router
-	brokers  []string
+	cluster  kafkax.Cluster
 	instance string
 	config   domain.Config
 	hooks    Hooks
@@ -101,11 +101,11 @@ type worker struct {
 	requests  []wire.FrameRequest
 }
 
-func NewRunner(brokers []string, config domain.Config, producer *kgo.Client, router Router, instance string, hooks Hooks) *Runner {
+func NewRunner(cluster kafkax.Cluster, config domain.Config, producer *kgo.Client, router Router, instance string, hooks Hooks) *Runner {
 	return &Runner{
 		router:   router,
 		instance: instance,
-		brokers:  brokers,
+		cluster:  cluster,
 		config:   config,
 		hooks:    hooks,
 		producer: producer,
@@ -116,7 +116,7 @@ func NewRunner(brokers []string, config domain.Config, producer *kgo.Client, rou
 // Run consumes until ctx is cancelled, then checkpoints everything it still
 // owns so a clean shutdown loses no promises.
 func (r *Runner) Run(ctx context.Context, group string) error {
-	client, err := kafkax.NewShardConsumer(r.brokers, group, []string{kafkax.TopicGeoEvents},
+	client, err := kafkax.NewShardConsumer(r.cluster, group, []string{kafkax.TopicGeoEvents},
 		kgo.OnPartitionsAssigned(r.assigned),
 		kgo.OnPartitionsRevoked(r.revoked),
 		// Lost differs from revoked: the session died, so there is no
@@ -231,7 +231,7 @@ func (r *Runner) restore(ctx context.Context, client *kgo.Client, fresh map[int3
 		partitions = append(partitions, partition)
 	}
 
-	records, err := kafkax.ReadCompacted(ctx, r.brokers, kafkax.TopicGeoState, partitions)
+	records, err := kafkax.ReadCompacted(ctx, r.cluster, kafkax.TopicGeoState, partitions)
 	if err != nil {
 		// Starting without a checkpoint is worse than starting slowly, but
 		// never starting is worse still: the partitions would go unconsumed.

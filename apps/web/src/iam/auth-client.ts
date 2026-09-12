@@ -1,3 +1,4 @@
+import { publicConfig } from "@/lib/public-config.js";
 import {
   emailOTPClient,
   inferAdditionalFields,
@@ -16,15 +17,21 @@ import { createAuthClient } from "better-auth/react";
  * This is the *only* thing the browser asks of Node. Every product API is Go,
  * reached with the JWT `jwtClient` fetches from `/api/auth/token`.
  *
- * `VITE_`-prefixed because the browser needs it. That is the only way Vite puts
- * a value in the client bundle, and it is honest about what this is: a public
- * address, not a secret. The same constant serves SSR, which resolves the
- * session in the server bundle.
+ * The public address, from `publicConfig`: what the server was told at runtime,
+ * not what the image was built with.
  */
-const baseURL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:3200";
+export const authBaseUrl = publicConfig.AUTH_BASE_URL ?? "http://localhost:3200";
 
-/** The auth service's address, for what the browser reads from it besides better-auth. */
-export const authBaseUrl = baseURL;
+/**
+ * Where this bundle reaches it.
+ *
+ * The browser uses the public address. The server, resolving a session while it
+ * renders, uses `AUTH_INTERNAL_URL` when it has one, so that request stays
+ * inside the cluster instead of leaving through the load balancer and coming
+ * back in.
+ */
+const internalUrl = typeof window === "undefined" ? process.env["AUTH_INTERNAL_URL"] : undefined;
+const baseURL = internalUrl === undefined || internalUrl === "" ? authBaseUrl : internalUrl;
 
 /**
  * better-auth's own typed client — one of them, used from both sides.

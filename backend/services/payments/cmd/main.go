@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/stats/opentelemetry"
 )
@@ -55,7 +56,10 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	brokers := config.Strings("KAFKA_BROKERS", []string{"localhost:19092"})
+	cluster, err := kafkax.ClusterFromEnv()
+	if err != nil {
+		return err
+	}
 	metricsAddr := config.StringOr("PAYMENTS_METRICS_ADDR", ":9107")
 	// Listen address, not the address the gateway dials: the same split the
 	// trip service learned the hard way.
@@ -115,7 +119,7 @@ func run() error {
 	registry := obs.NewRegistry("payments")
 	metrics := newMetrics(registry)
 
-	if err := kafkax.EnsureTopics(ctx, brokers); err != nil {
+	if err := kafkax.EnsureTopics(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -128,7 +132,7 @@ func run() error {
 		return fmt.Errorf("payments: ping: %w", err)
 	}
 
-	producer, err := kafkax.NewProducer(brokers)
+	producer, err := kafkax.NewProducer(cluster)
 	if err != nil {
 		return err
 	}
@@ -153,7 +157,7 @@ func run() error {
 		Hooks: outbox.PrometheusHooks(registry, "payments"),
 	})
 
-	consumer, err := events.NewConsumer(brokers, group, payments, events.Hooks{
+	consumer, err := events.NewConsumer(cluster, group, payments, events.Hooks{
 		OnApplied: func(tag string) { metrics.applied.WithLabelValues(tag).Inc() },
 		OnSkipped: func(reason string) { metrics.skipped.WithLabelValues(reason).Inc() },
 		OnRetry:   func() { metrics.retries.Inc() },
@@ -165,6 +169,12 @@ func run() error {
 
 	server := grpc.NewServer(
 		opentelemetry.ServerOption(opentelemetry.Options{}),
+		// Recycled, so the gateway re-resolves the headless Service and finds
+		// pods that started after it connected.
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionAge:      5 * time.Minute,
+			MaxConnectionAgeGrace: 30 * time.Second,
+		}),
 		// The caller the gateway verified, back out of metadata, so a handler
 		// reads who is asking from context and never from the request.
 		grpc.UnaryInterceptor(authz.UnaryServerInterceptor()),
@@ -222,17 +232,20 @@ func run() error {
 
 	slog.Info("payments running", "grpc", grpcAddr, "commission_bps", commission, "group", group)
 
+	var failed error
 	select {
 	case <-ctx.Done():
-		server.GracefulStop()
-		return nil
-	case err := <-errs:
-		server.GracefulStop()
-		if errors.Is(err, grpc.ErrServerStopped) {
-			return nil
-		}
-		return err
+	case failed = <-errs:
 	}
+
+	// NOT_SERVING first, so the readiness probe takes this pod out of rotation
+	// while GracefulStop lets the calls already in flight finish.
+	healthServer.Shutdown()
+	server.GracefulStop()
+	if failed == nil || errors.Is(failed, grpc.ErrServerStopped) {
+		return nil
+	}
+	return failed
 }
 
 // openProcessor chooses who is asked to hold money.

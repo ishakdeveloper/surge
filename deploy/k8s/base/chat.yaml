@@ -1,9 +1,9 @@
 # chat
-    #
-    # Scales on messages, which is not much: a conversation is two people
-    # and a few dozen lines. Postgres is the limit long before the process
-    # is, and every replica runs the push worker, which leases its jobs
-    # rather than electing a leader.
+#
+# Scales on messages, which is not much: a conversation is two people and a
+# few dozen lines. Postgres is the limit long before the process is, and every
+# replica runs the push worker, which leases its jobs rather than electing a
+# leader.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,35 +20,48 @@ spec:
     spec:
       containers:
         - name: chat
-          image: surge/chat:dev
-          imagePullPolicy: IfNotPresent
+          image: surge/chat
           envFrom:
-            - configMapRef: { name: surge-config }
+            - configMapRef: { name: surge-shared }
+            - configMapRef: { name: chat-config }
+            # EXPO_ACCESS_TOKEN, when the project requires one.
             - secretRef: { name: surge-secrets }
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: surge-database, key: DATABASE_URL } }
           ports:
             - name: grpc
               containerPort: 8113
             - name: metrics
               containerPort: 9108
-          # Liveness only, for trip's reason: a readiness probe would take a
-          # pod out of rotation when Kafka blinks, and sending a message does
-          # not need Kafka at all.
+          startupProbe:
+            httpGet: { path: /health, port: metrics }
+            periodSeconds: 5
+            failureThreshold: 60
           livenessProbe:
-            httpGet: { path: /health, port: 9108 }
-            initialDelaySeconds: 10
+            httpGet: { path: /health, port: metrics }
             periodSeconds: 20
             failureThreshold: 3
+          # The gRPC health service, which reports NOT_SERVING the moment
+          # shutdown begins, so the gateway stops being sent here before
+          # GracefulStop starts refusing.
+          readinessProbe:
+            grpc: { port: 8113 }
+            periodSeconds: 5
           resources:
             requests: { cpu: 50m, memory: 64Mi }
             limits: { memory: 512Mi }
       terminationGracePeriodSeconds: 30
 ---
+# Headless, like trip: gRPC holds one long-lived HTTP/2 connection, so a
+# ClusterIP would pin each gateway to a single pod.
 apiVersion: v1
 kind: Service
 metadata:
   name: chat
   namespace: surge
 spec:
+  clusterIP: None
   selector: { app: chat }
   ports:
     - name: grpc

@@ -2,9 +2,9 @@
 #
 # A second migration job, because there are two owners: this one creates
 # better-auth's tables and the jwks table the Go services verify against, while
-# 21-migrate-job.yaml creates the trip tables. Neither writes to the other's,
-# which is what stops "one database, several services" from quietly becoming a
-# shared-database coupling.
+# migrate-job.yaml creates the trip and payments tables. Neither writes to the
+# other's, which is what stops "one Postgres, several services" from quietly
+# becoming a shared-database coupling.
 #
 # The auth image carries the migration runner for exactly this.
 apiVersion: batch/v1
@@ -19,9 +19,8 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate-auth
-          image: surge/auth:dev
-          imagePullPolicy: IfNotPresent
+          image: surge/auth
           command: ["node", "packages/database/build/bundle/migrate.js"]
-          envFrom:
-            - configMapRef: { name: surge-config }
-            - secretRef: { name: surge-secrets }
+          env:
+            - name: AUTH_DATABASE_URL
+              valueFrom: { secretKeyRef: { name: surge-database, key: AUTH_DATABASE_URL } }
