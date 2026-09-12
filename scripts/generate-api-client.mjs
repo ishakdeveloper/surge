@@ -43,6 +43,8 @@ const FORMATS = {
   "conversation-id": "ConversationId",
   "message-id": "MessageId",
   "user-id": "UserId",
+  "vehicle-id": "VehicleId",
+  "document-id": "DocumentId",
   "error-code": "ErrorCode",
   cents: "CentsFromString",
   int64: "Int64FromString",

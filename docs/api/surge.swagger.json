@@ -24,6 +24,10 @@
     {
       "name": "ChatService",
       "description": "ChatService is the conversations riders and drivers have: with each other\nabout a trip, and with support.\n\nSending is here and delivery is not. A stored message is announced on the\nWebSocket as a doorbell, ChatChanged, carrying only the conversation and its\nnewest seq; the client then reads what it has not seen with ListMessages.\nThis API is the source of truth, and the socket only says when to look —\nwhich is also why a push that arrives late, twice or never loses nothing.\n\nThe caller is never a field, as in trip.proto: it arrives as metadata from\nthe gateway's verified token."
+    },
+    {
+      "name": "FleetService",
+      "description": "FleetService is who may drive, and what they may drive.\n\nA driver is approved when three things hold at once: an identity check has\nverified them against their licence, one of their vehicles is approved, and\nevery document they owe is present and unexpired. All three are checked\nagain whenever any of them changes, so approval is derived rather than\nremembered — nobody can be left approved with a licence that lapsed in\nMarch.\n\nTwo of the papers a real Amsterdam driver needs have no API anywhere: the\nVOG that Justis issues and the chauffeurskaart that Kiwa posts. Both take\nweeks and both are decided by a person. They are modelled here as states a\ndriver moves through with evidence attached, rather than pretended to be a\ncall.\n\nThe caller is never a field, as in trip.proto: it arrives as metadata from\nthe gateway's verified token."
     }
   ],
   "consumes": [
@@ -370,6 +374,596 @@
         ],
         "tags": [
           "devices"
+        ]
+      }
+    },
+    "/v1/fleet/documents": {
+      "get": {
+        "summary": "ListDocuments is the caller's own documents. Reviewers read somebody\nelse's through the review queue.",
+        "operationId": "listDocuments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/documents/authority": {
+      "post": {
+        "summary": "DeclareAuthorityDocument records that the driver has applied for a VOG or\na chauffeurskaart. Neither has an API: Justis answers in weeks and Kiwa\nposts a smartcard. Until evidence arrives the document waits, visibly,\nrather than blocking silently.",
+        "operationId": "declareAuthorityDocument",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeclareAuthorityDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1DeclareAuthorityDocumentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/documents/uploads": {
+      "post": {
+        "summary": "StartUpload returns a link the app puts a file to, and the document it\nwill belong to. The file goes straight to storage: it never passes\nthrough this API, which is what keeps a scanned certificate from being\nbase64 in a JSON body.",
+        "operationId": "startUpload",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartUploadResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1StartUploadRequest"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/documents/{documentId}/finish": {
+      "post": {
+        "summary": "FinishUpload says the file arrived. The document moves to submitted, and\nwhat can be read off it is read before a person sees it.",
+        "operationId": "finishUpload",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1FinishUploadResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "document-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceFinishUploadBody"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/documents/{documentId}:finish": {
+      "post": {
+        "summary": "FinishUpload says the file arrived. The document moves to submitted, and\nwhat can be read off it is read before a person sees it.",
+        "operationId": "finishUpload",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1FinishUploadResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "document-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceFinishUploadBody"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/driver": {
+      "get": {
+        "summary": "GetMyDriver is the caller's own standing: what is done, what is waiting,\nand what they must do next.",
+        "operationId": "getMyDriver",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetMyDriverResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/identity": {
+      "post": {
+        "summary": "StartIdentityCheck opens a verification session and returns the link the\ndriver finishes it at. Starting one again while a session is open returns\nthat session rather than paying for a second.",
+        "operationId": "startIdentityCheck",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartIdentityCheckResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1StartIdentityCheckRequest"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/review": {
+      "get": {
+        "summary": "ListReviewQueue is what is waiting for a reviewer, oldest first. Ops only.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListReviewQueueResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "description": "Clamped by the server.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageToken",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/fleet/review/documents/{documentId}": {
+      "post": {
+        "summary": "DecideDocument approves or rejects one document, with the expiry the\nreviewer read off it. Ops only.",
+        "operationId": "decideDocument",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DecideDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "document-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceDecideDocumentBody"
+            }
+          }
+        ],
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/fleet/review/vehicles/{vehicleId}": {
+      "post": {
+        "summary": "DecideVehicle approves or rejects a vehicle. Ops only.",
+        "operationId": "decideVehicle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DecideVehicleResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "vehicle-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceDecideVehicleBody"
+            }
+          }
+        ],
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/fleet/review/{driverId}": {
+      "get": {
+        "summary": "GetReviewItem is one driver's whole case: their standing, their vehicles,\ntheir documents, and a link to each file that lasts as long as the review.\nOps only.",
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetReviewItemResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "driverId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "user-id"
+          }
+        ],
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/fleet/review/{driverId}/block": {
+      "post": {
+        "summary": "BlockDriver stops a driver being offered work, with a reason. Ops only.",
+        "operationId": "block",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1BlockDriverResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "driverId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "user-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceBlockDriverBody"
+            }
+          }
+        ],
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/fleet/review/{driverId}:block": {
+      "post": {
+        "summary": "BlockDriver stops a driver being offered work, with a reason. Ops only.",
+        "operationId": "block",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1BlockDriverResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "driverId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "user-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceBlockDriverBody"
+            }
+          }
+        ],
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/v1/fleet/vehicles": {
+      "get": {
+        "summary": "ListVehicles is the caller's vehicles, newest first.",
+        "operationId": "listVehicles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListVehiclesResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "tags": [
+          "fleet"
+        ]
+      },
+      "post": {
+        "summary": "AddVehicle registers a car by its plate. The register is asked what the\ncar is, so a driver types six characters rather than a form: make, model,\ncolour, seats, its APK expiry, whether it is registered for taxi use and\nwhether it is insured all come back from the RDW.",
+        "operationId": "addVehicle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1AddVehicleResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1AddVehicleRequest"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/vehicles/{vehicleId}/retire": {
+      "post": {
+        "summary": "RetireVehicle takes a car off the road for this driver, freeing its plate.",
+        "operationId": "retireVehicle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RetireVehicleResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "vehicle-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceRetireVehicleBody"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
+        ]
+      }
+    },
+    "/v1/fleet/vehicles/{vehicleId}:retire": {
+      "post": {
+        "summary": "RetireVehicle takes a car off the road for this driver, freeing its plate.",
+        "operationId": "retireVehicle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RetireVehicleResponse"
+            }
+          },
+          "default": {
+            "description": "The gateway's error shape, from its custom error handler.",
+            "schema": {
+              "$ref": "#/definitions/v1ErrorBody"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "vehicle-id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FleetServiceRetireVehicleBody"
+            }
+          }
+        ],
+        "tags": [
+          "fleet"
         ]
       }
     },
@@ -1494,6 +2088,48 @@
     "ChatServiceTypingBody": {
       "type": "object"
     },
+    "FleetServiceBlockDriverBody": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "Empty lifts the block, and the driver's standing is worked out again from\ntheir papers."
+        }
+      }
+    },
+    "FleetServiceDecideDocumentBody": {
+      "type": "object",
+      "properties": {
+        "approve": {
+          "type": "boolean"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "When it expires, as RFC 3339, read off the document by the reviewer.\nRequired when approving something that expires."
+        },
+        "note": {
+          "type": "string",
+          "description": "Why, for a rejection. The driver reads it."
+        }
+      }
+    },
+    "FleetServiceDecideVehicleBody": {
+      "type": "object",
+      "properties": {
+        "approve": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "FleetServiceFinishUploadBody": {
+      "type": "object"
+    },
+    "FleetServiceRetireVehicleBody": {
+      "type": "object"
+    },
     "PaymentsServiceRefundTripBody": {
       "type": "object",
       "properties": {
@@ -1515,6 +2151,141 @@
       "properties": {
         "reason": {
           "type": "string"
+        }
+      }
+    },
+    "surgeFleetV1Driver": {
+      "type": "object",
+      "properties": {
+        "driverId": {
+          "type": "string",
+          "format": "user-id"
+        },
+        "status": {
+          "$ref": "#/definitions/v1DriverStatus"
+        },
+        "blockedReason": {
+          "type": "string",
+          "description": "Why a blocked driver is blocked. Empty otherwise."
+        },
+        "identity": {
+          "$ref": "#/definitions/v1IdentityStatus"
+        },
+        "verifiedName": {
+          "type": "string",
+          "description": "The name the identity check read off the licence. Empty until it passes."
+        },
+        "licenceExpiresAt": {
+          "type": "string",
+          "description": "When the licence expires, as RFC 3339. Empty until the check passes."
+        },
+        "outstanding": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Requirement"
+          },
+          "description": "What the driver must do next, in order, and empty when nothing is\noutstanding."
+        },
+        "approvedAt": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Driver is a driver's standing, and what stands between them and work."
+    },
+    "surgeFleetV1Vehicle": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "vehicle-id"
+        },
+        "driverId": {
+          "type": "string",
+          "format": "user-id"
+        },
+        "plate": {
+          "type": "string",
+          "description": "Uppercase, no dashes, as the register holds it."
+        },
+        "make": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "colour": {
+          "type": "string"
+        },
+        "seats": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "packageSlug": {
+          "type": "string",
+          "description": "The ride class this car may serve, from trip's catalogue."
+        },
+        "status": {
+          "$ref": "#/definitions/v1VehicleStatus"
+        },
+        "rejectedReason": {
+          "type": "string"
+        },
+        "apkExpiresAt": {
+          "type": "string",
+          "description": "From the register, as RFC 3339. Empty when the register did not say."
+        },
+        "taxiRegistered": {
+          "type": "boolean",
+          "description": "Whether the register has it down for taxi use, and whether an insurer has\nregistered a policy against the plate."
+        },
+        "insured": {
+          "type": "boolean"
+        },
+        "firstRegisteredAt": {
+          "type": "string"
+        },
+        "registerCheckedAt": {
+          "type": "string",
+          "description": "When the register was last asked about this car."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Vehicle is a car as the register describes it, and what we decided about it."
+    },
+    "v1AddVehicleRequest": {
+      "type": "object",
+      "properties": {
+        "plate": {
+          "type": "string",
+          "description": "Six characters, with or without dashes; the register is asked for the\nrest."
+        },
+        "packageSlug": {
+          "type": "string",
+          "description": "Which ride class this car is offered for, from trip's catalogue."
+        }
+      }
+    },
+    "v1AddVehicleResponse": {
+      "type": "object",
+      "properties": {
+        "vehicle": {
+          "$ref": "#/definitions/surgeFleetV1Vehicle"
         }
       }
     },
@@ -1549,6 +2320,14 @@
         },
         "canWithdraw": {
           "type": "boolean"
+        }
+      }
+    },
+    "v1BlockDriverResponse": {
+      "type": "object",
+      "properties": {
+        "driver": {
+          "$ref": "#/definitions/surgeFleetV1Driver"
         }
       }
     },
@@ -1830,6 +2609,129 @@
         }
       }
     },
+    "v1DecideDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "$ref": "#/definitions/v1Document"
+        },
+        "driver": {
+          "$ref": "#/definitions/surgeFleetV1Driver"
+        }
+      }
+    },
+    "v1DecideVehicleResponse": {
+      "type": "object",
+      "properties": {
+        "vehicle": {
+          "$ref": "#/definitions/surgeFleetV1Vehicle"
+        },
+        "driver": {
+          "$ref": "#/definitions/surgeFleetV1Driver"
+        }
+      }
+    },
+    "v1DeclareAuthorityDocumentRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/v1DocumentKind",
+          "description": "VOG or chauffeurskaart; nothing else waits on an authority."
+        }
+      }
+    },
+    "v1DeclareAuthorityDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "$ref": "#/definitions/v1Document"
+        }
+      }
+    },
+    "v1Document": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "document-id"
+        },
+        "driverId": {
+          "type": "string",
+          "format": "user-id"
+        },
+        "vehicleId": {
+          "type": "string",
+          "format": "vehicle-id",
+          "description": "The vehicle it belongs to, for insurance and registration. Empty for the\ndocuments that belong to the person."
+        },
+        "kind": {
+          "$ref": "#/definitions/v1DocumentKind"
+        },
+        "status": {
+          "$ref": "#/definitions/v1DocumentStatus"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "When it stops being valid, as RFC 3339. What a reviewer decided, which is\nnot always what was read off it."
+        },
+        "extracted": {
+          "$ref": "#/definitions/v1Extraction",
+          "description": "What was read off the file. Advice to a reviewer, never a decision, and\nnever shown to the driver as fact."
+        },
+        "reviewNote": {
+          "type": "string"
+        },
+        "reviewedAt": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Document is a paper a driver owes, whether or not a file has arrived."
+    },
+    "v1DocumentKind": {
+      "type": "string",
+      "enum": [
+        "DOCUMENT_KIND_UNSPECIFIED",
+        "DOCUMENT_KIND_INSURANCE",
+        "DOCUMENT_KIND_REGISTRATION",
+        "DOCUMENT_KIND_VOG",
+        "DOCUMENT_KIND_CHAUFFEURSKAART"
+      ],
+      "default": "DOCUMENT_KIND_UNSPECIFIED",
+      "description": " - DOCUMENT_KIND_INSURANCE: The certificate for the car, naming the insurer and the policy.\n - DOCUMENT_KIND_REGISTRATION: The kentekenbewijs, for a car whose keeper is not the driver.\n - DOCUMENT_KIND_VOG: Justis issues it in one to four weeks, and there is no API.\n - DOCUMENT_KIND_CHAUFFEURSKAART: Kiwa posts a smartcard about four weeks after a complete application, and\nthere is no API."
+    },
+    "v1DocumentStatus": {
+      "type": "string",
+      "enum": [
+        "DOCUMENT_STATUS_UNSPECIFIED",
+        "DOCUMENT_STATUS_AWAITING_FILE",
+        "DOCUMENT_STATUS_AWAITING_AUTHORITY",
+        "DOCUMENT_STATUS_SUBMITTED",
+        "DOCUMENT_STATUS_APPROVED",
+        "DOCUMENT_STATUS_REJECTED",
+        "DOCUMENT_STATUS_EXPIRED"
+      ],
+      "default": "DOCUMENT_STATUS_UNSPECIFIED",
+      "description": " - DOCUMENT_STATUS_AWAITING_FILE: We are waiting for the driver to put a file to the link they were given.\n - DOCUMENT_STATUS_AWAITING_AUTHORITY: We are waiting for an authority that answers in weeks and has no API.\n - DOCUMENT_STATUS_SUBMITTED: A person has it to look at.\n - DOCUMENT_STATUS_EXPIRED: It was approved once and its date has passed."
+    },
+    "v1DriverStatus": {
+      "type": "string",
+      "enum": [
+        "DRIVER_STATUS_UNSPECIFIED",
+        "DRIVER_STATUS_ONBOARDING",
+        "DRIVER_STATUS_APPROVED",
+        "DRIVER_STATUS_BLOCKED"
+      ],
+      "default": "DRIVER_STATUS_UNSPECIFIED",
+      "description": " - DRIVER_STATUS_ONBOARDING: Something is still outstanding; see `outstanding`.\n - DRIVER_STATUS_APPROVED: Identity verified, a vehicle approved, every document valid.\n - DRIVER_STATUS_BLOCKED: Stopped by a reviewer, whatever the paperwork says."
+    },
     "v1Earning": {
       "type": "object",
       "properties": {
@@ -1895,6 +2797,44 @@
       },
       "description": "The one shape every failure takes on the REST edge.\n\nDeclared here rather than left to grpc-gateway's default because the gateway\ndoes not use that default: `rest.go` installs a custom error handler, and for\nas long as this message was absent the published document described a\n`rpcStatus` — `{code: int, message, details}` — that nothing has ever\nreturned. A generated client believed it, and would have failed to decode\nevery error the server actually sends."
     },
+    "v1Extraction": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/v1ExtractionStatus"
+        },
+        "insurer": {
+          "type": "string"
+        },
+        "policyNumber": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "As RFC 3339, and empty when nothing legible was found."
+        },
+        "quotes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The sentences these fields were read from, so a reviewer can check the\nmachine rather than trust it."
+        }
+      },
+      "description": "Extraction is what a machine read off a document, with where it read it.\n\nShown to a reviewer beside the file, never used to decide on its own: the\nreviewer types the expiry they can see, and this is only what saves them\ntyping it."
+    },
+    "v1ExtractionStatus": {
+      "type": "string",
+      "enum": [
+        "EXTRACTION_STATUS_UNSPECIFIED",
+        "EXTRACTION_STATUS_NONE",
+        "EXTRACTION_STATUS_PENDING",
+        "EXTRACTION_STATUS_DONE",
+        "EXTRACTION_STATUS_FAILED"
+      ],
+      "default": "EXTRACTION_STATUS_UNSPECIFIED",
+      "description": " - EXTRACTION_STATUS_NONE: Nothing has read it: a state-only document, or extraction is switched off.\n - EXTRACTION_STATUS_FAILED: It could not be read. The reviewer reads it themselves; nothing is blocked."
+    },
     "v1FareQuote": {
       "type": "object",
       "properties": {
@@ -1921,6 +2861,14 @@
         }
       }
     },
+    "v1FinishUploadResponse": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "$ref": "#/definitions/v1Document"
+        }
+      }
+    },
     "v1GetBalanceResponse": {
       "type": "object",
       "properties": {
@@ -1934,6 +2882,28 @@
       "properties": {
         "conversation": {
           "$ref": "#/definitions/v1Conversation"
+        }
+      }
+    },
+    "v1GetMyDriverResponse": {
+      "type": "object",
+      "properties": {
+        "driver": {
+          "$ref": "#/definitions/surgeFleetV1Driver"
+        },
+        "vehicles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/surgeFleetV1Vehicle"
+          }
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Document"
+          }
         }
       }
     },
@@ -1954,6 +2924,28 @@
       "properties": {
         "account": {
           "$ref": "#/definitions/v1PayoutAccount"
+        }
+      }
+    },
+    "v1GetReviewItemResponse": {
+      "type": "object",
+      "properties": {
+        "driver": {
+          "$ref": "#/definitions/surgeFleetV1Driver"
+        },
+        "vehicles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/surgeFleetV1Vehicle"
+          }
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ReviewDocument"
+          }
         }
       }
     },
@@ -1989,6 +2981,19 @@
         }
       }
     },
+    "v1IdentityStatus": {
+      "type": "string",
+      "enum": [
+        "IDENTITY_STATUS_UNSPECIFIED",
+        "IDENTITY_STATUS_UNSTARTED",
+        "IDENTITY_STATUS_PENDING",
+        "IDENTITY_STATUS_PROCESSING",
+        "IDENTITY_STATUS_VERIFIED",
+        "IDENTITY_STATUS_FAILED"
+      ],
+      "default": "IDENTITY_STATUS_UNSPECIFIED",
+      "description": " - IDENTITY_STATUS_PENDING: The driver has a session open and has not finished it.\n - IDENTITY_STATUS_PROCESSING: The provider is deciding.\n - IDENTITY_STATUS_FAILED: The provider could not verify them; the reason is in `blocked_reason`."
+    },
     "v1ListConversationsResponse": {
       "type": "object",
       "properties": {
@@ -2002,6 +3007,18 @@
         "nextPageToken": {
           "type": "string",
           "description": "Empty when there are no more."
+        }
+      }
+    },
+    "v1ListDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Document"
+          }
         }
       }
     },
@@ -2051,6 +3068,21 @@
         }
       }
     },
+    "v1ListReviewQueueResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ReviewItem"
+          }
+        },
+        "nextPageToken": {
+          "type": "string"
+        }
+      }
+    },
     "v1ListTripsResponse": {
       "type": "object",
       "properties": {
@@ -2064,6 +3096,18 @@
         "nextPageToken": {
           "type": "string",
           "description": "Empty when there are no more."
+        }
+      }
+    },
+    "v1ListVehiclesResponse": {
+      "type": "object",
+      "properties": {
+        "vehicles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/surgeFleetV1Vehicle"
+          }
         }
       }
     },
@@ -2383,6 +3427,32 @@
     "v1RegisterPushTokenResponse": {
       "type": "object"
     },
+    "v1Requirement": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/v1RequirementKind"
+        },
+        "detail": {
+          "type": "string",
+          "description": "What to tell the driver, in a sentence."
+        }
+      },
+      "description": "Requirement is one thing standing between a driver and their first trip."
+    },
+    "v1RequirementKind": {
+      "type": "string",
+      "enum": [
+        "REQUIREMENT_KIND_UNSPECIFIED",
+        "REQUIREMENT_KIND_IDENTITY",
+        "REQUIREMENT_KIND_VEHICLE",
+        "REQUIREMENT_KIND_INSURANCE",
+        "REQUIREMENT_KIND_REGISTRATION",
+        "REQUIREMENT_KIND_VOG",
+        "REQUIREMENT_KIND_CHAUFFEURSKAART"
+      ],
+      "default": "REQUIREMENT_KIND_UNSPECIFIED"
+    },
     "v1ResolveSupportConversationResponse": {
       "type": "object",
       "properties": {
@@ -2390,6 +3460,45 @@
           "$ref": "#/definitions/v1Conversation"
         }
       }
+    },
+    "v1RetireVehicleResponse": {
+      "type": "object",
+      "properties": {
+        "vehicle": {
+          "$ref": "#/definitions/surgeFleetV1Vehicle"
+        }
+      }
+    },
+    "v1ReviewDocument": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "$ref": "#/definitions/v1Document"
+        },
+        "fileUrl": {
+          "type": "string",
+          "description": "Good for the length of a review, and for this reviewer's eyes. Empty for\na document that is a state rather than a file."
+        }
+      },
+      "description": "ReviewDocument is a document with a link to the file behind it."
+    },
+    "v1ReviewItem": {
+      "type": "object",
+      "properties": {
+        "driver": {
+          "$ref": "#/definitions/surgeFleetV1Driver"
+        },
+        "waiting": {
+          "type": "integer",
+          "format": "int32",
+          "description": "How many of their documents are waiting for a person."
+        },
+        "waitingSince": {
+          "type": "string",
+          "description": "When the oldest of them arrived, as RFC 3339."
+        }
+      },
+      "description": "ReviewItem is one driver waiting, and how long they have been waiting."
     },
     "v1Route": {
       "type": "object",
@@ -2444,6 +3553,27 @@
         }
       }
     },
+    "v1StartIdentityCheckRequest": {
+      "type": "object",
+      "properties": {
+        "returnUrl": {
+          "type": "string",
+          "description": "Where the provider sends the driver back to when they are done."
+        }
+      }
+    },
+    "v1StartIdentityCheckResponse": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Single use and short lived: open it at once, and never send it anywhere\nelse — it is the driver's identity check."
+        },
+        "status": {
+          "$ref": "#/definitions/v1IdentityStatus"
+        }
+      }
+    },
     "v1StartOnboardingRequest": {
       "type": "object"
     },
@@ -2461,6 +3591,42 @@
       "properties": {
         "trip": {
           "$ref": "#/definitions/v1Trip"
+        }
+      }
+    },
+    "v1StartUploadRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/v1DocumentKind"
+        },
+        "vehicleId": {
+          "type": "string",
+          "format": "vehicle-id",
+          "description": "The vehicle an insurance certificate or registration belongs to."
+        },
+        "contentType": {
+          "type": "string",
+          "description": "image/jpeg, image/png, image/webp or application/pdf."
+        },
+        "byteSize": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v1StartUploadResponse": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "$ref": "#/definitions/v1Document"
+        },
+        "uploadUrl": {
+          "type": "string",
+          "description": "PUT the file here, with exactly the Content-Type that was asked for. It\nis good for a few minutes and for that one document."
+        },
+        "expiresAt": {
+          "type": "string"
         }
       }
     },
@@ -2536,6 +3702,17 @@
     },
     "v1UnregisterPushTokenResponse": {
       "type": "object"
+    },
+    "v1VehicleStatus": {
+      "type": "string",
+      "enum": [
+        "VEHICLE_STATUS_UNSPECIFIED",
+        "VEHICLE_STATUS_PENDING",
+        "VEHICLE_STATUS_APPROVED",
+        "VEHICLE_STATUS_REJECTED",
+        "VEHICLE_STATUS_RETIRED"
+      ],
+      "default": "VEHICLE_STATUS_UNSPECIFIED"
     },
     "v1Withdrawal": {
       "type": "object",
