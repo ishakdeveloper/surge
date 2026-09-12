@@ -17,6 +17,13 @@ Nothing calls this service to ask whether a driver may work. It publishes that
 on `fleet.drivers`, keyed by driver and compacted, so whoever dispatches reads
 the current standing of everyone from the start of the topic.
 
+Whoever dispatches is the matcher. With `MATCHER_REQUIRE_APPROVAL=true` every
+instance follows the whole topic — sixteen partitions of standings do not
+co-partition with thirty-two of geography, so nothing about it can live in a
+shard — and refuses to offer a trip to anyone not approved on it. A withdrawal
+therefore takes effect at the next dispatch decision, not at the next
+deployment, and a driver mid-trip keeps the trip they are on.
+
 ## Approval is derived, never remembered
 
 ```

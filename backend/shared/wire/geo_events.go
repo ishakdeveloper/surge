@@ -173,6 +173,11 @@ const (
 	RejectBusy ReserveRejection = "busy"
 	// RejectUnavailable means the driver is offline.
 	RejectUnavailable ReserveRejection = "unavailable"
+	// RejectUnapproved means the fleet has not vetted this driver, or has
+	// stopped vetting them. Separated from unavailable because it is not a
+	// driver's own choice and does not resolve by waiting: a rising rate is
+	// paperwork expiring across the city, not cars going home.
+	RejectUnapproved ReserveRejection = "unapproved"
 	// RejectDeclined means the driver was offered the trip and said no. Unlike
 	// the others this arrives seconds later, after a round trip to a human.
 	RejectDeclined ReserveRejection = "declined"
