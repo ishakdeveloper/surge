@@ -19,6 +19,12 @@ interface ImportMetaEnv {
    * processor, and the pages save a test card and hide Stripe's own components.
    */
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
+  /**
+   * Mapbox's public token: it ships in this bundle and signs every tile
+   * request, kept safe by its scopes and its URL restriction rather than by
+   * being secret. Unset and the map says so instead of drawing nothing.
+   */
+  readonly VITE_MAPBOX_TOKEN?: string;
 }
 
 interface ImportMeta {

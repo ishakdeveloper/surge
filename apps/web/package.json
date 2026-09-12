@@ -41,7 +41,7 @@
     "cmdk": "catalog:",
     "effect": "catalog:",
     "lucide-react": "catalog:",
-    "maplibre-gl": "catalog:",
+    "mapbox-gl": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

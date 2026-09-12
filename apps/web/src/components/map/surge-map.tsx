@@ -1,17 +1,22 @@
 import { cn } from "@/lib/utils.js";
 import type { MapboxOverlay } from "@deck.gl/mapbox";
-import type { Map as MapLibreMap } from "maplibre-gl";
+import type { Map as MapboxMap } from "mapbox-gl/esm";
 import * as React from "react";
 
 /**
- * The map every surface draws on: MapLibre for the streets, deck.gl on top for
+ * The map every surface draws on: Mapbox for the streets, deck.gl on top for
  * everything that moves.
  *
- * Two libraries because they are good at different things. MapLibre renders a
+ * Two libraries because they are good at different things. Mapbox renders a
  * vector basemap well and nothing else cheaply; deck.gl draws tens of thousands
  * of points in one WebGL call, where the same number of DOM markers — or React
  * components — would freeze the tab. The console needs the second, so every
- * surface uses the same pairing rather than two map stacks.
+ * surface uses the same pairing rather than two map stacks — and `MapboxOverlay`
+ * is deck.gl's own answer for exactly this pairing.
+ *
+ * Mapbox rather than a keyless basemap because the phone draws Mapbox too, and
+ * one city should not look like two products. It wants a token; without one the
+ * map says so rather than showing an empty grey box.
  *
  * The city's own life is drawn the same way: the free cars gliding between the
  * positions the gateway reports once a second, and a flash where a trip was
@@ -126,10 +131,19 @@ export interface SurgeMapProps {
 }
 
 /**
- * OpenFreeMap's Positron: vector tiles with no API key, drawn in pale greys so
- * the route's sign yellow is the loudest thing on the map.
+ * Mapbox's Light: near-white ground and pale grey streets, so the route's sign
+ * yellow is the loudest thing on the map. The phone asks for the same style by
+ * the same name.
  */
-const STYLE = "https://tiles.openfreemap.org/styles/positron";
+const STYLE = "mapbox://styles/mapbox/light-v11";
+
+/**
+ * The public token, which ships in the client bundle and signs every tile
+ * request — public by design, and scoped and URL-restricted in Mapbox rather
+ * than kept secret. Read straight from `import.meta.env` for the same reason
+ * the Stripe key is: what needs it is a map constructor, not an Effect.
+ */
+const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 /** Amsterdam Centraal, roughly — where a map with nothing to show starts. */
 const CENTRE: [number, number] = [4.9003, 52.3731];
@@ -255,11 +269,11 @@ const glideAt = (glide: Glide, now: number, still: boolean): LngLat => {
 
 type Layers = typeof import("@deck.gl/layers");
 
-type Status = "loading" | "ready" | "unsupported";
+type Status = "loading" | "ready" | "unsupported" | "unconfigured";
 
 export const SurgeMap = (props: SurgeMapProps) => {
   const container = React.useRef<HTMLDivElement>(null);
-  const map = React.useRef<MapLibreMap | null>(null);
+  const map = React.useRef<MapboxMap | null>(null);
   const overlay = React.useRef<MapboxOverlay | null>(null);
   const layers = React.useRef<Layers | null>(null);
   const onPick = React.useRef(props.onPick);
@@ -311,24 +325,36 @@ export const SurgeMap = (props: SurgeMapProps) => {
       setStatus("unsupported");
       return;
     }
+    if (TOKEN === undefined || TOKEN === "") {
+      setStatus("unconfigured");
+      return;
+    }
 
     let cancelled = false;
     const element = container.current;
 
     void Promise.all([
-      import("maplibre-gl"),
+      // `mapbox-gl/esm`, not `mapbox-gl`: the package's default entry is UMD
+      // despite the package saying `type: module`, and its worker lives inside
+      // a form no bundler can follow. The ESM entry is real modules with named
+      // exports and asks for its worker as a URL relative to itself, which is
+      // the one shape Vite resolves — see the note beside `optimizeDeps`.
+      import("mapbox-gl/esm"),
       import("@deck.gl/mapbox"),
       import("@deck.gl/layers"),
-      import("maplibre-gl/dist/maplibre-gl.css"),
-    ]).then(([maplibre, deck, deckLayers]) => {
+      import("mapbox-gl/dist/mapbox-gl.css"),
+    ]).then(([mapbox, deck, deckLayers]) => {
       if (cancelled) return;
 
-      const instance = new maplibre.Map({
+      const instance = new mapbox.Map({
         container: element,
+        accessToken: TOKEN,
         style: STYLE,
         center: CENTRE,
         zoom: 12.5,
-        attributionControl: { compact: true },
+        // Mapbox is owed its mark wherever its tiles are drawn, and it draws
+        // the control itself — compact of its own accord on a narrow screen.
+        attributionControl: true,
       });
       const deckOverlay = new deck.MapboxOverlay({ interleaved: false, layers: [] });
       instance.addControl(deckOverlay);
@@ -336,7 +362,10 @@ export const SurgeMap = (props: SurgeMapProps) => {
         onPick.current?.({ lat: event.lngLat.lat, lng: event.lngLat.lng });
       });
       const reportView = () => {
+        // Mapbox answers with nothing while the map has no size to speak of —
+        // a container still laying out, or a tab that was never shown.
         const bounds = instance.getBounds();
+        if (bounds === null) return;
         onView.current?.({
           west: bounds.getWest(),
           south: bounds.getSouth(),
@@ -603,7 +632,7 @@ export const SurgeMap = (props: SurgeMapProps) => {
   return (
     <div className={cn("relative min-h-64 flex-1 overflow-hidden bg-muted", props.className)}>
       {
-        /* Positioned inline, not by class: MapLibre's stylesheet gives this
+        /* Positioned inline, not by class: Mapbox's stylesheet gives this
           element `position: relative`, and as unlayered CSS it outranks
           Tailwind's layered utilities — with the class alone the map collapses
           to no height at all. */
@@ -613,6 +642,8 @@ export const SurgeMap = (props: SurgeMapProps) => {
         <p className="text-muted-foreground absolute inset-0 grid place-items-center p-4 text-center text-sm">
           {status === "unsupported"
             ? "The map needs WebGL, which this browser does not provide."
+            : status === "unconfigured"
+            ? "The map needs a Mapbox token: set VITE_MAPBOX_TOKEN."
             : "Loading the map…"}
         </p>
       )}

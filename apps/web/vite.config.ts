@@ -9,14 +9,15 @@ const repoRoot = path.resolve(import.meta.dirname, "../..");
 
 export default defineConfig(({ command, mode }) => {
   /**
-   * Everything below is server-side. Nothing here reaches the browser — the app
-   * has no client-side environment variables, and if it ever gains one it must
-   * be `VITE_`-prefixed, which is the only way Vite exposes a value to the
-   * client bundle.
+   * `loadEnv` reads the repo-root `.env`, the same file the API reads, with no
+   * prefix filter — so the server-side values below are visible here whatever
+   * they are called.
    *
-   * `loadEnv` reads the repo-root `.env`, the same file the API reads. Vite's
-   * own loading looks inside this package and only surfaces `VITE_` values, so
-   * it would find neither of the two below.
+   * `envDir` below points Vite's own loading at that same file, which is what
+   * puts the `VITE_`-prefixed ones into the client bundle. Without it Vite
+   * looks only inside this package, finds no `.env` at all, and a key the
+   * browser needs is simply absent — which each reader treats as "not
+   * configured" rather than as an error, so it fails by going quiet.
    */
   const env = loadEnv(mode, repoRoot, "");
 
@@ -71,14 +72,25 @@ export default defineConfig(({ command, mode }) => {
      */
     ssr: command === "build" ? { noExternal: true } : {},
     /**
-     * MapLibre is served as the ES modules it ships, not pre-bundled.
+     * Mapbox is served as the ES modules it ships, not pre-bundled.
      *
-     * It finds its worker relative to its own module, and the dev server's
-     * pre-bundling folds it into one file that has no worker beside it. The map
-     * then never finishes loading a style, and says nothing: no error, no tiles,
-     * a grey rectangle. The production build resolves the worker itself.
+     * It asks for its worker as `new URL("worker.js", import.meta.url)`, which
+     * Vite rewrites only while the module is served from its own directory.
+     * Pre-bundling folds it into one file elsewhere, and the map then never
+     * finishes loading a style and says nothing about it: no error, no tiles, a
+     * blank rectangle with Mapbox's own attribution sitting in the corner. The
+     * production build resolves the worker itself.
+     *
+     * This is the `mapbox-gl/esm` entry rather than the package's default one,
+     * which is UMD — see the note where the map imports it.
      */
-    optimizeDeps: { exclude: ["maplibre-gl"] },
+    optimizeDeps: { exclude: ["mapbox-gl/esm"] },
+    /**
+     * The repository root, so one `.env` serves every surface — and so the
+     * `VITE_`-prefixed values in it, the map's token and Stripe's publishable
+     * key, reach the browser.
+     */
+    envDir: repoRoot,
     resolve: {
       /**
        * Source, not build output. The workspace packages expose `src` under a
