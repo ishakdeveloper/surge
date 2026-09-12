@@ -59,6 +59,7 @@ func run() error {
 		simAddr     = config.StringOr("SIM_GRPC_ADDR", "localhost:8111")
 		payAddr     = config.StringOr("PAYMENTS_GRPC_ADDR", "localhost:8112")
 		chatAddr    = config.StringOr("CHAT_GRPC_ADDR", "localhost:8113")
+		fleetAddr   = config.StringOr("FLEET_GRPC_ADDR", "localhost:8115")
 		webOrigins  = config.Strings("GATEWAY_ORIGINS", []string{"http://localhost:5273"})
 	)
 
@@ -91,7 +92,7 @@ func run() error {
 	}
 	defer producer.Close()
 
-	clients, err := gatewaygrpc.Dial(tripAddr, simAddr, payAddr, chatAddr)
+	clients, err := gatewaygrpc.Dial(tripAddr, simAddr, payAddr, chatAddr, fleetAddr)
 	if err != nil {
 		return err
 	}
@@ -168,7 +169,7 @@ func run() error {
 	})
 
 	// The REST surface, generated from the proto annotations.
-	rest, err := gatewayhttp.NewMux(ctx, clients.TripConn(), clients.SimulatorConn(), clients.PaymentsConn(), clients.ChatConn())
+	rest, err := gatewayhttp.NewMux(ctx, clients.TripConn(), clients.SimulatorConn(), clients.PaymentsConn(), clients.ChatConn(), clients.FleetConn())
 	if err != nil {
 		return err
 	}
@@ -186,6 +187,10 @@ func run() error {
 		gatewayhttp.StripeWebhooks(clients.Payments, paymentspb.WebhookKind_WEBHOOK_KIND_SNAPSHOT))
 	mux.Handle("POST /webhooks/stripe/thin",
 		gatewayhttp.StripeWebhooks(clients.Payments, paymentspb.WebhookKind_WEBHOOK_KIND_THIN))
+	// Identity's webhooks have their own endpoint and their own signing
+	// secret, because they are answered by a different service holding a
+	// different key.
+	mux.Handle("POST /webhooks/stripe/identity", gatewayhttp.IdentityWebhooks(clients.Fleet))
 
 	// The API document, generated from the same annotations. Served rather
 	// than published separately, so what a client reads and what the gateway

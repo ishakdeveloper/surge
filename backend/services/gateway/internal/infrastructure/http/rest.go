@@ -19,6 +19,7 @@ import (
 	"github.com/ishakdeveloper/surge/shared/authz"
 	chatpb "github.com/ishakdeveloper/surge/shared/proto/chat"
 	commonpb "github.com/ishakdeveloper/surge/shared/proto/common"
+	fleetpb "github.com/ishakdeveloper/surge/shared/proto/fleet"
 	paymentspb "github.com/ishakdeveloper/surge/shared/proto/payments"
 	simpb "github.com/ishakdeveloper/surge/shared/proto/sim"
 	trippb "github.com/ishakdeveloper/surge/shared/proto/trip"
@@ -29,7 +30,7 @@ import (
 )
 
 // NewMux builds the REST surface over a gRPC connection.
-func NewMux(ctx context.Context, trip, simulator, payments, chat *grpc.ClientConn) (*runtime.ServeMux, error) {
+func NewMux(ctx context.Context, trip, simulator, payments, chat, fleet *grpc.ClientConn) (*runtime.ServeMux, error) {
 	mux := runtime.NewServeMux(
 		// Canonical proto3 JSON: camelCase, enums by name, int64 as a string.
 		// EmitUnpopulated because a zero value is meaningful — a trip with no
@@ -67,6 +68,10 @@ func NewMux(ctx context.Context, trip, simulator, payments, chat *grpc.ClientCon
 	// The mux matches whole paths, so a route one segment longer than
 	// /v1/trips/{trip_id} is a different route rather than a collision.
 	if err := chatpb.RegisterChatServiceHandler(ctx, mux, chat); err != nil {
+		return nil, err
+	}
+	// Who may drive, and the review queue behind it.
+	if err := fleetpb.RegisterFleetServiceHandler(ctx, mux, fleet); err != nil {
 		return nil, err
 	}
 	return mux, nil
