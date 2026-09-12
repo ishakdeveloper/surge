@@ -28,4 +28,6 @@ export const Keys = {
    * conversation is not keyed here — `Chat.live` keeps itself current.
    */
   chat: "chat",
+  /** A driver's standing, their cars and papers, and the review queue. */
+  fleet: "fleet",
 } as const;
